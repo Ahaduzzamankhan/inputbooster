@@ -196,47 +196,6 @@ cd inputbooster
 # Output: build/libs/inputbooster-2.0.0.jar
 ```
 
----
-
-## 📜 Changelog
-
-### [2.0.0] - 2026-03-27
-
-**Major Release - Complete Rewrite**
-
-#### 🎉 Why v2.0 and not v1.0?
-
-Version 1.0 was **never publicly released** due to critical stability issues:
-- Memory leaks in the polling thread
-- Incompatibility with Sodium/Iris
-- Config system crashes on some setups
-- Sprint-fix causing movement bugs
-
-**v2.0 represents a complete ground-up rewrite** with enterprise-grade architecture.
-
-#### ✨ New Features
-- Dynamic poll rate system (100-500Hz auto-scaling)
-- F3 debug integration (no HUD overlay needed)
-- Real-time CPS tracker
-- Auto-strafe correction engine
-- Anti-idle protection system
-- Modular feature toggles in config
-
-#### 🔧 Technical Improvements
-- Rewrote input polling with lock-free queues
-- Migrated to Mixin-based event interception
-- Added graceful thread shutdown on world unload
-- Implemented FPS-aware poll rate scaling
-- Fixed all Sodium/Iris compatibility issues
-
-#### 🐛 Bug Fixes
-- Resolved sprint-drop at low FPS
-- Fixed W-tap detection edge cases
-- Eliminated memory leaks in background threads
-- Corrected diagonal movement speed calculations
-- Patched config file corruption issues
-
----
 
 ## 🤝 Contributing
 
@@ -254,31 +213,7 @@ Contributions are welcome! Please:
 
 This project is licensed under the **MIT License** - see [LICENSE](LICENSE) for details.
 
-```
-MIT License
 
-Copyright (c) 2026 Ahaduzzaman Khan
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
----
 
 ## 🙏 Acknowledgments
 
