@@ -1,0 +1,6 @@
+build/
+out/
+*.log
+*.class
+*.jar
+*.cache
