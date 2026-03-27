@@ -292,7 +292,7 @@ SOFTWARE.
 
 - 🐛 **Bug Reports:** [GitHub Issues](https://github.com/ahaduzzamankhan/inputbooster/issues)
 - 💬 **Discussions:** [GitHub Discussions](https://github.com/ahaduzzamankhan/inputbooster/discussions)
-- 📦 **Modrinth:** [Download Page](https://modrinth.com/mod/inputbooster)
+- 📦 **Modrinth:** [Download Page](https://modrinth.com/mod/inputbooster) ***Note:** You may not get this mod on modrinth yet. Now download from relases page. If it come to modrinth, the note will be remove.*
 
 ---
 
