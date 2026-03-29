@@ -17,7 +17,7 @@ public class DebugOverlayManager {
 
         int  fps   = InputBoosterMod.currentFps;
         int  hz    = InputBoosterMod.currentPollHz;
-        long recov = InputBoosterMod.recoveredInputs;
+        long recov = InputBoosterMod.recoveredInputs.get();
         int  cps   = InputBoosterMod.cpsLimiter != null ? InputBoosterMod.cpsLimiter.getCps() : 0;
 
         String hzStr = hz >= 400 ? "§c" + hz + " Hz (max boost)"

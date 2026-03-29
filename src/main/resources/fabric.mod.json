@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "inputbooster",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "name": "InputBooster",
   "description": "Ultra-fast input registration for low-FPS PvP players. Auto-active at 200-500Hz. No toggle needed. Compatible with Sodium.",
   "authors": [

@@ -79,9 +79,11 @@ public class InputPollingThread extends Thread {
     }
 
     private void poll() {
+        // Use main-thread-updated volatile flags — never read MC objects from this thread
+        if (!InputBoosterMod.gameReady || InputBoosterMod.gamePaused) return;
+
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null || mc.player == null || mc.getWindow() == null) return;
-        if (mc.isPaused() || mc.currentScreen != null) return;
+        if (mc == null || mc.options == null) return;
 
         GameOptions opt = mc.options;
 
@@ -148,7 +150,7 @@ public class InputPollingThread extends Thread {
 
     private void queue(InputAction action) {
         if (InputActionQueue.queue(action)) {
-            InputBoosterMod.recoveredInputs++;
+            InputBoosterMod.recoveredInputs.incrementAndGet();
         }
     }
 

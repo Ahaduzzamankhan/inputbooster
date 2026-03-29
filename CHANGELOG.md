@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] - 2026-03-29
+
+### 🐛 Fixed
+
+#### Critical Bug Fixes
+- **Double input drain (critical):** `InputDrainer.drainAll()` was being called twice per tick — once at the HEAD of `MinecraftClient.tick()` via `GameTickMixin`, and again in `ClientTickEvents.END_CLIENT_TICK`. Every queued input was firing twice, causing double-attacks, double-sprints, and duplicate actions. Removed the redundant drain from the tick event.
+- **Race condition on recovered/total input counters:** `totalHits` and `recoveredInputs` were `volatile long` fields incremented with `++` from multiple threads. `volatile` does not make `++` atomic — this was a classic lost-update race condition under high polling load. Replaced both with `AtomicLong` and proper `incrementAndGet()` calls.
+- **WTapAssist was completely broken (dead code):** `WTapAssist.onWRelease()` was never called anywhere. The polling thread queued `FORWARD_RELEASED` events correctly, but `InputDrainer` silently discarded them. The entire W-tap velocity correction feature was non-functional. Fixed by wiring `FORWARD_RELEASED` in `InputDrainer` to notify `WTapAssist`.
+
+#### Thread Safety Fixes
+- **Unsafe MC state reads from background thread:** The polling thread was directly reading `mc.isPaused()`, `mc.currentScreen`, and `mc.player` — main-thread-only MC objects — from the background polling thread. Introduced `gameReady` and `gamePaused` volatile flags updated exclusively on the main thread each tick; the polling thread now reads these flags instead.
+- **O(n) queue size check on hot path:** `ConcurrentLinkedQueue.size()` is O(n) by specification and was called hundreds of times per second on the polling thread. Replaced with an `AtomicInteger` counter using a CAS loop for O(1) atomic size tracking.
+
+#### Config Fixes
+- **Poll rate bounds mismatch:** Config internally clamped poll rate to `[60, 1000]` Hz while all documentation specified `[100, 500]` Hz. Fixed to clamp consistently to the documented `[100, 500]` range.
+
+---
+
 ## [2.0.0] - 2026-03-27
 
 ### 🎉 Major Release - Complete Rewrite
@@ -166,6 +184,7 @@ Compared to internal v1.0:
 
 | Version | Status | Release Date | Notes |
 |---------|--------|--------------|-------|
+| 2.0.1 | ✅ Released | 2026-03-29 | Patch: 6 bugs fixed (thread safety, double drain, WTap) |
 | 2.0.0 | ✅ Released | 2026-03-27 | First public release, complete rewrite |
 | 1.0.0 | ❌ Never Released | - | Internal development only, abandoned due to critical issues |
 

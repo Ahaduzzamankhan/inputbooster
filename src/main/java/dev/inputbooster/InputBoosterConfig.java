@@ -39,7 +39,7 @@ public class InputBoosterConfig {
         } else {
             save();
         }
-        pollRateHz = Math.max(60, Math.min(1000, pollRateHz));
+        pollRateHz = Math.max(100, Math.min(500, pollRateHz));
     }
 
     public static void save() {

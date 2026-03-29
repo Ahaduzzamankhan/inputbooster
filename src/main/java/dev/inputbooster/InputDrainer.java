@@ -22,7 +22,7 @@ public class InputDrainer {
         InputAction action;
         while ((action = InputActionQueue.poll()) != null) {
             apply(action, mc);
-            InputBoosterMod.totalHits++;
+            InputBoosterMod.totalHits.incrementAndGet();
         }
     }
 
@@ -102,6 +102,12 @@ public class InputDrainer {
             }
 
             // Movement releases handled elsewhere
+            case FORWARD_RELEASED -> {
+                // Notify WTapAssist so it can apply velocity dampen for clean knockback
+                if (InputBoosterMod.wTapAssist != null) {
+                    InputBoosterMod.wTapAssist.onWRelease();
+                }
+            }
             default -> {}
         }
     }

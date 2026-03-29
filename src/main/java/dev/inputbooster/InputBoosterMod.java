@@ -5,12 +5,13 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * InputBooster — Ultra-fast input registration mod for low-FPS PvP players.
  *
  * Author  : Ahaduzzaman Khan
- * Version : 2.0.0
+ * Version : 2.0.1
  * Loader  : Fabric
  * MC      : 1.21.x
  * Compat  : Sodium, Iris, Lithium, FerriteCore
@@ -22,15 +23,17 @@ public class InputBoosterMod implements ClientModInitializer {
 
     public static final String MOD_ID      = "inputbooster";
     public static final String MOD_NAME    = "InputBooster";
-    public static final String MOD_VERSION = "2.0.0";
+    public static final String MOD_VERSION = "2.0.1";
     public static final String MOD_AUTHOR  = "Ahaduzzaman Khan";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    // Global volatile state — read by mixins & features from any thread
-    public static volatile boolean active         = true;
-    public static volatile long    totalHits       = 0;
-    public static volatile long    recoveredInputs = 0;
+    // Volatile flag updated from main thread — safe to read from polling thread
+    public static volatile boolean gameReady  = false;
+    public static volatile boolean gamePaused = false;
+    public static volatile boolean active     = true;
+    public static final AtomicLong totalHits       = new AtomicLong(0);
+    public static final AtomicLong recoveredInputs = new AtomicLong(0);
     public static volatile int     currentPollHz   = 200;
     public static volatile int     currentFps      = 0;
 
@@ -63,12 +66,16 @@ public class InputBoosterMod implements ClientModInitializer {
 
         // 4. Per-tick work
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            // Always update thread-safe flags so the polling thread never reads MC state directly
+            gameReady  = client.player != null;
+            gamePaused = client.isPaused() || client.currentScreen != null;
+
             if (client.player == null) return;
 
             currentFps = client.getCurrentFps();
 
-            // Drain captured input queue → fire missed actions
-            InputDrainer.drainAll(client);
+            // NOTE: InputDrainer.drainAll() is called at tick HEAD via GameTickMixin.
+            // Do NOT call it again here — double-draining fires every queued input twice.
 
             // Feature ticks
             sprintManager.tick(client);
