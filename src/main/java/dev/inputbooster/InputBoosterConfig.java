@@ -55,7 +55,7 @@ public class InputBoosterConfig {
             props.setProperty("show_f3_info",  String.valueOf(showF3Info));
             try (OutputStream out = Files.newOutputStream(CONFIG_PATH)) {
                 props.store(out,
-                    "InputBooster v2.0.0 by Ahaduzzaman Khan\n" +
+                    "InputBooster v2.0.1 by Ahaduzzaman Khan\n" +
                     "# poll_rate_hz: 60-1000 (auto-scales with FPS)\n" +
                     "# All toggles : true / false"
                 );

@@ -1,6 +1,6 @@
 # ⚡ InputBooster
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.1-blue.svg)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.x-green.svg)
 ![Loader](https://img.shields.io/badge/loader-Fabric-orange.svg)
 ![Java](https://img.shields.io/badge/java-21+-red.svg)
@@ -59,7 +59,7 @@ During extended lag spikes, Minecraft's idle detection can trigger AFK kicks eve
 All mod statistics are visible live in the F3 debug screen:
 
 ```
-[InputBooster 2.0.0] ACTIVE
+[InputBooster 2.0.1] ACTIVE
 Poll Rate   : 350 Hz (high boost)
 Client FPS  : 28
 Recovered   : 1,482 inputs
@@ -165,7 +165,7 @@ The mod captures inputs faster and more reliably — it does not generate them.
 git clone https://github.com/ahaduzzamankhan/inputbooster.git
 cd inputbooster
 ./gradlew build
-# Output: build/libs/inputbooster-2.0.0.jar
+# Output: build/libs/inputbooster-2.0.1.jar
 ```
 
 ---

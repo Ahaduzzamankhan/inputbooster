@@ -38,7 +38,7 @@ Fabric API is a required dependency. Download it from [Modrinth](https://modrint
 
 ### Step 3 — Download InputBooster
 
-Download the latest `inputbooster-2.0.0.jar` from the [GitHub Releases](https://github.com/ahaduzzamankhan/inputbooster/releases) page.
+Download the latest `inputbooster-2.0.1.jar` from the [GitHub Releases](https://github.com/ahaduzzamankhan/inputbooster/releases) page.
 
 > **Modrinth:** The mod is not yet listed on Modrinth. Download from the Releases page above until the listing goes live.
 
@@ -52,7 +52,7 @@ Your mods folder should look something like this:
 .minecraft/
 └── mods/
     ├── fabric-api-x.x.x.jar
-    └── inputbooster-2.0.0.jar
+    └── inputbooster-2.0.1.jar
 ```
 
 ### Step 5 — Launch with Fabric
@@ -68,7 +68,7 @@ InputBooster activates automatically on launch. No keybind, no toggle, no extra 
 Once in-game, press **F3** to open the debug screen. You should see an InputBooster status block:
 
 ```
-[InputBooster 2.0.0] ACTIVE
+[InputBooster 2.0.1] ACTIVE
 Poll Rate   : 200 Hz
 Client FPS  : 60
 Recovered   : 0 inputs
@@ -135,7 +135,7 @@ show_f3_info=true
 
 ## Uninstalling
 
-To remove InputBooster, simply delete `inputbooster-2.0.0.jar` from your `.minecraft/mods/` folder and restart Minecraft. No leftover files will affect your game — the config file at `.minecraft/config/inputbooster.properties` can also be deleted if you want a clean removal.
+To remove InputBooster, simply delete `inputbooster-2.0.1.jar` from your `.minecraft/mods/` folder and restart Minecraft. No leftover files will affect your game — the config file at `.minecraft/config/inputbooster.properties` can also be deleted if you want a clean removal.
 
 ---
 
@@ -170,4 +170,4 @@ Open a report on [GitHub Issues](https://github.com/ahaduzzamankhan/inputbooster
 
 ---
 
-*InputBooster v2.0.0 · Made by [Ahaduzzaman Khan](https://github.com/ahaduzzamankhan) · MIT License*
+*InputBooster v2.0.1 · Made by [Ahaduzzaman Khan](https://github.com/ahaduzzamankhan) · MIT License*
