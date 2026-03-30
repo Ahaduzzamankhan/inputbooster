@@ -17,7 +17,7 @@ import net.minecraft.util.hit.HitResult;
 public class InputDrainer {
 
     public static void drainAll(MinecraftClient mc) {
-        if (mc.player == null || mc.interactionManager == null) return;
+        if (mc == null || mc.player == null || mc.interactionManager == null) return;
 
         InputAction action;
         while ((action = InputActionQueue.poll()) != null) {
@@ -54,6 +54,10 @@ public class InputDrainer {
                     }
 
                     player.swingHand(Hand.MAIN_HAND);
+                    // Record click for CPS tracking
+                    if (InputBoosterMod.cpsLimiter != null) {
+                        InputBoosterMod.cpsLimiter.recordClick();
+                    }
                 }
             }
 
@@ -105,7 +109,11 @@ public class InputDrainer {
             case FORWARD_RELEASED -> {
                 // Notify WTapAssist so it can apply velocity dampen for clean knockback
                 if (InputBoosterMod.wTapAssist != null) {
-                    InputBoosterMod.wTapAssist.onWRelease();
+                    try {
+                        InputBoosterMod.wTapAssist.onWRelease();
+                    } catch (Exception e) {
+                        InputBoosterMod.LOGGER.warn("[InputBooster] Error in WTapAssist: {}", e.getMessage());
+                    }
                 }
             }
             default -> {}

@@ -1,6 +1,6 @@
-# Contributing to inputbooster
+# Contributing to InputBooster
 
-Thanks for your interest in contributing to **[Your Mod Name]**! We love contributions from the community—whether it’s bug fixes, new features, or ideas.  
+Thanks for your interest in contributing to **InputBooster**! We love contributions from the community—whether it's bug fixes, new features, or ideas to improve the performance and responsiveness of low-FPS Minecraft gameplay.
 
 Please follow these guidelines to help us maintain a friendly and organized project.  
 

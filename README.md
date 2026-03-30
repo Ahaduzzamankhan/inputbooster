@@ -1,6 +1,6 @@
 # ⚡ InputBooster
 
-![Version](https://img.shields.io/badge/version-2.0.1-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.2-blue.svg)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.x-green.svg)
 ![Loader](https://img.shields.io/badge/loader-Fabric-orange.svg)
 ![Java](https://img.shields.io/badge/java-21+-red.svg)
@@ -35,6 +35,18 @@ When an input event is detected between frames, it is pushed into a thread-safe 
 
 ---
 
+## What's New in v2.0.2
+
+✅ **Fixed the "Not Responding" crash** on Minecraft 1.21.11+ (critical threading fix)  
+✅ **Enhanced F3 display** with colorful status indicators and better formatting  
+✅ **CPS tracking now works** – attacks are properly recorded for the CPS meter  
+✅ **Improved error logging** – silent failures are now visible in logs  
+✅ **Better thread safety** – more robust polling with proper interrupt handling  
+
+→ [View detailed changelog](CHANGELOG.md)
+
+---
+
 ## Features
 
 ### High-Frequency Input Polling
@@ -56,19 +68,28 @@ InputBooster tracks your actual clicks per second and surfaces this data directl
 During extended lag spikes, Minecraft's idle detection can trigger AFK kicks even if you are actively playing. Anti-Idle Protection sends periodic synthetic input signals to prevent this from happening, keeping you connected during temporary performance issues.
 
 ### F3 Debug Integration
-All mod statistics are visible live in the F3 debug screen:
+All mod statistics are visible live in the F3 debug screen with colorful status indicators:
 
 ```
-[InputBooster 2.0.1] ACTIVE
+[InputBooster 2.0.2] ✓ ACTIVE
+0━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Poll Rate   : 350 Hz (high boost)
-Client FPS  : 28
+Client FPS  : 60 (target: 60+)
 Recovered   : 1,482 inputs
-CPS         : 8
-Sprint Fix  : ON  | Auto-Sprint : ON
-W-Tap       : ON  | Auto-Strafe : ON
-Anti-Idle   : ON
+CPS         : 12
+0━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Sprint Fix  : ✓ ON  Auto-Sprint: ✓ ON
+W-Tap Assist: ✓ ON  Auto-Strafe: ✓ ON
+Anti-Idle   : ✓ ON
+0━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 by Ahaduzzaman Khan
 ```
+
+**Color Legend:**
+- 🔥 **RED (§c):** Critical boost, very low FPS
+- **YELLOW (§e):** High boost, low-moderate FPS  
+- **GREEN (§a):** Normal operation, good FPS
+- **GRAY (§7):** Light boost, high FPS
 
 ---
 

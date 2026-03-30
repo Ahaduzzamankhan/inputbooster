@@ -38,7 +38,7 @@ Fabric API is a required dependency. Download it from [Modrinth](https://modrint
 
 ### Step 3 — Download InputBooster
 
-Download the latest `inputbooster-2.0.1.jar` from the [GitHub Releases](https://github.com/ahaduzzamankhan/inputbooster/releases) page.
+Download the latest `inputbooster-2.0.2.jar` from the [GitHub Releases](https://github.com/ahaduzzamankhan/inputbooster/releases) page.
 
 > **Modrinth:** The mod is not yet listed on Modrinth. Download from the Releases page above until the listing goes live.
 
@@ -52,7 +52,7 @@ Your mods folder should look something like this:
 .minecraft/
 └── mods/
     ├── fabric-api-x.x.x.jar
-    └── inputbooster-2.0.1.jar
+    └── inputbooster-2.0.2.jar
 ```
 
 ### Step 5 — Launch with Fabric
@@ -68,14 +68,17 @@ InputBooster activates automatically on launch. No keybind, no toggle, no extra 
 Once in-game, press **F3** to open the debug screen. You should see an InputBooster status block:
 
 ```
-[InputBooster 2.0.1] ACTIVE
-Poll Rate   : 200 Hz
-Client FPS  : 60
+[InputBooster 2.0.2] ✓ ACTIVE
+0━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Poll Rate   : 200 Hz (normal)
+Client FPS  : 60 (target: 60+)
 Recovered   : 0 inputs
 CPS         : 0
-Sprint Fix  : ON  | Auto-Sprint : ON
-W-Tap       : ON  | Auto-Strafe : ON
-Anti-Idle   : ON
+0━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Sprint Fix  : ✓ ON  Auto-Sprint: ✓ ON
+W-Tap Assist: ✓ ON  Auto-Strafe: ✓ ON
+Anti-Idle   : ✓ ON
+0━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 by Ahaduzzaman Khan
 ```
 
@@ -135,7 +138,7 @@ show_f3_info=true
 
 ## Uninstalling
 
-To remove InputBooster, simply delete `inputbooster-2.0.1.jar` from your `.minecraft/mods/` folder and restart Minecraft. No leftover files will affect your game — the config file at `.minecraft/config/inputbooster.properties` can also be deleted if you want a clean removal.
+To remove InputBooster, simply delete `inputbooster-2.0.2.jar` from your `.minecraft/mods/` folder and restart Minecraft. No leftover files will affect your game — the config file at `.minecraft/config/inputbooster.properties` can also be deleted if you want a clean removal.
 
 ---
 
@@ -146,8 +149,28 @@ To remove InputBooster, simply delete `inputbooster-2.0.1.jar` from your `.minec
 - Check that both Fabric API and InputBooster `.jar` files are in the mods folder
 - Make sure your Fabric Loader version is 0.16.0 or higher
 
-**Game crashes on launch**
+**Game crashes on launch or freezes on load screen**
 - Verify your Java version is 21 or higher (`java -version` in terminal)
+- Try removing other input-related mods that might conflict
+- Reinstall Fabric Loader (sometimes cache issues occur)
+
+**"Not Responding" error on startup**
+- ✅ **FIXED in v2.0.2** — If you're on an older version, update to the latest
+- Disable other CPU-intensive mods temporarily
+- Clear your Minecraft cache and launcher
+
+**CPS shows 0 or low numbers**
+- This is normal at startup
+- CPS tracking only records attacks you actually perform
+- Try clicking in-game to verify it increments
+
+**Recovered inputs count very high**
+- This indicates the polling thread is catching inputs effectively
+- Nothing is wrong — this is the mod working as intended
+
+**Still having issues?**
+- Check the [GitHub Issues](https://github.com/ahaduzzamankhan/inputbooster/issues) page
+- Report bugs with your Minecraft version, mod version, and Java version
 - Check if another input-modifying mod is conflicting — try launching with only InputBooster and Fabric API
 
 **Sprint or inputs still feel inconsistent**

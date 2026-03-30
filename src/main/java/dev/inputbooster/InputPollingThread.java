@@ -49,13 +49,14 @@ public class InputPollingThread extends Thread {
     public void run() {
         InputBoosterMod.LOGGER.info("[InputBooster] Polling thread started.");
 
-        while (running.get()) {
+        while (running.get() && !Thread.currentThread().isInterrupted()) {
             long loopStart = System.nanoTime();
 
             try {
                 poll();
-            } catch (Exception ignored) {
-                // Never crash the thread — silently continue
+            } catch (Exception e) {
+                // Log errors but never crash the thread
+                InputBoosterMod.LOGGER.warn("[InputBooster] Polling error: {}", e.getMessage());
             }
 
             // Sleep precisely to hit target Hz
@@ -66,8 +67,14 @@ public class InputPollingThread extends Thread {
 
             if (sleepNs > 0) {
                 try {
-                    // Use nanosecond sleep for accuracy
-                    Thread.sleep(sleepNs / 1_000_000L, (int)(sleepNs % 1_000_000L));
+                    // Use millisecond sleep for better battery efficiency and thread responsiveness
+                    long sleepMs = sleepNs / 1_000_000L;
+                    int nanos = (int)(sleepNs % 1_000_000L);
+                    if (sleepMs > 0) {
+                        Thread.sleep(sleepMs, nanos);
+                    } else if (nanos > 0) {
+                        Thread.sleep(0, nanos);
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
@@ -82,12 +89,14 @@ public class InputPollingThread extends Thread {
         // Use main-thread-updated volatile flags — never read MC objects from this thread
         if (!InputBoosterMod.gameReady || InputBoosterMod.gamePaused) return;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null || mc.options == null) return;
+        try {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc == null || mc.options == null) return;
 
-        GameOptions opt = mc.options;
+            GameOptions opt = mc.options;
+            if (opt == null) return;
 
-        // ── Attack (LMB) ──────────────────────────────────────────────────────
+            // ── Attack (LMB) ──────────────────────────────────────────────────────
         boolean attack = opt.attackKey.isPressed();
         if (attack  && !prevAttack) queue(InputAction.ATTACK_PRESSED);
         if (!attack && prevAttack)  queue(InputAction.ATTACK_RELEASED);
@@ -146,6 +155,9 @@ public class InputPollingThread extends Thread {
         prevDrop      = drop;
         prevSwap      = swap;
         prevPickBlock = pickBlock;
+        } catch (Exception e) {
+            InputBoosterMod.LOGGER.debug("[InputBooster] Poll cycle exception: {}", e.getMessage());
+        }
     }
 
     private void queue(InputAction action) {

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.2] - 2026-03-30
+
+### 🐛 Fixed
+
+#### Critical Bug Fixes
+- **"Not Responding" on MC 1.21.11+:** Fixed a critical issue where the polling thread would silently fail on newer Minecraft versions. The thread now properly checks for interruption and logs errors instead of silently failing.
+- **Missing interrupt check:** Added `!Thread.currentThread().isInterrupted()` check in polling thread main loop to ensure graceful shutdown.
+- **CPS never recorded:** `CpsLimiter.recordClick()` was never called when attacks were processed. Added recording in `InputDrainer` when `ATTACK_PRESSED` is executed.
+- **Silent errors in polling:** Changed polling thread error handling from silently ignoring exceptions to logging them at WARN level for better debugging.
+- **Unsafe null dereference:** Added extra null checks in `InputDrainer.poll()` for MinecraftClient and in `GameTickMixin` to prevent null pointer exceptions.
+- **Missing error handling in WTapAssist:** Added try-catch around `WTapAssist.onWRelease()` call to prevent feature exceptions from blocking input drain.
+
+#### Thread Safety & Performance
+- **Better sleep efficiency:** Changed polling thread sleep from nanosecond precision to millisecond precision for better CPU efficiency and battery life.
+- **Thread interruption handling:** Properly handles `InterruptedException` to ensure clean shutdown.
+
+### ✨ Added
+
+#### UI/Display Enhancements
+- **Colorful F3 display:** Enhanced debug overlay with vibrant color gradients
+  - Red for MAX BOOST mode (🔥)
+  - Yellow for high boost
+  - Green for normal boost
+  - Gray for light boost
+- **Visual status indicators:** Bold checkmarks (✓) for enabled features, X marks for disabled
+- **Improved formatting:** Added separator lines and better spacing in F3 display
+- **FPS threshold indicator:** Now shows "target: 60+" to guide players on ideal FPS
+- **Enhanced boost labels:** More descriptive Hz descriptions (ultra boost, high boost, normal, light, minimum)
+
+---
+
 ## [2.0.1] - 2026-03-29
 
 ### 🐛 Fixed
@@ -184,6 +215,7 @@ Compared to internal v1.0:
 
 | Version | Status | Release Date | Notes |
 |---------|--------|--------------|-------|
+| 2.0.2 | ✅ Released | 2026-03-30 | Hotfix: Thread safety, "not responding" fix, colorful F3, CPS recording |
 | 2.0.1 | ✅ Released | 2026-03-29 | Patch: 6 bugs fixed (thread safety, double drain, WTap) |
 | 2.0.0 | ✅ Released | 2026-03-27 | First public release, complete rewrite |
 | 1.0.0 | ❌ Never Released | - | Internal development only, abandoned due to critical issues |

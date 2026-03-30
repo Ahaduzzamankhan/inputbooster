@@ -6,11 +6,13 @@ We actively maintain and provide security updates for the following versions of 
 
 | Version | Minecraft | Supported          |
 | ------- | --------- | ------------------ |
-| 2.0.x   | 1.21.x    | :white_check_mark: |
+| 2.0.2   | 1.21.x    | :white_check_mark: (Latest) |
+| 2.0.1   | 1.21.x    | :white_check_mark: |
+| 2.0.0   | 1.21.x    | :white_check_mark: |
 | 1.x.x   | 1.20.x    | :x:                |
 | < 1.0   | Various   | :x:                |
 
-**Note:** Only the latest major version receives security patches. Please upgrade to the current version for the best security and performance.
+**Note:** Only the latest version receives security patches. Please upgrade to version 2.0.2 for the best security and performance.
 
 ---
 
