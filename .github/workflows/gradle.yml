@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    
+    # This ensures every 'run' step starts inside your project folder
+    defaults:
+      run:
+        working-directory: ./InputBooster
 
     steps:
       - name: Checkout code
@@ -24,24 +29,21 @@ jobs:
           java-version: '25'
           distribution: 'oracle'
 
-      - name: Set up Gradle 9.4
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.4.1'
 
-      # Added working-directory here
       - name: Make gradlew executable
         run: chmod +x gradlew
-        working-directory: InputBooster
 
       - name: Build with Gradle wrapper
         run: ./gradlew build
-        working-directory: InputBooster
 
       - name: Read mod version
         id: version
-        working-directory: InputBooster
         run: |
+          # Finds the version line in build.gradle
           VERSION=$(grep "^version" build.gradle | head -1 | sed "s/version = '//;s/'//")
           echo "MOD_VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
@@ -56,30 +58,29 @@ jobs:
             echo "TAG_EXISTS=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Extract changelog for this version
+      - name: Extract changelog
         id: changelog
         if: steps.tag_check.outputs.TAG_EXISTS == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           VERSION="${{ steps.version.outputs.MOD_VERSION }}"
-          # Adjusted path to CHANGELOG.md if it is inside the subfolder
-          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" InputBooster/CHANGELOG.md)
+          # Look for CHANGELOG.md inside the current working directory (InputBooster/)
+          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
           echo "$NOTES" > /tmp/release_notes.md
-          echo "Release notes extracted for v$VERSION"
 
       - name: Create Git tag
         if: steps.tag_check.outputs.TAG_EXISTS == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.version.outputs.TAG }}" -m "Release ${{ steps.version.outputs.TAG }}"
           git push origin "${{ steps.version.outputs.TAG }}"
 
       - name: Find built JAR
         id: jar
         run: |
-          # Adjusted path to look inside the InputBooster/build folder
-          JAR=$(find InputBooster/build/libs -name "inputbooster-*.jar" ! -name "*-sources.jar" | head -1)
-          echo "JAR_PATH=$JAR" >> $GITHUB_OUTPUT
+          # Search specifically within the build/libs folder of the project
+          JAR=$(find build/libs -name "inputbooster-*.jar" ! -name "*-sources.jar" | head -1)
+          echo "JAR_PATH=InputBooster/$JAR" >> $GITHUB_OUTPUT
           echo "Found JAR: $JAR"
 
       - name: Create GitHub Release
