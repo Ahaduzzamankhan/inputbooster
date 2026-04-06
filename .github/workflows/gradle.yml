@@ -27,11 +27,8 @@ jobs:
         with:
           gradle-version: '9.4.1'
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-
-      - name: Build with Gradle wrapper
-        run: ./gradlew build
+      - name: Build with Gradle
+        run: gradle build
 
       - name: Read mod version
         id: version
@@ -51,7 +48,6 @@ jobs:
           fi
 
       - name: Extract changelog
-        id: changelog
         if: steps.tag_check.outputs.TAG_EXISTS == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           VERSION="${{ steps.version.outputs.MOD_VERSION }}"
