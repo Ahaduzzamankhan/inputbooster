@@ -29,23 +29,18 @@ jobs:
         with:
           gradle-version: '9.4.1'
 
+      # Added working-directory here
       - name: Make gradlew executable
         run: chmod +x gradlew
-
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: gradle-
+        working-directory: InputBooster
 
       - name: Build with Gradle wrapper
         run: ./gradlew build
+        working-directory: InputBooster
 
       - name: Read mod version
         id: version
+        working-directory: InputBooster
         run: |
           VERSION=$(grep "^version" build.gradle | head -1 | sed "s/version = '//;s/'//")
           echo "MOD_VERSION=$VERSION" >> $GITHUB_OUTPUT
@@ -66,10 +61,10 @@ jobs:
         if: steps.tag_check.outputs.TAG_EXISTS == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           VERSION="${{ steps.version.outputs.MOD_VERSION }}"
-          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          # Adjusted path to CHANGELOG.md if it is inside the subfolder
+          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" InputBooster/CHANGELOG.md)
           echo "$NOTES" > /tmp/release_notes.md
           echo "Release notes extracted for v$VERSION"
-          cat /tmp/release_notes.md
 
       - name: Create Git tag
         if: steps.tag_check.outputs.TAG_EXISTS == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -82,7 +77,8 @@ jobs:
       - name: Find built JAR
         id: jar
         run: |
-          JAR=$(find build/libs -name "inputbooster-*.jar" ! -name "*-sources.jar" | head -1)
+          # Adjusted path to look inside the InputBooster/build folder
+          JAR=$(find InputBooster/build/libs -name "inputbooster-*.jar" ! -name "*-sources.jar" | head -1)
           echo "JAR_PATH=$JAR" >> $GITHUB_OUTPUT
           echo "Found JAR: $JAR"
 
