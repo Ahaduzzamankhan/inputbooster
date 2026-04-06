@@ -1,21 +1,14 @@
 name: Build & Release
-
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
-    # This ensures every 'run' step starts inside your project folder
-    defaults:
-      run:
-        working-directory: ./InputBooster
 
     steps:
       - name: Checkout code
@@ -43,7 +36,6 @@ jobs:
       - name: Read mod version
         id: version
         run: |
-          # Finds the version line in build.gradle
           VERSION=$(grep "^version" build.gradle | head -1 | sed "s/version = '//;s/'//")
           echo "MOD_VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
@@ -63,7 +55,6 @@ jobs:
         if: steps.tag_check.outputs.TAG_EXISTS == 'false' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           VERSION="${{ steps.version.outputs.MOD_VERSION }}"
-          # Look for CHANGELOG.md inside the current working directory (InputBooster/)
           NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
           echo "$NOTES" > /tmp/release_notes.md
 
@@ -78,9 +69,8 @@ jobs:
       - name: Find built JAR
         id: jar
         run: |
-          # Search specifically within the build/libs folder of the project
           JAR=$(find build/libs -name "inputbooster-*.jar" ! -name "*-sources.jar" | head -1)
-          echo "JAR_PATH=InputBooster/$JAR" >> $GITHUB_OUTPUT
+          echo "JAR_PATH=$JAR" >> $GITHUB_OUTPUT
           echo "Found JAR: $JAR"
 
       - name: Create GitHub Release
