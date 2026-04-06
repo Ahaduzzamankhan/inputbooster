@@ -1,0 +1,51 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'
+    id 'maven-publish'
+}
+
+// Supports both 26.1 (data version 4786) and 26.1.1 (data version 4788, hotfix).
+// MC 26.1.x is fully unobfuscated — no Yarn mappings, no remapping, use Mojang names directly.
+version = '2.0.4-26.1.1'
+group = 'dev.inputbooster'
+
+base {
+    archivesName = 'inputbooster'
+}
+
+repositories {
+    maven { name = "FabricMC"; url = "https://maven.fabricmc.net/" }
+}
+
+dependencies {
+    // ── Minecraft 26.1.1 "Tiny Takeover" hotfix (April 1 2026) ──────────────
+    // Protocol 775, data version 4788 — first fully unobfuscated MC release.
+    // No remapping: use plain implementation instead of modImplementation.
+    // To target 26.1 (base drop), swap "26.1.1" → "26.1" and fabric-api suffix accordingly.
+    minecraft "com.mojang:minecraft:26.1.1"
+    implementation "net.fabricmc:fabric-loader:0.18.6"
+    implementation "net.fabricmc.fabric-api:fabric-api:0.145.3+26.1.1"
+}
+
+processResources {
+    inputs.property "version", project.version
+    filteringCharset "UTF-8"
+    filesMatching("fabric.mod.json") { expand "version": project.version }
+}
+
+// Java 25 — required by Minecraft 26.1 / 26.1.1.
+def targetJavaVersion = 25
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.release  = targetJavaVersion
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+    withSourcesJar()
+}
+
+jar {
+    from("LICENSE") { rename { "${it}_${project.base.archivesName.get()}" } }
+}

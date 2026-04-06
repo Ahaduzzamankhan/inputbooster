@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "inputbooster",
+  "version": "2.0.4-26.1.1",
+  "name": "InputBooster",
+  "description": "Ultra-fast input registration for low-FPS PvP players. Auto-active at 200-500Hz. No toggle needed. Compatible with Sodium.",
+  "authors": [
+    "Ahaduzzaman Khan"
+  ],
+  "contact": {
+    "homepage": "https://modrinth.com/mod/inputbooster",
+    "issues": "https://github.com/ahaduzzamankhan/inputbooster/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/inputbooster/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.inputbooster.InputBoosterMod"
+    ]
+  },
+  "mixins": [
+    "inputbooster.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.6",
+    "fabric-api": "*",
+    "minecraft": ">=26.1 <=26.1.1",
+    "java": ">=25"
+  },
+  "suggests": {
+    "fabulously_optimized": "*",
+    "animatica": "*"
+  }
+}
