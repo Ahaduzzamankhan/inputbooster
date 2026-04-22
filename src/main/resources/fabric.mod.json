@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "inputbooster",
+  "version": "2.1.0",
+  "name": "InputBooster",
+  "description": "Ultra-fast input registration for low-FPS PvP players. 60-1000Hz polling, AUTO/MANUAL modes, in-game options (O key), F3 debug integration, CPS limiting, sprint/strafe assist.",
+  "authors": [
+    "Ahaduzzaman Khan"
+  ],
+  "contact": {
+    "homepage": "https://modrinth.com/mod/inputbooster",
+    "sources": "https://github.com/ahaduzzamankhan/inputbooster",
+    "issues": "https://github.com/ahaduzzamankhan/inputbooster/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/inputbooster/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.inputbooster.InputBoosterMod"
+    ]
+  },
+  "mixins": [
+    "inputbooster.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": ">=1.21.0",
+    "java": ">=21"
+  },
+  "suggests": {
+    "modmenu": "*",
+    "sodium": "*",
+    "iris": "*",
+    "lithium": "*",
+    "ferritecore": "*"
+  },
+  "custom": {
+    "modmenu": {
+      "badges": ["client"]
+    }
+  }
+}

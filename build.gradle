@@ -1,0 +1,100 @@
+plugins {
+    id 'fabric-loom' version '1.7.4'
+    id 'maven-publish'
+}
+
+version = '2.1.0'
+group = 'dev.inputbooster'
+
+base {
+    archivesName = 'inputbooster'
+}
+
+// -----------------------------
+// Project Variables
+// -----------------------------
+ext {
+    minecraft_version = "1.21.4"
+    yarn_mappings = "1.21.4+build.1"
+}
+
+// -----------------------------
+// Repositories
+// -----------------------------
+repositories {
+    maven { name = "FabricMC"; url = "https://maven.fabricmc.net/" }
+    maven { name = "Modrinth"; url = "https://api.modrinth.com/maven" }
+    mavenCentral()
+}
+
+// -----------------------------
+// Dependencies
+// -----------------------------
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings "net.fabricmc:yarn:${yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:0.16.9"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.112.0+1.21.4"
+}
+
+// -----------------------------
+// Process resources
+// -----------------------------
+processResources {
+    inputs.property "version", project.version
+    inputs.property "minecraft_version", minecraft_version
+    filteringCharset "UTF-8"
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+               "minecraft_version": minecraft_version
+    }
+}
+
+// -----------------------------
+// Java Compilation
+// -----------------------------
+def targetJavaVersion = 21
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.release = targetJavaVersion
+    options.compilerArgs += ["-Xlint:unchecked", "-Xlint:deprecation"]
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+// -----------------------------
+// JAR
+// -----------------------------
+jar {
+    from("LICENSE") { rename { "${it}_${project.base.archivesName.get()}" } }
+}
+
+// -----------------------------
+// Publishing
+// -----------------------------
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        // Add Maven repository if needed
+    }
+}
+
+// -----------------------------
+// Gradle Wrapper
+// FIX: Was incorrectly set to "8.8" while gradle-wrapper.properties uses 9.4.1.
+// The wrapper block in build.gradle only affects `./gradlew wrapper` re-generation;
+// the actual version in use is always governed by gradle-wrapper.properties.
+// Keeping them consistent prevents confusion.
+// -----------------------------
+wrapper {
+    gradleVersion = "9.4.1"
+}

@@ -1,0 +1,11 @@
+build/
+out/
+*.log
+*.class
+*.cache
+.gradle/
+
+# Ignore JARs except the Gradle wrapper (required for CI)
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+

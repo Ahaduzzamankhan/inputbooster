@@ -1,0 +1,20 @@
+package dev.inputbooster;
+
+/**
+ * InputAction — all trackable key events.
+ * LEFT_RELEASED and RIGHT_RELEASED added in 2.0.4 to properly clear strafe state.
+ */
+public enum InputAction {
+    ATTACK_PRESSED, ATTACK_RELEASED,
+    USE_PRESSED, USE_RELEASED,
+    SPRINT_PRESSED, SPRINT_RELEASED,
+    SNEAK_PRESSED, SNEAK_RELEASED,
+    JUMP_PRESSED,
+    FORWARD_PRESSED,  FORWARD_RELEASED,
+    BACK_PRESSED,     BACK_RELEASED,
+    LEFT_PRESSED,     LEFT_RELEASED,
+    RIGHT_PRESSED,    RIGHT_RELEASED,
+    DROP_PRESSED,
+    SWAP_PRESSED,
+    PICK_BLOCK_PRESSED
+}
