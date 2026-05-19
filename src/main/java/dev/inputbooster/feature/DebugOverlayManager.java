@@ -38,7 +38,9 @@ public class DebugOverlayManager {
         if (initialized) return;
 
         HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
-            if (InputBoosterConfig.isShowF3Info()) {
+            // Avoid duplicate rendering when F3 mixin lines are active.
+            // HUD overlay is shown only when F3 is closed.
+            if (InputBoosterConfig.isShowF3Info() && !MinecraftClient.getInstance().options.debugEnabled) {
                 renderDebugOverlay(drawContext, tickCounter);
             }
         });

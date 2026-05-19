@@ -4,6 +4,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 
 /**
@@ -62,8 +63,21 @@ public class InputDrainer {
             // FIX: removed `!mc.options.useKey.isPressed()` guard — that was suppressing
             // right-click on items (bows, food, potions) when held continuously.
             case USE_PRESSED -> {
-                if (mc.crosshairTarget != null) {
+                HitResult target = mc.crosshairTarget;
+                if (target == null) {
                     mc.interactionManager.interactItem(player, Hand.MAIN_HAND);
+                    break;
+                }
+                switch (target.getType()) {
+                    case BLOCK -> {
+                        BlockHitResult blockHit = (BlockHitResult) target;
+                        mc.interactionManager.interactBlock(player, Hand.MAIN_HAND, blockHit);
+                    }
+                    case ENTITY -> {
+                        EntityHitResult entityHit = (EntityHitResult) target;
+                        mc.interactionManager.interactEntity(player, entityHit.getEntity(), Hand.MAIN_HAND);
+                    }
+                    default -> mc.interactionManager.interactItem(player, Hand.MAIN_HAND);
                 }
             }
 
@@ -107,14 +121,13 @@ public class InputDrainer {
             case BACK_RELEASED  -> {}
 
             // ── Drop / Swap ───────────────────────────────────────────────────
-            case DROP_PRESSED -> {
-                if (!mc.options.dropKey.isPressed()) player.dropSelectedItem(false);
-            }
+            case DROP_PRESSED -> player.dropSelectedItem(false);
             case SWAP_PRESSED -> {
                 if (!mc.options.swapHandsKey.isPressed()) {
                     mc.interactionManager.interactItem(player, Hand.OFF_HAND);
                 }
             }
+            case PICK_BLOCK_PRESSED -> mc.doItemPick();
 
             default -> {}
         }
