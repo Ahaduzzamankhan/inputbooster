@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "inputbooster",
-  "version": "2.1.0",
+  "version": "${version}",
   "name": "InputBooster",
-  "description": "Ultra-fast input registration for low-FPS PvP players. 60-1000Hz polling, AUTO/MANUAL modes, in-game options (O key), F3 debug integration, CPS limiting, sprint/strafe assist.",
+  "description": "Ultra-fast input registration with adaptive polling, smarter action draining, and improved debug/profiling utilities for modern Fabric 26.1 clients.",
   "authors": [
     "Ahaduzzaman Khan"
   ],
@@ -26,8 +26,8 @@
   "depends": {
     "fabricloader": ">=0.16.0",
     "fabric-api": "*",
-    "minecraft": ">=1.21.0",
-    "java": ">=21"
+    "minecraft": ">=26.1",
+    "java": ">=25"
   },
   "suggests": {
     "modmenu": "*",
