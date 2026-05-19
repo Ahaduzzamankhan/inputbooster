@@ -32,8 +32,8 @@ public class InputBoosterMod implements ClientModInitializer {
 
     public static final String MOD_ID      = "inputbooster";
     public static final String MOD_NAME    = "InputBooster";
-    public static final String MOD_VERSION = "2.1.0";
-    public static final String MC_VERSION  = "1.21.0-1.21.11";
+    public static final String MOD_VERSION = "3.0.0";
+    public static final String MC_VERSION  = "26.1+";
     public static final String MOD_AUTHOR  = "Ahaduzzaman Khan";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
@@ -161,7 +161,7 @@ public class InputBoosterMod implements ClientModInitializer {
 
             // Update game state
             gameReady  = client.player != null;
-            gamePaused = client.isPaused() || client.currentScreen != null;
+            gamePaused = client.isPaused();
 
             if (client.options != null) {
                 keySnapshot = new KeySnapshot(client.options);
@@ -172,7 +172,7 @@ public class InputBoosterMod implements ClientModInitializer {
             }
 
             // Update FPS
-            currentFps = client.getCurrentFps();
+            currentFps = MinecraftClient.getCurrentFps();
 
             // ── Poll Rate Scaling ──
             if (InputBoosterConfig.isPollRateAutoMode()) {

@@ -25,7 +25,7 @@ public class AutoStrafeManager {
         if (!player.isSprinting()) return;
 
         // Only compensate at low FPS
-        if (mc.getCurrentFps() > 40) return;
+        if (MinecraftClient.getCurrentFps() > 40) return;
 
         boolean left  = mc.options.leftKey.isPressed();
         boolean right = mc.options.rightKey.isPressed();
@@ -37,6 +37,6 @@ public class AutoStrafeManager {
         // Apply a tiny yaw correction to keep sprint-strafe speed optimal
         // (Vanilla loses ~15% speed when strafing diagonally at low FPS)
         float yawDelta = left ? -0.4f : 0.4f;
-        player.setYaw(player.getYaw() + yawDelta * (40f / Math.max(1, mc.getCurrentFps())));
+        player.setYaw(player.getYaw() + yawDelta * (40f / Math.max(1, MinecraftClient.getCurrentFps())));
     }
 }
