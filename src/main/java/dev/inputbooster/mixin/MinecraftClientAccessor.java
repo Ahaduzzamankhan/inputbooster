@@ -6,9 +6,9 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(Minecraft.class)
 public interface MinecraftClientAccessor {
-    @Invoker("pickBlock")
+    @Invoker("pickBlockOrEntity")
     void invokePickBlock();
 
-    @Invoker("getCurrentFps")
+    @Invoker("getFps")
     int invokeGetFps();
 }
