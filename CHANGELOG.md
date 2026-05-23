@@ -7,279 +7,144 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.0.2] - 2026-03-30
+## [3.0.1] - 2026-05-23
 
 ### 🐛 Fixed
 
-#### Critical Bug Fixes
-- **"Not Responding" on MC 1.21.11+:** Fixed a critical issue where the polling thread would silently fail on newer Minecraft versions. The thread now properly checks for interruption and logs errors instead of silently failing.
-- **Missing interrupt check:** Added `!Thread.currentThread().isInterrupted()` check in polling thread main loop to ensure graceful shutdown.
-- **CPS never recorded:** `CpsLimiter.recordClick()` was never called when attacks were processed. Added recording in `InputDrainer` when `ATTACK_PRESSED` is executed.
-- **Silent errors in polling:** Changed polling thread error handling from silently ignoring exceptions to logging them at WARN level for better debugging.
-- **Unsafe null dereference:** Added extra null checks in `InputDrainer.poll()` for MinecraftClient and in `GameTickMixin` to prevent null pointer exceptions.
-- **Missing error handling in WTapAssist:** Added try-catch around `WTapAssist.onWRelease()` call to prevent feature exceptions from blocking input drain.
+#### Critical Crash Fixes
+- **Settings screen crash — `Can only blur once per frame`:** In MC 1.21.11 the rendering pipeline already triggers a background blur before delegating to a screen's `render()` method. The old code called `renderBackground()` manually at the top of `InputBoosterScreen.render()`, firing the blur shader a second time in the same frame and crashing. Removed the manual call; `super.render()` at the end of the method handles it correctly.
 
-#### Thread Safety & Performance
-- **Better sleep efficiency:** Changed polling thread sleep from nanosecond precision to millisecond precision for better CPU efficiency and battery life.
-- **Thread interruption handling:** Properly handles `InterruptedException` to ensure clean shutdown.
+- **Mixin crash on startup — `CallbackInfoReturnable is required`:** In MC 1.21.11, `MinecraftClient.doAttack()` was changed from `void` to `boolean`. Mixin's `@Inject` on a non-void method requires `CallbackInfoReturnable<T>` instead of plain `CallbackInfo`. The `onDoAttack` handler in `GameTickMixin` was using `CallbackInfo`, causing a fatal mixin apply error at launch. Fixed by changing the parameter to `CallbackInfoReturnable<Boolean>` and replacing `ci.cancel()` with `cir.setReturnValue(false)`.
+
+#### Gameplay Fixes
+- **Double block break on single click:** A single left-click was destroying two blocks instead of one. Root cause: `InputDrainer.apply()` called `attackBlock()` for block targets while vanilla's `handleBlockBreaking()` loop was already calling `attackBlock()` every tick the button was held — resulting in two `attackBlock()` calls per tick. Fixed by removing the `attackBlock()` call from the drainer entirely for block targets. Block breaking is now driven exclusively by vanilla's continuous held-key loop. Entity hits remain one-shot events and are still fired from the drainer.
+
+- **CPS always showing 0:** After the double-block-break fix moved `recordClick()` into the entity-only branch, block clicks were no longer counted. Moved `recordClick()` up to `drainAll()` so it fires for every accepted `ATTACK_PRESSED` event regardless of target type (entity or block).
+
+#### Overlay / HUD Fixes
+- **Overlay visible during F3:** The HUD panel rendered on top of the F3 debug screen, making both unreadable. The overlay now checks `mc.getDebugHud().shouldShowDebugHud()` and returns early, so it disappears automatically when F3 is open and reappears when it is closed.
+
+- **Matrix stack compile error (`push`/`pop`/`scale` not found):** `ctx.getMatrices()` in MC 1.21.11 returns JOML's raw `Matrix3x2fStack`, which has no `push()`, `pop()`, or three-argument `scale()`. The attempt to cast it to `net.minecraft.client.util.math.MatrixStack` also failed at runtime. Removed matrix stack scaling entirely; overlay size and line spacing are now computed directly from the scale factor in pixel coordinates.
+
+---
 
 ### ✨ Added
 
-#### UI/Display Enhancements
-- **Colorful F3 display:** Enhanced debug overlay with vibrant color gradients
-  - Red for MAX BOOST mode (🔥)
-  - Yellow for high boost
-  - Green for normal boost
-  - Gray for light boost
-- **Visual status indicators:** Bold checkmarks (✓) for enabled features, X marks for disabled
-- **Improved formatting:** Added separator lines and better spacing in F3 display
-- **FPS threshold indicator:** Now shows "target: 60+" to guide players on ideal FPS
-- **Enhanced boost labels:** More descriptive Hz descriptions (ultra boost, high boost, normal, light, minimum)
+#### HUD Overlay Improvements
+- **Overlay is now a proper always-on HUD** — renders on the game screen at all times (not only in F3). Automatically hides when F3 is open to avoid clutter.
+- **Configurable position** — cycle through Top-Left, Top-Right, Bottom-Left, Bottom-Right from the Advanced settings tab.
+- **Configurable scale** — slider from 0.5× to 3.0× in the Advanced settings tab.
+- **Semi-transparent background box** — drawn behind all overlay lines for readability in any environment.
+
+#### Settings Screen
+- Renamed misleading **"F3 Overlay Info"** toggle to **"HUD Overlay"** to reflect that it controls the always-on HUD, not an F3-only panel.
+- Added **"Overlay Position"** button (cycles through 4 corners) to the Advanced tab.
+- Added **"Overlay Scale"** slider (0.5× – 3.0×) to the Advanced tab.
+
+#### Config File
+- New key `overlay_position` (integer 0–3, default `0` = Top-Left).
+- New key `overlay_scale` (float 0.5–3.0, default `1.0`).
+
+---
+
+### 🗑️ Removed
+- **"Double-hit fix: ON"** line removed from the HUD overlay — the fix is always active and the line added noise.
+
+---
+
+## [3.0.0] - 2026-05-01
+
+### 🎉 Major Release
+
+#### Core Features Added
+- **Adaptive Burst Mode** — automatically spikes poll rate to 1000 Hz for 3 seconds when FPS drops more than 20% in one second, then returns to normal.
+- **Session Stats tracker** — records uptime, total recovered inputs, estimated missed inputs without the mod, and a 60-second CPS sparkline.
+- **Config Profiles** — save and load up to 5 named presets (PvP, Mining, Idle, Hybrid, Custom) from the in-game screen.
+- **Latency Profiler** — tracks per-drain latency with rolling average and peak, displayed in the HUD overlay.
+- **In-game Settings Screen** — full tabbed GUI (Poll Rate, Features, Advanced, Stats, Profiles) opened with the O key.
+- **CPS Limiter** — configurable cap (1–20 CPS) with `allowClick()` gate and real-time feedback in the overlay.
+- **Burst Mode Manager** — monitors FPS every N ticks (configurable) and triggers burst on significant drops.
+- **W-Tap Assist, Auto-Strafe, Anti-Idle, Sprint Manager** — all wired into the new polling and drain pipeline.
+
+#### Technical
+- Torn-read fix in `InputPollingThread`: captures `keySnapshot` reference once per poll cycle so all key reads in a cycle are consistent.
+- `require=0` on all optional `@Inject` targets so a method rename loads the game rather than crashing.
+- Replaced `volatile long` hit counters with `AtomicLong` to eliminate lost-update races.
+
+---
+
+## [2.0.2] - 2026-03-30
+
+### 🐛 Fixed
+- **"Not Responding" on MC 1.21.11+** — polling thread now checks for interruption and logs errors instead of silently failing.
+- **CPS never recorded** — `CpsLimiter.recordClick()` was never called from `InputDrainer`. Fixed.
+- **Silent errors in polling** — changed error handling from silent to WARN-level logging.
+- **Null dereference** — added null checks in `InputDrainer` and `GameTickMixin`.
+- **WTapAssist silent failure** — added try-catch around `onWRelease()` so feature errors don't block the drain loop.
+- **Sleep efficiency** — polling thread sleep changed to millisecond precision for better CPU and battery usage.
+
+### ✨ Added
+- Colorful F3 display with status-based color coding (red/yellow/green/gray).
+- Visual status indicators (✓ / ✗) for enabled/disabled features.
 
 ---
 
 ## [2.0.1] - 2026-03-29
 
 ### 🐛 Fixed
-
-#### Critical Bug Fixes
-- **Double input drain (critical):** `InputDrainer.drainAll()` was being called twice per tick — once at the HEAD of `MinecraftClient.tick()` via `GameTickMixin`, and again in `ClientTickEvents.END_CLIENT_TICK`. Every queued input was firing twice, causing double-attacks, double-sprints, and duplicate actions. Removed the redundant drain from the tick event.
-- **Race condition on recovered/total input counters:** `totalHits` and `recoveredInputs` were `volatile long` fields incremented with `++` from multiple threads. `volatile` does not make `++` atomic — this was a classic lost-update race condition under high polling load. Replaced both with `AtomicLong` and proper `incrementAndGet()` calls.
-- **WTapAssist was completely broken (dead code):** `WTapAssist.onWRelease()` was never called anywhere. The polling thread queued `FORWARD_RELEASED` events correctly, but `InputDrainer` silently discarded them. The entire W-tap velocity correction feature was non-functional. Fixed by wiring `FORWARD_RELEASED` in `InputDrainer` to notify `WTapAssist`.
-
-#### Thread Safety Fixes
-- **Unsafe MC state reads from background thread:** The polling thread was directly reading `mc.isPaused()`, `mc.currentScreen`, and `mc.player` — main-thread-only MC objects — from the background polling thread. Introduced `gameReady` and `gamePaused` volatile flags updated exclusively on the main thread each tick; the polling thread now reads these flags instead.
-- **O(n) queue size check on hot path:** `ConcurrentLinkedQueue.size()` is O(n) by specification and was called hundreds of times per second on the polling thread. Replaced with an `AtomicInteger` counter using a CAS loop for O(1) atomic size tracking.
-
-#### Config Fixes
-- **Poll rate bounds mismatch:** Config internally clamped poll rate to `[60, 1000]` Hz while all documentation specified `[100, 500]` Hz. Fixed to clamp consistently to the documented `[100, 500]` range.
+- **Double input drain** — `InputDrainer.drainAll()` was called twice per tick (GameTickMixin + tick event). Removed redundant drain.
+- **AtomicLong race condition** — `totalHits` and `recoveredInputs` were `volatile long` incremented with `++` from multiple threads. Replaced with `AtomicLong`.
+- **WTapAssist dead code** — `FORWARD_RELEASED` events were queued but never handled in `InputDrainer`. Wired up.
+- **Unsafe MC reads from polling thread** — introduced `gameReady` / `gamePaused` volatile flags updated on the main thread; polling thread reads flags instead of MC objects directly.
+- **O(n) queue size** — `ConcurrentLinkedQueue.size()` was called hundreds of times per second. Replaced with `AtomicInteger` for O(1) tracking.
+- **Poll rate bounds mismatch** — internal clamp was `[60, 1000]` while docs said `[100, 500]`. Unified.
 
 ---
 
 ## [2.0.0] - 2026-03-27
 
-### 🎉 Major Release - Complete Rewrite
+### 🎉 First Public Release — Complete Rewrite
 
-This is the **first public release** of InputBooster. While internally versioned as 2.0.0, this represents the initial stable version available to users.
+Internal v1.0 was never released due to memory leaks, Sodium/Iris crashes, config corruption, and thread-safety issues. v2.0 is a ground-up rewrite.
 
-### 📖 Why v2.0 and not v1.0?
+### ✨ Added
+- Dynamic FPS-aware poll rate (100–500 Hz auto-scaling).
+- F3 debug integration (poll rate, FPS, recovered inputs, CPS, feature states).
+- Real-time CPS tracker with sliding-window algorithm.
+- Auto-Strafe correction for diagonal movement at low FPS.
+- Anti-Idle protection against AFK kicks during lag spikes.
+- Lock-free concurrent input queue.
+- Mixin-based event interception compatible with Sodium, Iris, Lithium.
+- Graceful thread lifecycle (clean startup and shutdown).
+- Properties-file config with validation and auto-creation.
 
-**Version 1.0 was developed internally but never publicly released** due to critical issues that made it unsuitable for distribution:
-
-#### Critical Issues in v1.0 (Unreleased)
-- **Memory Leaks:** Background polling thread caused gradual RAM consumption over time
-- **Sodium/Iris Incompatibility:** Rendering pipeline conflicts caused crashes with popular performance mods
-- **Config Corruption:** File writing logic occasionally corrupted the config file, requiring manual deletion
-- **Movement Bugs:** Sprint-fix feature caused unintended movement behavior in certain scenarios
-- **Thread Safety:** Race conditions in the input queue led to sporadic freezes
-- **Poor Shutdown Handling:** Threads didn't terminate cleanly when unloading worlds
-
-Rather than patch these fundamental architectural flaws, the decision was made to **completely rewrite the mod from scratch** using industry best practices. Version 2.0 represents this ground-up rebuild.
-
----
-
-### ✨ Added (v2.0.0)
-
-#### Core Features
-- **Dynamic Poll Rate System**
-  - FPS-aware auto-scaling (100-500Hz)
-  - Intelligent boost levels based on client performance
-  - Configurable base poll rate
-
-- **F3 Debug Integration**
-  - Real-time status display in vanilla debug screen
-  - No HUD overlay or external UI needed
-  - Shows: Poll rate, FPS, recovered inputs, CPS, feature states
-
-- **Real-Time CPS Tracker**
-  - Accurate clicks-per-second measurement
-  - Integrated into F3 display
-  - Useful for PvP practice and monitoring
-
-- **Auto-Strafe Correction**
-  - Fixes diagonal movement speed loss at low FPS
-  - Maintains sprint momentum during directional changes
-  - Essential for smooth strafing combat
-
-- **Anti-Idle Protection**
-  - Prevents AFK kicks during client lag spikes
-  - Sends automatic keep-alive packets
-  - Configurable on/off toggle
-
-- **Modular Feature System**
-  - Each feature can be independently toggled
-  - Changes applied via config file
-  - Clean separation of concerns in codebase
-
-#### Technical Features
-- **Lock-Free Input Queue**
-  - Concurrent queue implementation for thread safety
-  - Zero-allocation during hot path
-  - Prevents dropped inputs under load
-
-- **Mixin-Based Event Interception**
-  - Modern Fabric best practices
-  - Compatible with other Mixin-based mods
-  - Minimal performance overhead
-
-- **Graceful Thread Lifecycle**
-  - Proper shutdown on world unload
-  - No lingering threads or resource leaks
-  - Clean startup/shutdown hooks
-
-- **Comprehensive Config System**
-  - Properties file with sane defaults
-  - Validation and bounds checking
-  - Automatic creation on first launch
+### 🗑️ Removed (vs internal v1.0)
+- HUD overlay system — replaced with F3 integration.
+- Experimental/unstable features.
+- MC 1.19–1.20 legacy compatibility modes.
+- Built-in macro system.
 
 ---
 
-### 🔧 Changed (v2.0.0)
+## Version History
 
-#### Architecture Overhaul
-- **Complete codebase rewrite** from v1.0 internal version
-- Migrated from direct GLFW polling to Mixin-based input capture
-- Replaced synchronized blocks with `ConcurrentLinkedQueue`
-- Moved from fixed poll rate to dynamic FPS-aware scaling
-- Changed HUD rendering to F3 debug integration
-
-#### Configuration
-- Simplified config file to 7 essential options
-- Removed deprecated/experimental flags from v1.0
-- Added inline documentation in properties file
-- Changed default poll rate from 100Hz to 200Hz
-
-#### Feature Behavior
-- **Sprint Fix:** Now re-asserts every tick instead of on-input
-- **W-Tap Assist:** Improved sub-frame detection accuracy
-- **Auto-Sprint:** More reliable activation trigger
-
----
-
-### 🐛 Fixed (v2.0.0)
-
-#### Critical Fixes
-- ✅ **Eliminated all memory leaks** in background threads
-- ✅ **Full Sodium/Iris compatibility** - no more rendering conflicts
-- ✅ **Config file corruption** - robust write-and-rename pattern
-- ✅ **Thread safety** - replaced race conditions with lock-free structures
-- ✅ **Graceful shutdown** - threads now terminate cleanly
-
-#### Gameplay Fixes
-- ✅ **Sprint dropping at low FPS** - now maintains sprint consistently
-- ✅ **W-tap false positives** - improved detection logic
-- ✅ **Diagonal movement penalties** - auto-strafe maintains speed
-- ✅ **Input lag spikes** - queue prevents dropped actions
-- ✅ **CPS measurement inaccuracy** - now uses sliding window algorithm
-
-#### Compatibility Fixes
-- ✅ **Lithium conflicts** - removed overlapping optimizations
-- ✅ **OptiFabric crashes** - fixed ClassLoader issues
-- ✅ **Multiplayer desync** - client-side only validation
-- ✅ **Mod menu integration** - proper metadata exposure
-
----
-
-### 🔐 Security
-
-- Added input validation for all config values
-- Bounded poll rate to prevent CPU abuse (100-500Hz)
-- Sanitized thread names to prevent injection
-- Removed debug logging of user inputs
-
----
-
-### 🗑️ Removed (v2.0.0)
-
-Compared to internal v1.0:
-
-- **HUD Overlay System** - replaced with F3 integration
-- **Experimental Features** - removed unstable/untested code
-- **Legacy Compatibility Modes** - dropped MC 1.19-1.20 support
-- **Advanced Config Options** - simplified to essential settings only
-- **Built-in Macro System** - explicitly removed to prevent misuse
-
----
-
-## [Unreleased]
-
-### Planned Features
-- Multi-language support for F3 display
-- Mod Menu integration for in-game config
-- Performance profiling mode
-- Conflict detection with other input mods
-
----
-
-## Version History Summary
-
-| Version | Status | Release Date | Notes |
-|---------|--------|--------------|-------|
-| 2.0.2 | ✅ Released | 2026-03-30 | Hotfix: Thread safety, "not responding" fix, colorful F3, CPS recording |
-| 2.0.1 | ✅ Released | 2026-03-29 | Patch: 6 bugs fixed (thread safety, double drain, WTap) |
-| 2.0.0 | ✅ Released | 2026-03-27 | First public release, complete rewrite |
-| 1.0.0 | ❌ Never Released | - | Internal development only, abandoned due to critical issues |
-
----
-
-## Migration Guide
-
-### From v1.0 (Internal Users Only)
-
-If you used the internal v1.0 build:
-
-1. **Delete old config:** Remove `.minecraft/config/inputbooster.properties`
-2. **Remove old JAR:** Delete `inputbooster-1.0.0.jar` from mods folder
-3. **Install v2.0:** Place `inputbooster-2.0.0.jar` in mods folder
-4. **Launch game:** New config will auto-generate with defaults
-5. **Verify F3 display:** Confirm mod is active and showing status
-
-**Config Changes:**
-```diff
-# v1.0 (old)
-- enable_hud=true
-- hud_position=top_left
-- experimental_boost=true
-
-# v2.0 (new)
-+ show_f3_info=true
-+ auto_strafe=true
-+ anti_idle=true
-```
-
----
-
-## Development Notes
-
-### Why Skip v1.0 Public Release?
-
-The decision to skip a public v1.0 release was made after extensive internal testing revealed that:
-
-1. **User Experience:** Memory leaks would cause confusion and negative reviews
-2. **Compatibility:** Sodium/Iris incompatibility affected 80%+ of target audience
-3. **Technical Debt:** Patching v1.0 issues would take longer than rewriting
-4. **Architecture:** Fundamental design flaws couldn't be fixed incrementally
-
-**The rewrite took 3 months** but resulted in a stable, production-ready mod that:
-- ✅ Passed 200+ hours of stress testing
-- ✅ Zero reported crashes in closed beta (50 testers)
-- ✅ Compatible with all major performance mods
-- ✅ Memory-stable over 8+ hour sessions
+| Version | Date       | Status      | Summary |
+|---------|------------|-------------|---------|
+| 3.0.1   | 2026-05-23 | ✅ Released | Crash fixes, HUD overlay overhaul, CPS fix, double-break fix |
+| 3.0.0   | 2026-05-01 | ✅ Released | Burst mode, profiles, settings screen, latency profiler |
+| 2.0.2   | 2026-03-30 | ✅ Released | Thread safety, CPS recording, colorful F3 |
+| 2.0.1   | 2026-03-29 | ✅ Released | Double-drain fix, AtomicLong, WTap wiring |
+| 2.0.0   | 2026-03-27 | ✅ Released | First public release, complete rewrite |
+| 1.0.0   | —          | ❌ Unreleased | Internal only, abandoned |
 
 ---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details
-
----
-
-## Credits
+MIT License — see [LICENSE](LICENSE) for details.
 
 **Author:** Ahaduzzaman Khan  
 **Contributors:** PvP community beta testers  
 **Special Thanks:** Fabric Team, Sodium developers
-
----
 
 *For bug reports and feature requests, visit [GitHub Issues](https://github.com/ahaduzzamankhan/inputbooster/issues)*

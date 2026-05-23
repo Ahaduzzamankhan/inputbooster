@@ -92,6 +92,10 @@ public class InputBoosterMod implements ClientModInitializer {
     }
 
     private void onClientTick(MinecraftClient client) {
+        // Handle keybinds BEFORE the active guard so P can re-enable the mod
+        // and O can still open settings even when the mod is toggled off.
+        if (initialized.get()) handleKeybinds(client);
+
         if (!active || !initialized.get()) return;
         try {
             lastTickTime = System.nanoTime();
@@ -108,7 +112,6 @@ public class InputBoosterMod implements ClientModInitializer {
             if (InputBoosterConfig.isPollRateAutoMode()) adjustPollRateAuto();
             else                                          adjustPollRateManual();
 
-            handleKeybinds(client);
             handleComboKeys(client);
 
             sprintManager.tick(client);
