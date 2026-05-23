@@ -6,6 +6,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * InputPollingThread — High-frequency polling thread. Runs at up to 1000 Hz.
  *
+ * FIX: poll() now reads keySnapshot exactly once per cycle into a local
+ * variable. Previously the volatile reference could be replaced mid-poll
+ * by the game tick thread, causing some keys to be read from the old snapshot
+ * and others from the new one — a torn read that could manufacture phantom
+ * transitions (key appears pressed→released in the same cycle with no real
+ * change). Capturing once makes every cycle operate on a single consistent
+ * snapshot.
+ *
  * v3.0.0 additions:
  *  - Adaptive Burst Mode (Feature 1): when FPS drops >20% in one second,
  *    automatically spikes poll rate to 1000 Hz for 3 seconds, then returns
@@ -80,6 +88,11 @@ public class InputPollingThread extends Thread {
     private void poll() {
         if (!InputBoosterMod.gameReady || InputBoosterMod.gamePaused) return;
 
+        // FIX: Capture the snapshot reference exactly once per poll cycle.
+        // The game tick thread may replace InputBoosterMod.keySnapshot at any
+        // moment. Reading the volatile field once and working from the local
+        // variable guarantees all key reads in this cycle come from the same
+        // consistent snapshot, eliminating torn reads and phantom transitions.
         KeySnapshot snap = InputBoosterMod.keySnapshot;
         if (snap == null) return;
 

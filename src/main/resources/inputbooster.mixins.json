@@ -6,6 +6,7 @@
   "client": [
     "GameTickMixin",
     "DebugHudMixin",
+    "InGameHudMixin",
     "MinecraftClientAccessor"
   ],
   "injectors": {

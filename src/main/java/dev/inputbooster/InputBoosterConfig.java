@@ -45,6 +45,9 @@ public class InputBoosterConfig {
     // ── UI ───────────────────────────────────────────────────────────────────
     private static boolean showF3Info        = true;
     private static boolean showActionBar     = true;
+    // 0=Top-Left 1=Top-Right 2=Bottom-Left 3=Bottom-Right
+    private static int     overlayPosition   = 0;
+    private static float   overlayScale      = 1.0f;
 
     // ── Advanced ─────────────────────────────────────────────────────────────
     private static int     fpsCheckInterval  = 20;
@@ -96,6 +99,8 @@ public class InputBoosterConfig {
                 maxCps            = Math.max(1, Math.min(20, parseInt(props, "max_cps", 20)));
                 comboKeysEnabled  = parseBool(props, "combo_keys",            true);
                 showF3Info        = parseBool(props, "show_f3_info",          true);
+                overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", 0)));
+                overlayScale      = Math.max(0.5f, Math.min(3.0f, parseFloat(props, "overlay_scale", 1.0f)));
                 showActionBar     = parseBool(props, "show_action_bar",       true);
                 fpsCheckInterval  = Math.max(1, Math.min(100, parseInt(props, "fps_check_interval", 20)));
                 debugMode         = parseBool(props, "debug_mode",            false);
@@ -128,6 +133,8 @@ public class InputBoosterConfig {
             props.setProperty("max_cps",             String.valueOf(maxCps));
             props.setProperty("combo_keys",          String.valueOf(comboKeysEnabled));
             props.setProperty("show_f3_info",        String.valueOf(showF3Info));
+            props.setProperty("overlay_position",    String.valueOf(overlayPosition));
+            props.setProperty("overlay_scale",       String.valueOf(overlayScale));
             props.setProperty("show_action_bar",     String.valueOf(showActionBar));
             props.setProperty("fps_check_interval",  String.valueOf(fpsCheckInterval));
             props.setProperty("debug_mode",          String.valueOf(debugMode));
@@ -141,6 +148,11 @@ public class InputBoosterConfig {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static float parseFloat(java.util.Properties p, String k, float def) {
+        try { return Float.parseFloat(p.getProperty(k, String.valueOf(def))); }
+        catch (Exception e) { return def; }
+    }
 
     private static int parseInt(Properties p, String key, int def) {
         try { return Integer.parseInt(p.getProperty(key, String.valueOf(def))); }
@@ -157,6 +169,7 @@ public class InputBoosterConfig {
         antiIdleEnabled = true; autoStrafeEnabled = true; cpsLimiterEnabled = true;
         burstModeEnabled = true; maxCps = 20; comboKeysEnabled = true;
         showF3Info = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
+        overlayPosition = 0; overlayScale = 1.0f;
     }
 
     // ── Getters ───────────────────────────────────────────────────────────────
@@ -173,6 +186,8 @@ public class InputBoosterConfig {
     public static int     getMaxCps()            { return maxCps; }
     public static boolean isComboKeysEnabled()   { return comboKeysEnabled; }
     public static boolean isShowF3Info()         { return showF3Info; }
+    public static int     getOverlayPosition()   { return overlayPosition; }
+    public static float   getOverlayScale()      { return overlayScale; }
     public static boolean isShowActionBar()      { return showActionBar; }
     public static int     getFpsCheckInterval()  { return fpsCheckInterval; }
     public static boolean isDebugMode()          { return debugMode; }
@@ -191,6 +206,8 @@ public class InputBoosterConfig {
     public static void setMaxCps(int v)               { maxCps = Math.max(1, Math.min(20, v)); }
     public static void setComboKeysEnabled(boolean v) { comboKeysEnabled = v; }
     public static void setShowF3Info(boolean v)       { showF3Info = v; }
+    public static void setOverlayPosition(int v)      { overlayPosition = Math.max(0, Math.min(3, v)); }
+    public static void setOverlayScale(float v)       { overlayScale = Math.max(0.5f, Math.min(3.0f, v)); }
     public static void setShowActionBar(boolean v)    { showActionBar = v; }
     public static void setFpsCheckInterval(int v)     { fpsCheckInterval = Math.max(1, Math.min(100, v)); }
     public static void setDebugMode(boolean v)        { debugMode = v; }

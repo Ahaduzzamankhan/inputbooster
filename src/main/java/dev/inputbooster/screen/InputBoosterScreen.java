@@ -130,22 +130,28 @@ public class InputBoosterScreen extends Screen {
     }
 
     private void initAdvancedTab(int cx, int top, int bw, int bh, int gap) {
-        addDrawableChild(toggleButton(cx, top, "F3 Overlay Info", InputBoosterConfig.isShowF3Info(), btn -> {
+        addDrawableChild(toggleButton(cx, top, "HUD Overlay", InputBoosterConfig.isShowF3Info(), btn -> {
             InputBoosterConfig.setShowF3Info(!InputBoosterConfig.isShowF3Info());
-            btn.setMessage(toggleLabel("F3 Overlay Info", InputBoosterConfig.isShowF3Info()));
+            btn.setMessage(toggleLabel("HUD Overlay", InputBoosterConfig.isShowF3Info()));
             hasChanges = true;
         }));
-        addDrawableChild(toggleButton(cx, top + gap, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
+        addDrawableChild(ButtonWidget.builder(overlayPosLabel(), btn -> {
+            InputBoosterConfig.setOverlayPosition((InputBoosterConfig.getOverlayPosition() + 1) % 4);
+            btn.setMessage(overlayPosLabel());
+            hasChanges = true;
+        }).dimensions(cx - 100, top + gap, 200, bh).build());
+        addDrawableChild(new OverlayScaleSlider(cx - bw / 2, top + gap * 2, bw, bh, InputBoosterConfig.getOverlayScale()));
+        addDrawableChild(toggleButton(cx, top + gap * 3, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
             InputBoosterConfig.setShowActionBar(!InputBoosterConfig.isShowActionBar());
             btn.setMessage(toggleLabel("Action Bar Messages", InputBoosterConfig.isShowActionBar()));
             hasChanges = true;
         }));
-        addDrawableChild(toggleButton(cx, top + gap * 2, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
+        addDrawableChild(toggleButton(cx, top + gap * 4, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
             InputBoosterConfig.setDebugMode(!InputBoosterConfig.isDebugMode());
             btn.setMessage(toggleLabel("Debug Mode", InputBoosterConfig.isDebugMode()));
             hasChanges = true;
         }));
-        addDrawableChild(new FpsCheckSlider(cx - bw / 2, top + gap * 3 + 4, bw, bh, InputBoosterConfig.getFpsCheckInterval()));
+        addDrawableChild(new FpsCheckSlider(cx - bw / 2, top + gap * 5 + 4, bw, bh, InputBoosterConfig.getFpsCheckInterval()));
     }
 
     private void initStatsTab(int cx, int top, int bw, int bh, int gap) {
@@ -187,7 +193,9 @@ public class InputBoosterScreen extends Screen {
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        renderBackground(ctx, mouseX, mouseY, delta);
+        // Do NOT call renderBackground() here — MC 1.21.11 already calls it
+        // via Screen.render() before delegating to us, and calling it twice
+        // triggers 'Can only blur once per frame'.
         ctx.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 8, 0xFFFFFF);
 
         String tabLabel = switch (currentTab) {
@@ -269,6 +277,11 @@ public class InputBoosterScreen extends Screen {
         }
     }
 
+    private Text overlayPosLabel() {
+        String[] names = {"Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right"};
+        return Text.literal("Overlay Position: §e" + names[InputBoosterConfig.getOverlayPosition()]);
+    }
+
     private Text modeLabel() {
         return InputBoosterConfig.isPollRateAutoMode()
             ? Text.literal("§aMode: AUTO §r§7(FPS-adaptive)")
@@ -315,6 +328,24 @@ public class InputBoosterScreen extends Screen {
         @Override protected void applyValue() {
             cps = 1 + (int)(value * 19);
             InputBoosterConfig.setMaxCps(cps);
+            updateMessage();
+        }
+    }
+
+    private static class OverlayScaleSlider extends SliderWidget {
+        private float scale;
+        OverlayScaleSlider(int x, int y, int w, int h, float currentScale) {
+            super(x, y, w, h, Text.literal("Overlay Scale: " + currentScale + "x"), (currentScale - 0.5f) / 2.5f);
+            this.scale = currentScale;
+        }
+        @Override protected void updateMessage() {
+            setMessage(Text.literal(String.format("Overlay Scale: §e%.1fx", scale)));
+        }
+        @Override protected void applyValue() {
+            scale = 0.5f + (float)(value * 2.5f);
+            // Round to nearest 0.1
+            scale = Math.round(scale * 10) / 10.0f;
+            InputBoosterConfig.setOverlayScale(scale);
             updateMessage();
         }
     }

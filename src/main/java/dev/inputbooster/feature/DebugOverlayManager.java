@@ -2,7 +2,6 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -10,77 +9,111 @@ import net.minecraft.client.gui.DrawContext;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * DebugOverlayManager — draws the InputBooster HUD panel.
+ *
+ * Position and scale are configurable via InputBoosterConfig:
+ *   overlayPosition: 0=Top-Left  1=Top-Right  2=Bottom-Left  3=Bottom-Right
+ *   overlayScale:    0.5 – 3.0
+ */
 public class DebugOverlayManager {
 
-    private static boolean initialized = false;
+    private static final int COLOR_AQUA   = 0xFF55FFFF;
+    private static final int COLOR_RED    = 0xFFFF4444;
+    private static final int COLOR_ORANGE = 0xFFFFAA00;
+    private static final int COLOR_GREEN  = 0xFF55FF55;
+    private static final int COLOR_YELLOW = 0xFFFFFF55;
+    private static final int COLOR_GRAY   = 0xFFAAAAAA;
 
-    public static void register() {
-        if (initialized) return;
+    /** Called from InGameHudMixin every frame. */
+    public static void render(DrawContext ctx) {
+        if (!InputBoosterConfig.isShowF3Info()) return;
 
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
-            if (!InputBoosterConfig.isShowF3Info()) return;
-            MinecraftClient mc = MinecraftClient.getInstance();
-            if (mc.getDebugHud().shouldShowDebugHud()) return; // F3 open — DebugHudMixin handles it
-            renderHudOverlay(drawContext, mc);
-        });
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null || !InputBoosterMod.gameReady) return;
 
-        initialized = true;
-    }
-
-    private static void renderHudOverlay(DrawContext ctx, MinecraftClient mc) {
-        if (!InputBoosterMod.gameReady) return;
+        // Hide overlay while F3 is open — it clutters the debug screen
+        if (mc.getDebugHud().shouldShowDebugHud()) return;
 
         TextRenderer font = mc.textRenderer;
-        int x = 2, y = 2, lineHeight = 10;
-
-
         boolean burst  = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
         int hz         = InputBoosterMod.currentPollHz;
         int fps        = InputBoosterMod.currentFps;
         int cps        = InputBoosterMod.cpsLimiter != null ? InputBoosterMod.cpsLimiter.getCps() : 0;
         int maxCps     = InputBoosterConfig.getMaxCps();
-        String mode    = InputBoosterConfig.isPollRateAutoMode() ? "AUTO" : "MANUAL";
 
-        List<String> lines = new ArrayList<>();
-        lines.add("§b§lInputBooster v" + InputBoosterMod.MOD_VERSION + (burst ? " §c⚡BURST" : ""));
-        lines.add("§7Mode: §" + (InputBoosterConfig.isPollRateAutoMode() ? "a" : "e") + mode
-            + "§7 | §e" + hz + " Hz§7 | FPS: §e" + fps);
-        lines.add("§7" + LatencyProfiler.formatForOverlay());
-        lines.add("§7CPS: §e" + cps + "§7/" + maxCps + buildCpsBar(cps, maxCps));
-        lines.add("§7Status: §" + (InputBoosterMod.active ? "a✓ ACTIVE" : "c✗ INACTIVE"));
+        List<Line> lines = buildLines(burst, hz, fps, cps, maxCps);
+
+        int   pos       = InputBoosterConfig.getOverlayPosition();
+        float scale     = InputBoosterConfig.getOverlayScale();
+        int   lineH     = (int)(10 * scale);
+        int   padX      = 3, padY = 3, bgPad = 2;
+        int   screenW   = mc.getWindow().getScaledWidth();
+        int   screenH   = mc.getWindow().getScaledHeight();
+
+        // Measure panel
+        int maxTextW = 0;
+        for (Line l : lines) maxTextW = Math.max(maxTextW, font.getWidth(l.text));
+        int panelW = (int)(maxTextW * scale) + padX * 2 + bgPad * 2;
+        int panelH = lines.size() * lineH + padY * 2 + bgPad * 2;
+
+        // Anchor
+        int originX, originY;
+        switch (pos) {
+            case 1  -> { originX = screenW - panelW;          originY = 0; }           // Top-Right
+            case 2  -> { originX = 0;                          originY = screenH - panelH; } // Bottom-Left
+            case 3  -> { originX = screenW - panelW;          originY = screenH - panelH; } // Bottom-Right
+            default -> { originX = 0;                          originY = 0; }           // Top-Left
+        }
+
+        // Background
+        ctx.fill(
+            originX,            originY,
+            originX + panelW,   originY + panelH,
+            0x90000000
+        );
+
+        // Draw each line manually at scaled positions — no matrix stack needed.
+        // We pre-compute pixel positions using the scale factor directly.
+        int textX = originX + padX + bgPad;
+        int textY = originY + padY + bgPad;
 
         for (int i = 0; i < lines.size(); i++) {
-            int renderY = y + (i * lineHeight);
-            int textWidth = font.getWidth(lines.get(i));
-            ctx.drawText(font, lines.get(i), x, renderY, 0xFFFFFF, true);
+            Line l = lines.get(i);
+            ctx.drawText(font, l.text, textX, textY + i * lineH, l.color, true);
         }
     }
 
-    private static String buildCpsBar(int cps, int maxCps) {
-        if (maxCps <= 0) return "";
-        int filled = Math.min(cps * 10 / maxCps, 10);
-        StringBuilder bar = new StringBuilder(" §8[");
-        for (int i = 0; i < 10; i++) bar.append(i < filled ? "§a|" : "§8|");
-        bar.append("§8]");
-        return bar.toString();
-    }
-
-    public static List<String> getDebugLines() {
-        List<String> lines = new ArrayList<>();
-        if (!InputBoosterMod.gameReady) return lines;
-
-        boolean burst = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
-        lines.add("[InputBooster v" + InputBoosterMod.MOD_VERSION + "]" + (burst ? " ⚡BURST" : ""));
-        lines.add("Mode: " + (InputBoosterConfig.isPollRateAutoMode() ? "AUTO" : "MANUAL")
-            + " | " + InputBoosterMod.currentPollHz + " Hz");
-        lines.add(LatencyProfiler.formatForOverlay());
-        lines.add("Hits: " + fmt(InputBoosterMod.totalHits.get())
-            + " | Recovered: " + fmt(InputBoosterMod.recoveredInputs.get()));
-        lines.add("CPS: " + (InputBoosterMod.cpsLimiter != null
-            ? InputBoosterMod.cpsLimiter.getCps() + "/" + InputBoosterConfig.getMaxCps() : "disabled"));
-        lines.add("Status: " + (InputBoosterMod.active ? "ACTIVE" : "INACTIVE"));
+    private static List<Line> buildLines(boolean burst, int hz, int fps, int cps, int maxCps) {
+        List<Line> lines = new ArrayList<>();
+        lines.add(new Line(
+            "[ InputBooster " + InputBoosterMod.MOD_VERSION + " ]" + (burst ? " \u26a1BURST" : ""),
+            burst ? COLOR_ORANGE : COLOR_AQUA
+        ));
+        lines.add(new Line(
+            "Poll Rate: " + hz + " Hz" + (burst ? " (\u26a1->1000)" : ""),
+            burst ? COLOR_ORANGE : COLOR_RED
+        ));
+        lines.add(new Line(
+            "FPS: " + fps,
+            fps >= 60 ? COLOR_GREEN : fps >= 30 ? COLOR_YELLOW : COLOR_RED
+        ));
+        boolean auto = InputBoosterConfig.isPollRateAutoMode();
+        lines.add(new Line("Mode: " + (auto ? "AUTO" : "MANUAL"), auto ? COLOR_GREEN : COLOR_YELLOW));
+        lines.add(new Line(LatencyProfiler.formatForOverlay(), COLOR_GRAY));
+        lines.add(new Line(
+            "Hits: " + fmt(InputBoosterMod.totalHits.get())
+            + "  Rec: " + fmt(InputBoosterMod.recoveredInputs.get()), COLOR_GRAY
+        ));
+        lines.add(new Line("CPS: " + cps + " / " + maxCps, COLOR_YELLOW));
+        lines.add(new Line(
+            "Status: " + (InputBoosterMod.active ? "ACTIVE" : "INACTIVE"),
+            InputBoosterMod.active ? COLOR_GREEN : COLOR_RED
+        ));
         return lines;
     }
+
+    private record Line(String text, int color) {}
 
     private static String fmt(long n) {
         if (n >= 1_000_000) return String.format("%.1fM", n / 1_000_000.0);
@@ -88,5 +121,7 @@ public class DebugOverlayManager {
         return String.valueOf(n);
     }
 
-    public static boolean isInitialized() { return initialized; }
+    public static void register() {}
+    public static List<String> getDebugLines() { return new ArrayList<>(); }
+    public static boolean isInitialized() { return true; }
 }

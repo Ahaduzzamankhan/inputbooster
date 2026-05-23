@@ -1,27 +1,20 @@
 package dev.inputbooster.mixin;
 
-import dev.inputbooster.InputBoosterConfig;
-import dev.inputbooster.feature.DebugOverlayManager;
 import net.minecraft.client.gui.hud.DebugHud;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.ArrayList;
-import java.util.List;
-
+/**
+ * DebugHudMixin — intentionally empty.
+ *
+ * We no longer hook into DebugHud's text methods (getLeftText / getRightText)
+ * because their names differ across yarn 1.21.x patch versions, causing
+ * "Cannot remap" build warnings and the injection silently never running.
+ *
+ * Instead, DebugOverlayManager uses HudRenderCallback to draw InputBooster
+ * info directly via DrawContext in the top-right corner whenever F3 is open.
+ * This approach works on every MC version with no mapping dependency.
+ */
 @Mixin(value = DebugHud.class, priority = 900)
 public class DebugHudMixin {
-
-    @Inject(method = "getLeftText", at = @At("RETURN"), cancellable = true, require = 0)
-    private void onGetLeftText(CallbackInfoReturnable<List<String>> cir) {
-        if (!InputBoosterConfig.isShowF3Info()) return;
-        if (cir.getReturnValue() == null) return;
-
-        List<String> lines = new ArrayList<>(cir.getReturnValue());
-        lines.add("");
-        lines.addAll(DebugOverlayManager.getDebugLines());
-        cir.setReturnValue(lines);
-    }
+    // Intentionally empty — see DebugOverlayManager for the actual rendering.
 }

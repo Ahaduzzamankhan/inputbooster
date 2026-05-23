@@ -4,8 +4,6 @@ import dev.inputbooster.feature.LatencyProfiler;
 import dev.inputbooster.mixin.MinecraftClientAccessor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.entity.Entity;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
@@ -13,8 +11,25 @@ import net.minecraft.util.hit.HitResult;
 
 public class InputDrainer {
 
+    /**
+     * FIX: Track whether the mod handled an ATTACK_PRESSED this tick.
+     * GameTickMixin reads this flag to suppress vanilla's own attack handling,
+     * preventing the double-hit bug where one click triggers two attacks.
+     */
+    public static volatile boolean attackHandledThisTick = false;
+
+    /**
+     * FIX: Track whether the mod handled a USE_PRESSED this tick.
+     * Same suppression pattern applied to right-click / use actions.
+     */
+    public static volatile boolean useHandledThisTick = false;
+
     public static void drainAll(MinecraftClient mc) {
         if (mc == null || mc.player == null || mc.interactionManager == null) return;
+
+        // Reset per-tick flags before draining
+        attackHandledThisTick = false;
+        useHandledThisTick    = false;
 
         InputAction.Stamped stamped;
         while ((stamped = InputActionQueue.poll()) != null) {
@@ -27,6 +42,11 @@ public class InputDrainer {
 
             apply(stamped.action(), mc);
             InputBoosterMod.totalHits.incrementAndGet();
+            // Record CPS for every accepted attack, regardless of target type
+            if (stamped.action() == InputAction.ATTACK_PRESSED &&
+                InputBoosterMod.cpsLimiter != null) {
+                InputBoosterMod.cpsLimiter.recordClick();
+            }
         }
     }
 
@@ -40,19 +60,26 @@ public class InputDrainer {
                 if (mc.crosshairTarget != null) {
                     switch (mc.crosshairTarget.getType()) {
                         case ENTITY -> {
+                            // Entity hits are one-shot events: fire from the drainer and
+                            // suppress vanilla's doAttack() so it doesn't hit a second time.
                             if (mc.targetedEntity != null) {
                                 mc.interactionManager.attackEntity(player, mc.targetedEntity);
+                                player.swingHand(Hand.MAIN_HAND);
+                                // Signal vanilla's doAttack() to back off — we already fired.
+                                attackHandledThisTick = true;
                             }
                         }
                         case BLOCK -> {
-                            BlockHitResult blockHit = (BlockHitResult) mc.crosshairTarget;
-                            mc.interactionManager.attackBlock(blockHit.getBlockPos(), blockHit.getSide());
+                            // Block breaking is a CONTINUOUS held-key mechanic. Vanilla's
+                            // handleBlockBreaking() already calls attackBlock() every tick
+                            // the button is held. If we also call attackBlock() here we get
+                            // TWO calls per tick — exactly the double-break bug the user sees.
+                            //
+                            // Fix: do NOT call attackBlock() from the drainer. Do NOT set
+                            // attackHandledThisTick so vanilla's doAttack() / handleBlockBreaking()
+                            // runs its normal single-call loop unobstructed.
                         }
                         default -> {}
-                    }
-                    player.swingHand(Hand.MAIN_HAND);
-                    if (InputBoosterMod.cpsLimiter != null) {
-                        InputBoosterMod.cpsLimiter.recordClick();
                     }
                 }
             }
@@ -73,6 +100,8 @@ public class InputDrainer {
                         }
                         default -> mc.interactionManager.interactItem(player, Hand.MAIN_HAND);
                     }
+                    // FIX: Signal that we handled the use — vanilla must not fire again
+                    useHandledThisTick = true;
                 }
             }
 
