@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.inputbooster.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "GameTickMixin",
+    "DebugHudMixin",
+    "InGameHudMixin",
+    "MinecraftClientAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

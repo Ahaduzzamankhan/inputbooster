@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "inputbooster",
+  "version": "${version}",
+  "name": "InputBooster",
+  "description": "Ultra-fast input registration for low-FPS PvP players.",
+  "authors": ["Ahaduzzaman Khan"],
+  "license": "MIT",
+  "icon": "assets/inputbooster/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.inputbooster.InputBoosterMod"]
+  },
+  "mixins": ["inputbooster.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version_range}",
+    "java": ">=25"
+  }
+}
