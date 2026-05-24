@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.*;
-import java.util.Properties;
+import java.util.*;
 
 /**
  * InputBoosterConfig — Configuration management for InputBooster mod.
@@ -41,6 +41,13 @@ public class InputBoosterConfig {
     private static boolean burstModeEnabled  = true;   // Feature 1
     private static int     maxCps            = 20;     // Feature 3 (1–20)
     private static boolean comboKeysEnabled  = true;   // Feature 4
+    private static String  cpsMode           = "FIXED";
+    private static boolean replayEnabled     = true;
+    private static boolean safeModeEnabled   = true;
+    private static boolean eventLogEnabled   = true;
+    private static boolean keyConflictWarn   = true;
+    private static boolean perServerProfiles = true;
+    private static int     configVersion     = 301;
 
     // ── UI ───────────────────────────────────────────────────────────────────
     private static boolean showF3Info        = true;
@@ -98,6 +105,13 @@ public class InputBoosterConfig {
                 burstModeEnabled  = parseBool(props, "burst_mode",            true);
                 maxCps            = Math.max(1, Math.min(20, parseInt(props, "max_cps", 20)));
                 comboKeysEnabled  = parseBool(props, "combo_keys",            true);
+                cpsMode           = props.getProperty("cps_mode", "FIXED").toUpperCase(Locale.ROOT);
+                replayEnabled     = parseBool(props, "replay_enabled",        true);
+                safeModeEnabled   = parseBool(props, "safe_mode",             true);
+                eventLogEnabled   = parseBool(props, "event_log",             true);
+                keyConflictWarn   = parseBool(props, "key_conflict_warn",     true);
+                perServerProfiles = parseBool(props, "per_server_profiles",   true);
+                configVersion     = Math.max(1, parseInt(props, "config_version", 301));
                 showF3Info        = parseBool(props, "show_f3_info",          true);
                 overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", 0)));
                 overlayScale      = Math.max(0.5f, Math.min(3.0f, parseFloat(props, "overlay_scale", 1.0f)));
@@ -132,6 +146,13 @@ public class InputBoosterConfig {
             props.setProperty("burst_mode",          String.valueOf(burstModeEnabled));
             props.setProperty("max_cps",             String.valueOf(maxCps));
             props.setProperty("combo_keys",          String.valueOf(comboKeysEnabled));
+            props.setProperty("cps_mode",            cpsMode);
+            props.setProperty("replay_enabled",      String.valueOf(replayEnabled));
+            props.setProperty("safe_mode",           String.valueOf(safeModeEnabled));
+            props.setProperty("event_log",           String.valueOf(eventLogEnabled));
+            props.setProperty("key_conflict_warn",   String.valueOf(keyConflictWarn));
+            props.setProperty("per_server_profiles", String.valueOf(perServerProfiles));
+            props.setProperty("config_version",      String.valueOf(configVersion));
             props.setProperty("show_f3_info",        String.valueOf(showF3Info));
             props.setProperty("overlay_position",    String.valueOf(overlayPosition));
             props.setProperty("overlay_scale",       String.valueOf(overlayScale));
@@ -168,6 +189,8 @@ public class InputBoosterConfig {
         sprintFixEnabled = true; autoSprintEnabled = true; wTapAssistEnabled = true;
         antiIdleEnabled = true; autoStrafeEnabled = true; cpsLimiterEnabled = true;
         burstModeEnabled = true; maxCps = 20; comboKeysEnabled = true;
+        cpsMode = "FIXED"; replayEnabled = true; safeModeEnabled = true;
+        eventLogEnabled = true; keyConflictWarn = true; perServerProfiles = true; configVersion = 301;
         showF3Info = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
         overlayPosition = 0; overlayScale = 1.0f;
     }
@@ -185,6 +208,13 @@ public class InputBoosterConfig {
     public static boolean isBurstModeEnabled()   { return burstModeEnabled; }
     public static int     getMaxCps()            { return maxCps; }
     public static boolean isComboKeysEnabled()   { return comboKeysEnabled; }
+    public static String  getCpsMode()           { return cpsMode; }
+    public static boolean isReplayEnabled()      { return replayEnabled; }
+    public static boolean isSafeModeEnabled()    { return safeModeEnabled; }
+    public static boolean isEventLogEnabled()    { return eventLogEnabled; }
+    public static boolean isKeyConflictWarn()    { return keyConflictWarn; }
+    public static boolean isPerServerProfiles()  { return perServerProfiles; }
+    public static int     getConfigVersion()     { return configVersion; }
     public static boolean isShowF3Info()         { return showF3Info; }
     public static int     getOverlayPosition()   { return overlayPosition; }
     public static float   getOverlayScale()      { return overlayScale; }
@@ -205,6 +235,12 @@ public class InputBoosterConfig {
     public static void setBurstModeEnabled(boolean v) { burstModeEnabled = v; }
     public static void setMaxCps(int v)               { maxCps = Math.max(1, Math.min(20, v)); }
     public static void setComboKeysEnabled(boolean v) { comboKeysEnabled = v; }
+    public static void setCpsMode(String v)            { cpsMode = (v == null ? "FIXED" : v.toUpperCase(Locale.ROOT)); }
+    public static void setReplayEnabled(boolean v)     { replayEnabled = v; }
+    public static void setSafeModeEnabled(boolean v)   { safeModeEnabled = v; }
+    public static void setEventLogEnabled(boolean v)   { eventLogEnabled = v; }
+    public static void setKeyConflictWarn(boolean v)   { keyConflictWarn = v; }
+    public static void setPerServerProfiles(boolean v) { perServerProfiles = v; }
     public static void setShowF3Info(boolean v)       { showF3Info = v; }
     public static void setOverlayPosition(int v)      { overlayPosition = Math.max(0, Math.min(3, v)); }
     public static void setOverlayScale(float v)       { overlayScale = Math.max(0.5f, Math.min(3.0f, v)); }

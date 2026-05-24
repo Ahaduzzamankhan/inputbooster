@@ -1,248 +1,108 @@
-# ⚡ InputBooster
+# InputBooster
 
-![Version](https://img.shields.io/badge/version-2.0.2-blue.svg)
-![Minecraft](https://img.shields.io/badge/minecraft-1.21.x-green.svg)
-![Loader](https://img.shields.io/badge/loader-Fabric-orange.svg)
-![Java](https://img.shields.io/badge/java-21+-red.svg)
-![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)
+InputBooster is a client-side Fabric mod for players who want cleaner input during PvP, survival, and low-FPS gameplay. It keeps your clicks and movement keys responsive when frames dip, shows useful live stats, and gives you simple tools for profiles, CPS control, and replay testing.
 
-**Ultra-fast input polling for competitive Minecraft PvP — never miss a click again.**
+This build is for Minecraft 1.21.11.
 
----
+## What It Does
 
-## Overview
+Minecraft normally checks input as part of the client loop. When your FPS drops, fast clicks and key taps can feel late or inconsistent. InputBooster adds a high-frequency input layer that watches important controls, queues clean press events, and applies them safely on the game tick.
 
-InputBooster is a client-side Fabric mod designed to solve one of the most frustrating problems in low-FPS Minecraft gameplay: missed inputs. In vanilla Minecraft, input polling is tied directly to your frame rate. If your game is running at 20 FPS, your keyboard and mouse are only checked 20 times per second — meaning fast clicks, sprint presses, or movement inputs can slip through entirely undetected.
+The goal is simple: fewer missed clicks, smoother movement timing, and better feedback while you play.
 
-InputBooster decouples input polling from the render loop by running a dedicated high-frequency background thread operating between 100Hz and 500Hz. Every input captured on this thread is queued and processed on the next available game tick, ensuring nothing is ever dropped — even during severe frame drops or lag spikes. The result is a noticeably more responsive experience in combat, movement, and general gameplay, without touching your FPS or server-side behavior.
+## Feature Showcase
 
-The mod is fully automatic. There is no activation step, no keybind to toggle, and no complicated setup. Install it, launch the game, and it works silently in the background.
+### Faster Input Feel
 
----
+InputBooster polls attack, use, sprint, sneak, jump, movement, drop, swap, and pick-block inputs at a higher rate than normal frame timing. This helps short taps register even when your game stutters.
 
-## How It Works
+### PvP-Friendly Combat Tools
 
-At its core, InputBooster introduces a secondary thread that runs independently of Minecraft's main game loop. This thread continuously polls the state of your input devices at a configurable rate, defaulting to 200Hz but scaling dynamically based on your current FPS:
+The built-in CPS limiter can run in multiple modes:
 
-| Client FPS | Poll Rate |
-|------------|-----------|
-| < 20 FPS   | 500 Hz    |
-| ~30 FPS    | 350 Hz    |
-| ~60 FPS    | 200 Hz    |
-| 60+ FPS    | 100 Hz    |
+- `FIXED`: steady max CPS cap
+- `HUMANIZED`: lightly varies the limit so clicks feel less robotic
+- `COOLDOWN`: spaces clicks with a minimum delay
+- `WEAPON_AWARE`: keeps combat CPS more conservative
 
-When an input event is detected between frames, it is pushed into a thread-safe queue. On the next game tick, the main thread drains this queue and processes all buffered inputs in order. This means even a click that happened halfway between two frames will still fire correctly — something vanilla Minecraft simply cannot guarantee.
+The entity double-hit protection is also active, so one physical click should not become two entity attacks from the mod and vanilla at the same time.
 
----
+### Movement Helpers
 
-## What's New in v2.0.2
+InputBooster includes sprint support, W-tap timing support, auto-strafe correction, and anti-idle protection. These are designed to improve input consistency without playing the game for you.
 
-✅ **Fixed the "Not Responding" crash** on Minecraft 1.21.11+ (critical threading fix)  
-✅ **Enhanced F3 display** with colorful status indicators and better formatting  
-✅ **CPS tracking now works** – attacks are properly recorded for the CPS meter  
-✅ **Improved error logging** – silent failures are now visible in logs  
-✅ **Better thread safety** – more robust polling with proper interrupt handling  
+### Profiles
 
-→ [View detailed changelog](CHANGELOG.md)
+Save different settings for different play styles. For example:
 
----
+- PvP
+- Survival
+- Low FPS
+- Debug
+- Balanced
 
-## Features
+The new per-server profile backend can auto-switch profiles based on the server you join.
 
-### High-Frequency Input Polling
-The central feature of the mod. Input polling runs on a dedicated thread at 100–500Hz, completely independent of your render rate. Inputs are never skipped, never delayed beyond a single tick, and never dependent on your GPU or render pipeline.
+### Input Replay
 
-### Sprint Fix Engine
-Minecraft's sprint state is surprisingly fragile — it can drop silently during lag spikes, packet delays, or rapid direction changes. The Sprint Fix Engine re-asserts your sprint state every tick, ensuring you remain sprinting as long as the sprint key is held, regardless of what the server or client does internally.
+Replay tools help test whether input timing is working correctly.
 
-### W-Tap Assist
-W-tapping is a PvP technique that involves briefly releasing the forward key during combat to reset momentum and improve knockback trades. InputBooster's W-Tap Assist provides sub-frame detection of W-key releases, making the timing window more consistent and reliable without automating the action itself.
+Default keybinds:
 
-### Auto-Strafe Correction
-At low FPS, diagonal movement can cause unintended speed loss due to how Minecraft calculates movement vectors per frame. Auto-Strafe Correction compensates for this by adjusting strafe inputs to maintain expected momentum, keeping your movement smooth even when frames are inconsistent.
+- `R`: start or stop replay recording
+- `K`: play the recorded input replay
+- `O`: open InputBooster settings
+- `P`: toggle InputBooster on or off
 
-### Real-Time CPS Tracker
-InputBooster tracks your actual clicks per second and surfaces this data directly in Minecraft's F3 debug screen. No external tools or overlays required.
+You can change these in Minecraft's keybind menu.
 
-### Anti-Idle Protection
-During extended lag spikes, Minecraft's idle detection can trigger AFK kicks even if you are actively playing. Anti-Idle Protection sends periodic synthetic input signals to prevent this from happening, keeping you connected during temporary performance issues.
+### Live Overlay
 
-### F3 Debug Integration
-All mod statistics are visible live in the F3 debug screen with colorful status indicators:
+The in-game overlay can show:
 
-```
-[InputBooster 2.0.2] ✓ ACTIVE
-0━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Poll Rate   : 350 Hz (high boost)
-Client FPS  : 60 (target: 60+)
-Recovered   : 1,482 inputs
-CPS         : 12
-0━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Sprint Fix  : ✓ ON  Auto-Sprint: ✓ ON
-W-Tap Assist: ✓ ON  Auto-Strafe: ✓ ON
-Anti-Idle   : ✓ ON
-0━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-by Ahaduzzaman Khan
-```
+- InputBooster version
+- Poll rate
+- FPS
+- CPS
+- Recovered inputs
+- Latency stats
+- Active module count
+- Replay status
+- Safe mode status
+- Latest debug event when debug mode is enabled
 
-**Color Legend:**
-- 🔥 **RED (§c):** Critical boost, very low FPS
-- **YELLOW (§e):** High boost, low-moderate FPS  
-- **GREEN (§a):** Normal operation, good FPS
-- **GRAY (§7):** Light boost, high FPS
+### Safe Mode
 
----
+If the mod sees repeated internal errors, safe mode can disable active modules instead of letting errors repeat during gameplay.
+
+### Keybind Conflict Warnings
+
+InputBooster can scan your keybinds and log conflicts so you can spot controls that share the same key.
 
 ## Installation
 
-### Requirements
+1. Install Fabric Loader for Minecraft 1.21.11.
+2. Install Fabric API.
+3. Put `inputbooster-3.0.1.jar` in your `.minecraft/mods` folder.
+4. Launch the Fabric profile.
 
-| Dependency    | Version   |
-|---------------|-----------|
-| Minecraft     | 1.21.x    |
-| Fabric Loader | 0.16.0+   |
-| Fabric API    | Latest    |
-| Java          | 21+       |
+## Requirements
 
-### Steps
+- Minecraft Java Edition 1.21.11
+- Fabric Loader
+- Fabric API
+- Java 21 or newer
 
-1. Download the latest `.jar` from the [Releases](https://github.com/ahaduzzamankhan/inputbooster/releases) page
-2. Place the file in your `.minecraft/mods/` directory
-3. Launch Minecraft using the Fabric profile
-4. The mod activates automatically — no additional steps required
+## Latest Version
 
-### Mod Compatibility
+Current version: `3.0.1`
 
-**Compatible with:**
-- Sodium
-- Iris
-- Lithium
-- OptiFabric
-- Most performance-oriented mods
+The built jar is created at:
 
-**May conflict with:**
-- Other input-modifying mods
-- Macro or autoclicker mods
+`build/libs/inputbooster-3.0.1.jar`
 
----
+## Notes
 
-## Configuration
+InputBooster is client-side. It does not need to be installed on a server.
 
-The configuration file is located at `.minecraft/config/inputbooster.properties` and is generated automatically on first launch.
-
-```properties
-# Polling rate in Hz — higher values improve responsiveness at low FPS
-# Range: 100–500 | Default: 200
-poll_rate_hz=200
-
-# Re-assert sprint state every tick to prevent sprint drops
-sprint_fix=true
-
-# Hold W to sprint automatically, without tapping the sprint key
-auto_sprint=true
-
-# Enable sub-frame W-key release detection for W-tap timing
-wtap_assist=true
-
-# Prevent AFK kicks during lag spikes
-anti_idle=true
-
-# Correct diagonal movement speed loss at low FPS
-auto_strafe=true
-
-# Display live mod statistics in the F3 debug screen
-show_f3_info=true
-```
-
-> **Note:** All configuration changes require a full Minecraft restart to take effect.
-
-### Recommended Settings by Use Case
-
-| Scenario              | Recommended Config                          |
-|-----------------------|---------------------------------------------|
-| FPS below 30          | `poll_rate_hz=500`                          |
-| Vanilla sprint preference | `auto_sprint=false`                     |
-| PvP-focused setup     | All features enabled, `poll_rate_hz=400+`   |
-| Casual play           | Default config is sufficient                |
-
----
-
-## Limitations
-
-InputBooster is strictly a client-side input optimization tool. It does not and cannot:
-
-- Increase your rendered frames per second (use Sodium for that)
-- Compensate for server-side lag or low TPS
-- Reduce network latency or ping
-- Automate inputs, clicks, or actions of any kind
-
-The mod captures inputs faster and more reliably — it does not generate them.
-
----
-
-## Building from Source
-
-```bash
-git clone https://github.com/ahaduzzamankhan/inputbooster.git
-cd inputbooster
-./gradlew build
-# Output: build/libs/inputbooster-2.0.1.jar
-```
-
----
-
-## Contributing
-
-Contributions are welcome. To contribute:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -m 'Add your feature'`
-4. Push to the branch: `git push origin feature/your-feature`
-5. Open a Pull Request for review
-
-Please keep pull requests focused and well-described.
-
----
-
-## Contributors
-
-| Name | Role |
-|------|------|
-| [Ahaduzzaman Khan](https://github.com/ahaduzzamankhan) | Creator & Lead Developer |
-
----
-
-## Support
-
-| Channel      | Link |
-|--------------|------|
-| Bug Reports  | [GitHub Issues](https://github.com/ahaduzzamankhan/inputbooster/issues) |
-| Discussions  | [GitHub Discussions](https://github.com/ahaduzzamankhan/inputbooster/discussions) |
-| Download     | [Releases Page](https://github.com/ahaduzzamankhan/inputbooster/releases) |
-
-> **Modrinth:** The mod is not yet listed on Modrinth. Download from the Releases page above. This note will be removed once the Modrinth listing goes live.
-
----
-
-## Acknowledgments
-
-- **Fabric Team** — For building and maintaining an excellent modding framework
-- **Sodium Team** — For performance optimization work that inspired parts of this mod's design
-- **PvP Community** — For ongoing feedback, testing, and feature suggestions
-
----
-
-## License
-
-This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for full terms.
-
----
-
-<div align="center">
-
-**Made with ⚡ by [Ahaduzzaman Khan](https://github.com/ahaduzzamankhan)**
-
-*If InputBooster improved your gameplay, consider starring the repository.* ⭐
-
-</div>
+Some multiplayer servers have strict rules about client mods. Check the server rules before using any PvP utility mod.

@@ -43,7 +43,13 @@ public class ProfileManager {
         int maxCps,
         boolean comboKeysEnabled,
         int fpsCheckInterval,
-        boolean debugMode
+        boolean debugMode,
+        String cpsMode,
+        boolean replayEnabled,
+        boolean safeModeEnabled,
+        boolean eventLogEnabled,
+        boolean keyConflictWarn,
+        boolean perServerProfiles
     ) {
         /** Capture current config state into a new profile snapshot. */
         public static Profile capture(String name) {
@@ -63,7 +69,13 @@ public class ProfileManager {
                 InputBoosterConfig.getMaxCps(),
                 InputBoosterConfig.isComboKeysEnabled(),
                 InputBoosterConfig.getFpsCheckInterval(),
-                InputBoosterConfig.isDebugMode()
+                InputBoosterConfig.isDebugMode(),
+                InputBoosterConfig.getCpsMode(),
+                InputBoosterConfig.isReplayEnabled(),
+                InputBoosterConfig.isSafeModeEnabled(),
+                InputBoosterConfig.isEventLogEnabled(),
+                InputBoosterConfig.isKeyConflictWarn(),
+                InputBoosterConfig.isPerServerProfiles()
             );
         }
 
@@ -84,6 +96,12 @@ public class ProfileManager {
             InputBoosterConfig.setComboKeysEnabled(comboKeysEnabled);
             InputBoosterConfig.setFpsCheckInterval(fpsCheckInterval);
             InputBoosterConfig.setDebugMode(debugMode);
+            InputBoosterConfig.setCpsMode(cpsMode);
+            InputBoosterConfig.setReplayEnabled(replayEnabled);
+            InputBoosterConfig.setSafeModeEnabled(safeModeEnabled);
+            InputBoosterConfig.setEventLogEnabled(eventLogEnabled);
+            InputBoosterConfig.setKeyConflictWarn(keyConflictWarn);
+            InputBoosterConfig.setPerServerProfiles(perServerProfiles);
         }
 
         /** Serialize to a simple properties-style JSON object (manual, no Gson dep). */
@@ -104,7 +122,13 @@ public class ProfileManager {
                 + "\"maxCps\":" + maxCps + ","
                 + "\"comboKeysEnabled\":" + comboKeysEnabled + ","
                 + "\"fpsCheckInterval\":" + fpsCheckInterval + ","
-                + "\"debugMode\":" + debugMode
+                + "\"debugMode\":" + debugMode + ","
+                + "\"cpsMode\":\"" + cpsMode + "\","
+                + "\"replayEnabled\":" + replayEnabled + ","
+                + "\"safeModeEnabled\":" + safeModeEnabled + ","
+                + "\"eventLogEnabled\":" + eventLogEnabled + ","
+                + "\"keyConflictWarn\":" + keyConflictWarn + ","
+                + "\"perServerProfiles\":" + perServerProfiles
                 + "}";
         }
 
@@ -127,9 +151,17 @@ public class ProfileManager {
                 boolean comboKeys     = boolField(json, "comboKeysEnabled", true);
                 int fpsCheckInterval  = intField(json, "fpsCheckInterval", 20);
                 boolean debugMode     = boolField(json, "debugMode", false);
+                String cpsMode         = strField(json, "cpsMode");
+                if ("Unnamed".equals(cpsMode)) cpsMode = "FIXED";
+                boolean replayEnabled  = boolField(json, "replayEnabled", true);
+                boolean safeMode       = boolField(json, "safeModeEnabled", true);
+                boolean eventLog       = boolField(json, "eventLogEnabled", true);
+                boolean keyConflict    = boolField(json, "keyConflictWarn", true);
+                boolean perServer      = boolField(json, "perServerProfiles", true);
                 return new Profile(name, pollRateHz, autoMode, sprintFix, autoSprint, wTap,
                     antiIdle, autoStrafe, cpsLimiter, f3Info, actionBar, burstMode, maxCps,
-                    comboKeys, fpsCheckInterval, debugMode);
+                    comboKeys, fpsCheckInterval, debugMode, cpsMode, replayEnabled, safeMode,
+                    eventLog, keyConflict, perServer);
             } catch (Exception e) {
                 return null;
             }

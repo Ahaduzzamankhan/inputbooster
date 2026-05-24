@@ -4,6 +4,7 @@ import dev.inputbooster.InputBoosterConfig;
 import net.minecraft.client.MinecraftClient;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * CpsLimiter — Smart CPS Limiter with Real-Time Feedback (Feature 3).
@@ -23,6 +24,7 @@ public class CpsLimiter {
     private final ConcurrentLinkedDeque<Long> accepted = new ConcurrentLinkedDeque<>();
     // All attempted clicks in the last 1 second (for cap enforcement)
     private final ConcurrentLinkedDeque<Long> attempted = new ConcurrentLinkedDeque<>();
+    private volatile long lastAcceptedAt;
 
     /**
      * Call before processing an ATTACK_PRESSED event.
@@ -30,7 +32,7 @@ public class CpsLimiter {
      */
     public boolean allowClick() {
         if (!InputBoosterConfig.isCpsLimiterEnabled()) return true;
-        int maxCps = InputBoosterConfig.getMaxCps();
+        int maxCps = effectiveMaxCps();
         long now = System.currentTimeMillis();
 
         // Prune stale attempts
@@ -41,7 +43,12 @@ public class CpsLimiter {
         if (attempted.size() >= maxCps) {
             return false; // over cap — drop
         }
+        if ("COOLDOWN".equals(InputBoosterConfig.getCpsMode()) && lastAcceptedAt > 0) {
+            long minGapMs = Math.max(35L, 1000L / Math.max(1, maxCps));
+            if (now - lastAcceptedAt < minGapMs) return false;
+        }
         attempted.addLast(now);
+        lastAcceptedAt = now;
         return true;
     }
 
@@ -65,7 +72,7 @@ public class CpsLimiter {
 
     /** Max CPS from config (for HUD bar max scale). */
     public int getMaxCps() {
-        return InputBoosterConfig.getMaxCps();
+        return effectiveMaxCps();
     }
 
     /** Called every game tick — prune stale entries. */
@@ -73,5 +80,15 @@ public class CpsLimiter {
         long now = System.currentTimeMillis();
         while (!accepted.isEmpty() && now - accepted.peekFirst() > 1000) accepted.pollFirst();
         while (!attempted.isEmpty() && now - attempted.peekFirst() > 1000) attempted.pollFirst();
+    }
+
+    private int effectiveMaxCps() {
+        int max = InputBoosterConfig.getMaxCps();
+        return switch (InputBoosterConfig.getCpsMode()) {
+            case "HUMANIZED" -> Math.max(1, max - ThreadLocalRandom.current().nextInt(0, 3));
+            case "WEAPON_AWARE" -> Math.min(max, 16);
+            case "COOLDOWN" -> Math.min(max, 18);
+            default -> max;
+        };
     }
 }

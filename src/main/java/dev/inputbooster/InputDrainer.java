@@ -5,8 +5,6 @@ import dev.inputbooster.mixin.MinecraftClientAccessor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 
 public class InputDrainer {
@@ -26,6 +24,12 @@ public class InputDrainer {
 
     public static void drainAll(MinecraftClient mc) {
         if (mc == null || mc.player == null || mc.interactionManager == null) return;
+        if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()) {
+            attackHandledThisTick = false;
+            useHandledThisTick = false;
+            InputActionQueue.clear();
+            return;
+        }
 
         // Reset per-tick flags before draining
         attackHandledThisTick = false;
@@ -37,11 +41,16 @@ public class InputDrainer {
 
             if (stamped.action() == InputAction.ATTACK_PRESSED) {
                 if (InputBoosterMod.cpsLimiter != null &&
-                    !InputBoosterMod.cpsLimiter.allowClick()) continue;
+                    !InputBoosterMod.cpsLimiter.allowClick()) {
+                    if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Attack blocked by CPS mode");
+                    continue;
+                }
             }
 
             apply(stamped.action(), mc);
-            InputBoosterMod.totalHits.incrementAndGet();
+            if (stamped.action() == InputAction.ATTACK_PRESSED) {
+                InputBoosterMod.totalHits.incrementAndGet();
+            }
             // Record CPS for every accepted attack, regardless of target type
             if (stamped.action() == InputAction.ATTACK_PRESSED &&
                 InputBoosterMod.cpsLimiter != null) {
@@ -65,6 +74,7 @@ public class InputDrainer {
                             if (mc.targetedEntity != null) {
                                 mc.interactionManager.attackEntity(player, mc.targetedEntity);
                                 player.swingHand(Hand.MAIN_HAND);
+                                if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Entity attack fired");
                                 // Signal vanilla's doAttack() to back off — we already fired.
                                 attackHandledThisTick = true;
                             }
@@ -84,26 +94,7 @@ public class InputDrainer {
                 }
             }
 
-            case USE_PRESSED -> {
-                if (mc.crosshairTarget != null) {
-                    switch (mc.crosshairTarget.getType()) {
-                        case BLOCK -> {
-                            BlockHitResult blockHit = (BlockHitResult) mc.crosshairTarget;
-                            mc.interactionManager.interactBlock(player, Hand.MAIN_HAND, blockHit);
-                        }
-                        case ENTITY -> {
-                            if (mc.targetedEntity != null) {
-                                EntityHitResult entityHit = (EntityHitResult) mc.crosshairTarget;
-                                mc.interactionManager.interactEntityAtLocation(
-                                    player, mc.targetedEntity, entityHit, Hand.MAIN_HAND);
-                            }
-                        }
-                        default -> mc.interactionManager.interactItem(player, Hand.MAIN_HAND);
-                    }
-                    // FIX: Signal that we handled the use — vanilla must not fire again
-                    useHandledThisTick = true;
-                }
-            }
+            case USE_PRESSED -> {}
 
             case SPRINT_PRESSED  -> player.setSprinting(true);
             case SPRINT_RELEASED -> {

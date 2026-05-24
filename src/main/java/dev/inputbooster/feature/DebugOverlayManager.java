@@ -2,6 +2,7 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
+import dev.inputbooster.McCompat;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -30,7 +31,7 @@ public class DebugOverlayManager {
         if (!InputBoosterConfig.isShowF3Info()) return;
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null || !InputBoosterMod.gameReady) return;
+        if (mc == null || mc.player == null) return;
 
         // Hide overlay while F3 is open — it clutters the debug screen
         if (mc.getDebugHud().shouldShowDebugHud()) return;
@@ -38,7 +39,7 @@ public class DebugOverlayManager {
         TextRenderer font = mc.textRenderer;
         boolean burst  = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
         int hz         = InputBoosterMod.currentPollHz;
-        int fps        = InputBoosterMod.currentFps;
+        int fps        = InputBoosterMod.currentFps > 0 ? InputBoosterMod.currentFps : McCompat.getFps(mc);
         int cps        = InputBoosterMod.cpsLimiter != null ? InputBoosterMod.cpsLimiter.getCps() : 0;
         int maxCps     = InputBoosterConfig.getMaxCps();
 
@@ -78,16 +79,22 @@ public class DebugOverlayManager {
         int textX = originX + padX + bgPad;
         int textY = originY + padY + bgPad;
 
+        ctx.getMatrices().pushMatrix();
+        ctx.getMatrices().scale(scale, scale);
+        int scaledTextX = Math.round(textX / scale);
+        int scaledTextY = Math.round(textY / scale);
+        int scaledLineH = Math.max(10, Math.round(lineH / scale));
         for (int i = 0; i < lines.size(); i++) {
             Line l = lines.get(i);
-            ctx.drawText(font, l.text, textX, textY + i * lineH, l.color, true);
+            ctx.drawText(font, l.text, scaledTextX, scaledTextY + i * scaledLineH, l.color, true);
         }
+        ctx.getMatrices().popMatrix();
     }
 
     private static List<Line> buildLines(boolean burst, int hz, int fps, int cps, int maxCps) {
         List<Line> lines = new ArrayList<>();
         lines.add(new Line(
-            "[ InputBooster " + InputBoosterMod.MOD_VERSION + " ]" + (burst ? " \u26a1BURST" : ""),
+            "[ InputBooster " + InputBoosterMod.DISPLAY_VERSION + " ]" + (burst ? " \u26a1BURST" : ""),
             burst ? COLOR_ORANGE : COLOR_AQUA
         ));
         lines.add(new Line(
@@ -106,6 +113,18 @@ public class DebugOverlayManager {
             + "  Rec: " + fmt(InputBoosterMod.recoveredInputs.get()), COLOR_GRAY
         ));
         lines.add(new Line("CPS: " + cps + " / " + maxCps, COLOR_YELLOW));
+        if (InputBoosterMod.moduleManager != null) {
+            lines.add(new Line(InputBoosterMod.moduleManager.statusLine(), COLOR_GRAY));
+        }
+        if (InputBoosterMod.replayRecorder != null) {
+            lines.add(new Line(InputBoosterMod.replayRecorder.statusLine(), COLOR_GRAY));
+        }
+        if (InputBoosterMod.safeMode != null && InputBoosterMod.safeMode.isSafeModeActive()) {
+            lines.add(new Line("Safe Mode: ACTIVE", COLOR_RED));
+        }
+        if (InputBoosterMod.eventLog != null && InputBoosterConfig.isDebugMode()) {
+            lines.add(new Line(InputBoosterMod.eventLog.latest(), COLOR_GRAY));
+        }
         lines.add(new Line(
             "Status: " + (InputBoosterMod.active ? "ACTIVE" : "INACTIVE"),
             InputBoosterMod.active ? COLOR_GREEN : COLOR_RED
