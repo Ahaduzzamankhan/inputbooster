@@ -1,3 +1,6 @@
+
+![Stats](https://github-readme-stats.vercel.app/api?username=Ahaduzzamankhan)
+
 # InputBooster
 
 InputBooster is a client-side Fabric mod for players who want cleaner input during PvP, survival, and low-FPS gameplay. It keeps your clicks and movement keys responsive when frames dip, shows useful live stats, and gives you simple tools for profiles, CPS control, and replay testing.
