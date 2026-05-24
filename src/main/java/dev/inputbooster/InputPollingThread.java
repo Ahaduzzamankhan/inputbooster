@@ -86,7 +86,11 @@ public class InputPollingThread extends Thread {
     }
 
     private void poll() {
-        if (!InputBoosterMod.gameReady || InputBoosterMod.gamePaused) return;
+        if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()
+            || !InputBoosterMod.gameReady || InputBoosterMod.gamePaused) {
+            resetPreviousStates();
+            return;
+        }
 
         // FIX: Capture the snapshot reference exactly once per poll cycle.
         // The game tick thread may replace InputBoosterMod.keySnapshot at any
@@ -102,10 +106,10 @@ public class InputPollingThread extends Thread {
         if (!attack &&  prevAttack) queue(InputAction.ATTACK_RELEASED);
         prevAttack = attack;
 
-        // Use
+        // Use/right-click is intentionally not queued. Vanilla already handles
+        // it once per physical click; replaying it here causes duplicate block,
+        // item, and entity use actions.
         boolean use = snap.use;
-        if ( use && !prevUse) queue(InputAction.USE_PRESSED);
-        if (!use &&  prevUse) queue(InputAction.USE_RELEASED);
         prevUse = use;
 
         // Sprint
@@ -166,7 +170,17 @@ public class InputPollingThread extends Thread {
     private void queue(InputAction action) {
         if (InputActionQueue.queue(action)) {
             InputBoosterMod.recoveredInputs.incrementAndGet();
+            if (InputBoosterMod.replayRecorder != null) InputBoosterMod.replayRecorder.onQueued(action);
+            if (InputBoosterMod.eventLog != null && action == InputAction.ATTACK_PRESSED) {
+                InputBoosterMod.eventLog.add("Attack queued");
+            }
         }
+    }
+
+    private void resetPreviousStates() {
+        prevAttack = prevUse = prevSprint = prevSneak = false;
+        prevJump = prevForward = prevBack = prevLeft = prevRight = false;
+        prevDrop = prevSwap = prevPickBlock = false;
     }
 
     public void stopPolling() {

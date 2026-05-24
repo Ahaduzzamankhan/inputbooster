@@ -21,7 +21,7 @@ public class InputBoosterMod implements ClientModInitializer {
 
     public static final String MOD_ID      = "inputbooster";
     public static final String MOD_NAME    = "InputBooster";
-    public static final String MOD_VERSION = "3.0.0";
+    public static final String MOD_VERSION = "3.0.1-mc26";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -48,9 +48,18 @@ public class InputBoosterMod implements ClientModInitializer {
     public static BurstModeManager    burstMode;
     public static SessionStats        sessionStats;
     public static ProfileManager      profileManager;
+    public static EventLog            eventLog;
+    public static ModuleManager       moduleManager;
+    public static ReplayRecorder      replayRecorder;
+    public static SafeModeManager     safeMode;
+    public static KeybindConflictDetector keybindConflictDetector;
+    public static PerServerProfileManager perServerProfileManager;
+    public static ConfigTools         configTools;
 
     private static KeyMapping openScreenKey;
     private static KeyMapping toggleModKey;
+    private static KeyMapping replayRecordKey;
+    private static KeyMapping replayPlayKey;
     private static final int[] COMBO_PRESET_HZ = {100, 200, 350, 500, 1000};
 
     private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(
@@ -73,6 +82,14 @@ public class InputBoosterMod implements ClientModInitializer {
             sessionStats   = new SessionStats();
             profileManager = new ProfileManager();
             profileManager.load();
+            eventLog       = new EventLog();
+            moduleManager  = new ModuleManager();
+            replayRecorder = new ReplayRecorder();
+            safeMode       = new SafeModeManager();
+            keybindConflictDetector = new KeybindConflictDetector();
+            perServerProfileManager = new PerServerProfileManager();
+            perServerProfileManager.load();
+            configTools = new ConfigTools();
 
             int initialHz = InputBoosterConfig.isPollRateAutoMode()
                             ? 200 : InputBoosterConfig.getPollRateHz();
@@ -84,11 +101,16 @@ public class InputBoosterMod implements ClientModInitializer {
                 "key.inputbooster.options", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_O, KEY_CATEGORY));
             toggleModKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.inputbooster.toggle", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_P, KEY_CATEGORY));
+            replayRecordKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.inputbooster.replay_record", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY));
+            replayPlayKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.inputbooster.replay_play", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, KEY_CATEGORY));
 
             ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
             DebugOverlayManager.register();
 
             initialized.set(true);
+            eventLog.add("InputBooster initialized");
             LOGGER.info("[{}] Ready!", MOD_NAME);
         } catch (Exception e) {
             LOGGER.error("[{}] Fatal init error!", MOD_NAME, e);
@@ -117,15 +139,21 @@ public class InputBoosterMod implements ClientModInitializer {
 
             handleComboKeys(client);
 
-            sprintManager.tick(client);
-            wTapAssist.tick(client);
-            antiIdle.tick(client);
-            autoStrafe.tick(client);
-            cpsLimiter.tick(client);
-            burstMode.tick(client);
+            if (moduleManager.enabled("profiles")) perServerProfileManager.tick(client);
+            if (moduleManager.enabled("debug")) keybindConflictDetector.tick(client);
+            if (moduleManager.enabled("replay")) replayRecorder.tick();
+            if (moduleManager.enabled("movement")) {
+                sprintManager.tick(client);
+                wTapAssist.tick(client);
+                autoStrafe.tick(client);
+            }
+            if (moduleManager.enabled("anti_idle")) antiIdle.tick(client);
+            if (moduleManager.enabled("combat")) cpsLimiter.tick(client);
+            if (InputBoosterConfig.isBurstModeEnabled()) burstMode.tick(client);
             sessionStats.tick(currentFps, cpsLimiter.getCps());
         } catch (Exception e) {
             LOGGER.warn("[{}] Tick error", MOD_NAME, e);
+            if (safeMode != null) safeMode.recordError("client tick", e);
         }
     }
 
@@ -141,6 +169,18 @@ public class InputBoosterMod implements ClientModInitializer {
             if (client.player != null) {
                 client.player.sendSystemMessage(Component.literal("§7InputBooster " + status));
             }
+            if (eventLog != null) eventLog.add("Mod toggled " + (active ? "on" : "off"));
+        }
+        if (replayRecordKey.consumeClick() && replayRecorder != null) {
+            boolean recording = replayRecorder.toggleRecording();
+            if (eventLog != null) eventLog.add("Replay recording " + (recording ? "started" : "stopped"));
+            if (client.player != null) {
+                client.player.sendSystemMessage(Component.literal("InputBooster replay " + (recording ? "REC" : "STOP")));
+            }
+        }
+        if (replayPlayKey.consumeClick() && replayRecorder != null) {
+            replayRecorder.startPlayback();
+            if (eventLog != null) eventLog.add("Replay playback started");
         }
     }
 

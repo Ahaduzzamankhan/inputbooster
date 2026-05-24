@@ -2,6 +2,7 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
+import dev.inputbooster.McCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -22,14 +23,14 @@ public class DebugOverlayManager {
         if (!InputBoosterConfig.isShowF3Info()) return;
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc == null || !InputBoosterMod.gameReady) return;
+        if (mc == null || mc.player == null) return;
 
         if (mc.gui.getDebugOverlay().showDebugScreen()) return;
 
         Font font = mc.font;
         boolean burst  = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
         int hz         = InputBoosterMod.currentPollHz;
-        int fps        = InputBoosterMod.currentFps;
+        int fps        = InputBoosterMod.currentFps > 0 ? InputBoosterMod.currentFps : McCompat.getFps(mc);
         int cps        = InputBoosterMod.cpsLimiter != null ? InputBoosterMod.cpsLimiter.getCps() : 0;
         int maxCps     = InputBoosterConfig.getMaxCps();
 
@@ -92,6 +93,18 @@ public class DebugOverlayManager {
             + "  Rec: " + fmt(InputBoosterMod.recoveredInputs.get()), COLOR_GRAY
         ));
         lines.add(new Line("CPS: " + cps + " / " + maxCps, COLOR_YELLOW));
+        if (InputBoosterMod.moduleManager != null) {
+            lines.add(new Line(InputBoosterMod.moduleManager.statusLine(), COLOR_GRAY));
+        }
+        if (InputBoosterMod.replayRecorder != null) {
+            lines.add(new Line(InputBoosterMod.replayRecorder.statusLine(), COLOR_GRAY));
+        }
+        if (InputBoosterMod.safeMode != null && InputBoosterMod.safeMode.isSafeModeActive()) {
+            lines.add(new Line("Safe Mode: ACTIVE", COLOR_RED));
+        }
+        if (InputBoosterMod.eventLog != null && InputBoosterConfig.isDebugMode()) {
+            lines.add(new Line(InputBoosterMod.eventLog.latest(), COLOR_GRAY));
+        }
         lines.add(new Line(
             "Status: " + (InputBoosterMod.active ? "ACTIVE" : "INACTIVE"),
             InputBoosterMod.active ? COLOR_GREEN : COLOR_RED
