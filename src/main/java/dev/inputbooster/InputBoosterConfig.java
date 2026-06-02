@@ -117,7 +117,7 @@ public class InputBoosterConfig {
                 showF3Info        = parseBool(props, "show_f3_info",          true);
                 showKeystrokes    = parseBool(props, "show_keystrokes",       true);
                 overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", 0)));
-                overlayOpacity   = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "overlay_opacity", 0.8f));
+                overlayOpacity   = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "overlay_opacity", 0.8f)));
                 overlayScale      = Math.max(0.5f, Math.min(3.0f, parseFloat(props, "overlay_scale", 1.0f)));
                 showActionBar     = parseBool(props, "show_action_bar",       true);
                 fpsCheckInterval  = Math.max(1, Math.min(100, parseInt(props, "fps_check_interval", 20)));
