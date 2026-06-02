@@ -146,17 +146,18 @@ public class InputBoosterScreen extends Screen {
             hasChanges = true;
         }).dimensions(cx - 100, top + gap * 2, 200, bh).build());
         addDrawableChild(new OverlayScaleSlider(cx - bw / 2, top + gap * 3, bw, bh, InputBoosterConfig.getOverlayScale()));
-        addDrawableChild(toggleButton(cx, top + gap * 4, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
+addDrawableChild(new OverlayOpacitySlider(cx - bw / 2, top + gap * 4, bw, bh, InputBoosterConfig.getOverlayOpacity()));
+        addDrawableChild(toggleButton(cx, top + gap * 5, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
             InputBoosterConfig.setShowActionBar(!InputBoosterConfig.isShowActionBar());
             btn.setMessage(toggleLabel("Action Bar Messages", InputBoosterConfig.isShowActionBar()));
             hasChanges = true;
         }));
-        addDrawableChild(toggleButton(cx, top + gap * 5, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
+        addDrawableChild(toggleButton(cx, top + gap * 6, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
             InputBoosterConfig.setDebugMode(!InputBoosterConfig.isDebugMode());
             btn.setMessage(toggleLabel("Debug Mode", InputBoosterConfig.isDebugMode()));
             hasChanges = true;
         }));
-        addDrawableChild(new FpsCheckSlider(cx - bw / 2, top + gap * 6 + 4, bw, bh, InputBoosterConfig.getFpsCheckInterval()));
+        addDrawableChild(new FpsCheckSlider(cx - bw / 2, top + gap * 7 + 4, bw, bh, InputBoosterConfig.getFpsCheckInterval()));
     }
 
     private void initStatsTab(int cx, int top, int bw, int bh, int gap) {
@@ -351,6 +352,22 @@ public class InputBoosterScreen extends Screen {
             // Round to nearest 0.1
             scale = Math.round(scale * 10) / 10.0f;
             InputBoosterConfig.setOverlayScale(scale);
+            updateMessage();
+        }
+    }
+
+    private static class OverlayOpacitySlider extends SliderWidget {
+        private float opacity;
+        OverlayOpacitySlider(int x, int y, int w, int h, float currentOpacity) {
+            super(x, y, w, h, Text.literal("Overlay Opacity: " + (int)(currentOpacity * 100) + "%"), currentOpacity);
+            this.opacity = currentOpacity;
+        }
+        @Override protected void updateMessage() {
+            setMessage(Text.literal(String.format("Overlay Opacity: §e%d%%", Math.round(opacity * 100))));
+        }
+        @Override protected void applyValue() {
+            opacity = Math.round(value * 100) / 100.0f;
+            InputBoosterConfig.setOverlayOpacity(opacity);
             updateMessage();
         }
     }

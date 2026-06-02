@@ -10,15 +10,17 @@ import java.util.List;
 public class ReplayRecorder {
     private static final int MAX_EVENTS = 400;
     private final List<Frame> frames = new ArrayList<>();
-    private boolean recording;
-    private boolean playing;
-    private long recordStart;
-    private long playStart;
-    private int playIndex;
+    private volatile boolean recording;
+    private volatile boolean playing;
+    private volatile long recordStart;
+    private volatile long playStart;
+    private volatile int playIndex;
 
     public void startRecording() {
         if (!InputBoosterConfig.isReplayEnabled()) return;
-        frames.clear();
+        synchronized (frames) {
+            frames.clear();
+        }
         recording = true;
         playing = false;
         recordStart = System.nanoTime();
@@ -38,30 +40,41 @@ public class ReplayRecorder {
     }
 
     public void startPlayback() {
-        if (!InputBoosterConfig.isReplayEnabled() || frames.isEmpty()) return;
-        playing = true;
-        recording = false;
-        playIndex = 0;
-        playStart = System.nanoTime();
+        synchronized (frames) {
+            if (!InputBoosterConfig.isReplayEnabled() || frames.isEmpty()) return;
+            playing = true;
+            recording = false;
+            playIndex = 0;
+            playStart = System.nanoTime();
+        }
     }
 
     public void onQueued(InputAction action) {
-        if (!recording || playing || action == null || frames.size() >= MAX_EVENTS) return;
-        frames.add(new Frame(action, System.nanoTime() - recordStart));
+        if (!recording || playing || action == null) return;
+        synchronized (frames) {
+            if (frames.size() >= MAX_EVENTS) return;
+            frames.add(new Frame(action, System.nanoTime() - recordStart));
+        }
     }
 
     public void tick() {
         if (!playing) return;
         long elapsed = System.nanoTime() - playStart;
-        while (playIndex < frames.size() && frames.get(playIndex).offsetNanos <= elapsed) {
-            InputActionQueue.queue(frames.get(playIndex).action);
-            playIndex++;
+        synchronized (frames) {
+            while (playIndex < frames.size() && frames.get(playIndex).offsetNanos <= elapsed) {
+                InputActionQueue.queue(frames.get(playIndex).action);
+                playIndex++;
+            }
+            if (playIndex >= frames.size()) playing = false;
         }
-        if (playIndex >= frames.size()) playing = false;
     }
 
     public String statusLine() {
-        return "Replay: " + (recording ? "REC " : playing ? "PLAY " : "IDLE ") + frames.size();
+        int size;
+        synchronized (frames) {
+            size = frames.size();
+        }
+        return "Replay: " + (recording ? "REC " : playing ? "PLAY " : "IDLE ") + size;
     }
 
     private record Frame(InputAction action, long offsetNanos) {}

@@ -77,10 +77,14 @@ public class DebugOverlayManager {
         }
 
         // Background
+        // Apply configurable opacity to background
+        float opacity = InputBoosterConfig.getOverlayOpacity();
+        int bgAlpha = (int) (0x90 * opacity); // original alpha 0x90 (~56% opacity)
+        int bgColor = (bgAlpha << 24) | 0x000000;
         ctx.fill(
-            originX,            originY,
-            originX + panelW,   originY + panelH,
-            0x90000000
+            originX, originY,
+            originX + panelW, originY + panelH,
+            bgColor
         );
 
         // Draw each line manually at scaled positions — no matrix stack needed.

@@ -40,6 +40,7 @@ public class ProfileManager {
         boolean autoStrafeEnabled,
         boolean cpsLimiterEnabled,
         boolean showF3Info,
+        boolean showKeystrokes,
         boolean showActionBar,
         boolean burstModeEnabled,
         int maxCps,
@@ -66,6 +67,7 @@ public class ProfileManager {
                 InputBoosterConfig.isAutoStrafeEnabled(),
                 InputBoosterConfig.isCpsLimiterEnabled(),
                 InputBoosterConfig.isShowF3Info(),
+                InputBoosterConfig.isShowKeystrokes(),
                 InputBoosterConfig.isShowActionBar(),
                 InputBoosterConfig.isBurstModeEnabled(),
                 InputBoosterConfig.getMaxCps(),
@@ -92,6 +94,7 @@ public class ProfileManager {
             InputBoosterConfig.setAutoStrafeEnabled(autoStrafeEnabled);
             InputBoosterConfig.setCpsLimiterEnabled(cpsLimiterEnabled);
             InputBoosterConfig.setShowF3Info(showF3Info);
+            InputBoosterConfig.setShowKeystrokes(showKeystrokes);
             InputBoosterConfig.setShowActionBar(showActionBar);
             InputBoosterConfig.setBurstModeEnabled(burstModeEnabled);
             InputBoosterConfig.setMaxCps(maxCps);
@@ -119,6 +122,7 @@ public class ProfileManager {
                 + "\"autoStrafeEnabled\":" + autoStrafeEnabled + ","
                 + "\"cpsLimiterEnabled\":" + cpsLimiterEnabled + ","
                 + "\"showF3Info\":" + showF3Info + ","
+                + "\"showKeystrokes\":" + showKeystrokes + ","
                 + "\"showActionBar\":" + showActionBar + ","
                 + "\"burstModeEnabled\":" + burstModeEnabled + ","
                 + "\"maxCps\":" + maxCps + ","
@@ -152,6 +156,7 @@ public class ProfileManager {
                 boolean autoStrafe    = boolField(json, "autoStrafeEnabled", true);
                 boolean cpsLimiter    = boolField(json, "cpsLimiterEnabled", true);
                 boolean f3Info        = boolField(json, "showF3Info", true);
+                boolean keystrokes    = boolField(json, "showKeystrokes", true);
                 boolean actionBar     = boolField(json, "showActionBar", true);
                 boolean burstMode     = boolField(json, "burstModeEnabled", true);
                 int maxCps            = intField(json, "maxCps", 20);
@@ -166,7 +171,7 @@ public class ProfileManager {
                 boolean keyConflict    = boolField(json, "keyConflictWarn", true);
                 boolean perServer      = boolField(json, "perServerProfiles", true);
                 return new Profile(name, pollRateHz, autoMode, sprintFix, autoSprint, wTap,
-                    antiIdle, autoStrafe, cpsLimiter, f3Info, actionBar, burstMode, maxCps,
+                    antiIdle, autoStrafe, cpsLimiter, f3Info, keystrokes, actionBar, burstMode, maxCps,
                     comboKeys, fpsCheckInterval, debugMode, cpsMode, replayEnabled, safeMode,
                     eventLog, keyConflict, perServer);
             } catch (Exception e) {

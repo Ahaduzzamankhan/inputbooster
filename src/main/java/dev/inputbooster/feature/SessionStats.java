@@ -45,6 +45,7 @@ public class SessionStats {
     // Cumulative estimates
     private long estimatedMissedInputs = 0;
     private long inputsRecoveredAtLastTick = 0;
+    private long hitsAtLastTick = 0;
 
     public void tick(int currentFps, int currentCps) {
         long nowMs = System.currentTimeMillis();
@@ -56,7 +57,14 @@ public class SessionStats {
             currentBucketCount = 0;
             lastBucketMs = nowMs;
         }
-        currentBucketCount += currentCps;
+
+        // Use hits delta instead of cumulative rolling CPS to avoid 20x multiplication bug
+        long hits = InputBoosterMod.totalHits.get();
+        long hitsDelta = hits - hitsAtLastTick;
+        if (hitsDelta > 0) {
+            currentBucketCount += hitsDelta;
+        }
+        hitsAtLastTick = hits;
 
         // FPS history for missed-input estimation
         fpsHistory.addLast(currentFps);

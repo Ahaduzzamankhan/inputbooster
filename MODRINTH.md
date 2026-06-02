@@ -35,9 +35,9 @@ All keybinds can be changed in Minecraft's controls menu.
 
 ## Version
 
-Latest build: `3.0.2-beta01`
+Latest build: `3.0.2-rl1`
 
-Download/use: `inputbooster-3.0.2-beta01.jar`
+Download/use: `inputbooster-3.0.2-rl1.jar`
 
 ## Important
 

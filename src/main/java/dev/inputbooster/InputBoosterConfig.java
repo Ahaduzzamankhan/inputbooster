@@ -55,6 +55,7 @@ public class InputBoosterConfig {
     private static boolean showActionBar     = true;
     // 0=Top-Left 1=Top-Right 2=Bottom-Left 3=Bottom-Right
     private static int     overlayPosition   = 0;
+    private static float   overlayOpacity   = 0.8f;
     private static float   overlayScale      = 1.0f;
 
     // ── Advanced ─────────────────────────────────────────────────────────────
@@ -116,6 +117,7 @@ public class InputBoosterConfig {
                 showF3Info        = parseBool(props, "show_f3_info",          true);
                 showKeystrokes    = parseBool(props, "show_keystrokes",       true);
                 overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", 0)));
+                overlayOpacity   = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "overlay_opacity", 0.8f));
                 overlayScale      = Math.max(0.5f, Math.min(3.0f, parseFloat(props, "overlay_scale", 1.0f)));
                 showActionBar     = parseBool(props, "show_action_bar",       true);
                 fpsCheckInterval  = Math.max(1, Math.min(100, parseInt(props, "fps_check_interval", 20)));
@@ -158,6 +160,7 @@ public class InputBoosterConfig {
             props.setProperty("show_f3_info",        String.valueOf(showF3Info));
             props.setProperty("show_keystrokes",     String.valueOf(showKeystrokes));
             props.setProperty("overlay_position",    String.valueOf(overlayPosition));
+            props.setProperty("overlay_opacity",   String.valueOf(overlayOpacity));
             props.setProperty("overlay_scale",       String.valueOf(overlayScale));
             props.setProperty("show_action_bar",     String.valueOf(showActionBar));
             props.setProperty("fps_check_interval",  String.valueOf(fpsCheckInterval));
@@ -195,7 +198,7 @@ public class InputBoosterConfig {
         cpsMode = "FIXED"; replayEnabled = true; safeModeEnabled = true;
         eventLogEnabled = true; keyConflictWarn = true; perServerProfiles = true; configVersion = 301;
         showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
-        overlayPosition = 0; overlayScale = 1.0f;
+        overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
     }
 
     // ── Getters ───────────────────────────────────────────────────────────────
@@ -221,6 +224,7 @@ public class InputBoosterConfig {
     public static boolean isShowF3Info()         { return showF3Info; }
     public static boolean isShowKeystrokes()     { return showKeystrokes; }
     public static int     getOverlayPosition()   { return overlayPosition; }
+    public static float   getOverlayOpacity()   { return overlayOpacity; }
     public static float   getOverlayScale()      { return overlayScale; }
     public static boolean isShowActionBar()      { return showActionBar; }
     public static int     getFpsCheckInterval()  { return fpsCheckInterval; }
@@ -248,6 +252,7 @@ public class InputBoosterConfig {
     public static void setShowF3Info(boolean v)       { showF3Info = v; }
     public static void setShowKeystrokes(boolean v)   { showKeystrokes = v; }
     public static void setOverlayPosition(int v)      { overlayPosition = Math.max(0, Math.min(3, v)); }
+    public static void setOverlayOpacity(float v)    { overlayOpacity = Math.max(0.0f, Math.min(1.0f, v)); }
     public static void setOverlayScale(float v)       { overlayScale = Math.max(0.5f, Math.min(3.0f, v)); }
     public static void setShowActionBar(boolean v)    { showActionBar = v; }
     public static void setFpsCheckInterval(int v)     { fpsCheckInterval = Math.max(1, Math.min(100, v)); }
