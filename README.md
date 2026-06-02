@@ -1,4 +1,3 @@
-[![GitHub Stats](https://github-readme-stats.vercel.app/api?username=Ahaduzzamankhan&show_icons=true&theme=radical)](https://github.com/Ahaduzzamankhan))
 
 # InputBooster
 
