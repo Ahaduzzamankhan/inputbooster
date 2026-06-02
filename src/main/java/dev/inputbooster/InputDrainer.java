@@ -94,7 +94,10 @@ public class InputDrainer {
                 }
             }
 
-            case USE_PRESSED -> {}
+            case USE_PRESSED -> {
+                mc.interactionManager.interactItem(player, Hand.MAIN_HAND);
+                useHandledThisTick = true;
+            }
 
             case SPRINT_PRESSED  -> player.setSprinting(true);
             case SPRINT_RELEASED -> {

@@ -57,7 +57,7 @@ public class InputPollingThread extends Thread {
             try {
                 poll();
             } catch (Exception e) {
-                InputBoosterMod.LOGGER.warn("[InputBooster] Polling error: {}", e.getMessage());
+                InputBoosterMod.LOGGER.warn("[InputBooster] Polling error", e);
             }
 
             // Burst mode may override the configured poll rate
@@ -106,10 +106,10 @@ public class InputPollingThread extends Thread {
         if (!attack &&  prevAttack) queue(InputAction.ATTACK_RELEASED);
         prevAttack = attack;
 
-        // Use/right-click is intentionally not queued. Vanilla already handles
-        // it once per physical click; replaying it here causes duplicate block,
-        // item, and entity use actions.
+        // Use/right-click
         boolean use = snap.use;
+        if (use && !prevUse) queue(InputAction.USE_PRESSED);
+        if (!use && prevUse) queue(InputAction.USE_RELEASED);
         prevUse = use;
 
         // Sprint

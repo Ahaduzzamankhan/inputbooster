@@ -7,6 +7,8 @@ import net.minecraft.text.Text;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * ProfileManager — Config Profile System (Feature 6).
@@ -107,7 +109,7 @@ public class ProfileManager {
         /** Serialize to a simple properties-style JSON object (manual, no Gson dep). */
         public String toJson() {
             return "{"
-                + "\"name\":\"" + name + "\","
+                + "\"name\":\"" + escapeJson(name) + "\","
                 + "\"pollRateHz\":" + pollRateHz + ","
                 + "\"pollRateAutoMode\":" + pollRateAutoMode + ","
                 + "\"sprintFixEnabled\":" + sprintFixEnabled + ","
@@ -123,13 +125,18 @@ public class ProfileManager {
                 + "\"comboKeysEnabled\":" + comboKeysEnabled + ","
                 + "\"fpsCheckInterval\":" + fpsCheckInterval + ","
                 + "\"debugMode\":" + debugMode + ","
-                + "\"cpsMode\":\"" + cpsMode + "\","
+                + "\"cpsMode\":\"" + escapeJson(cpsMode) + "\","
                 + "\"replayEnabled\":" + replayEnabled + ","
                 + "\"safeModeEnabled\":" + safeModeEnabled + ","
                 + "\"eventLogEnabled\":" + eventLogEnabled + ","
                 + "\"keyConflictWarn\":" + keyConflictWarn + ","
                 + "\"perServerProfiles\":" + perServerProfiles
                 + "}";
+        }
+
+        private static String escapeJson(String value) {
+            if (value == null) return "";
+            return value.replace("\\", "\\\\").replace("\"", "\\\"");
         }
 
         /** Parse from a JSON object string (minimal parser — no Gson dep). */
@@ -168,30 +175,30 @@ public class ProfileManager {
         }
 
         private static String strField(String json, String key) {
-            String marker = "\"" + key + "\":\"";
-            int start = json.indexOf(marker);
-            if (start < 0) return "Unnamed";
-            start += marker.length();
-            int end = json.indexOf('"', start);
-            return end < 0 ? "Unnamed" : json.substring(start, end);
+            Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"([^\"]*)\"");
+            Matcher matcher = pattern.matcher(json);
+            if (matcher.find()) return matcher.group(1);
+            return "Unnamed";
         }
 
         private static int intField(String json, String key, int def) {
-            String marker = "\"" + key + "\":";
-            int start = json.indexOf(marker);
-            if (start < 0) return def;
-            start += marker.length();
-            int end = start;
-            while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) end++;
-            try { return Integer.parseInt(json.substring(start, end)); } catch (Exception e) { return def; }
+            Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*(-?\\d+)");
+            Matcher matcher = pattern.matcher(json);
+            if (matcher.find()) {
+                try {
+                    return Integer.parseInt(matcher.group(1));
+                } catch (NumberFormatException ignored) {
+                    return def;
+                }
+            }
+            return def;
         }
 
         private static boolean boolField(String json, String key, boolean def) {
-            String marker = "\"" + key + "\":";
-            int start = json.indexOf(marker);
-            if (start < 0) return def;
-            start += marker.length();
-            return json.startsWith("true", start);
+            Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*(true|false)", Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(json);
+            if (matcher.find()) return Boolean.parseBoolean(matcher.group(1));
+            return def;
         }
     }
 
@@ -264,7 +271,11 @@ public class ProfileManager {
                 if (close < 0) break;
                 String obj = json.substring(open, close + 1);
                 Profile p = Profile.fromJson(obj);
-                if (p != null && profiles.size() < MAX_PROFILES) profiles.add(p);
+                if (p != null && profiles.size() < MAX_PROFILES) {
+                    profiles.add(p);
+                } else if (p == null) {
+                    InputBoosterMod.LOGGER.warn("[ProfileManager] Skipped invalid profile object: {}", obj);
+                }
                 start = close + 1;
             }
             InputBoosterMod.LOGGER.info("[ProfileManager] Loaded {} profile(s)", profiles.size());

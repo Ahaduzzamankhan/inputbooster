@@ -13,6 +13,7 @@ import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -20,8 +21,8 @@ public class InputBoosterMod implements ClientModInitializer {
 
     public static final String MOD_ID      = "inputbooster";
     public static final String MOD_NAME    = "InputBooster";
-    public static final String MOD_VERSION = "3.0.1";
-    public static final String DISPLAY_VERSION = "3.0.1-mc26";
+    public static final String MOD_VERSION = "3.0.2-alpha01";
+    public static final String DISPLAY_VERSION = "3.0.2-alpha01-mc26";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -61,6 +62,7 @@ public class InputBoosterMod implements ClientModInitializer {
     private static KeyBinding replayRecordKey;
     private static KeyBinding replayPlayKey;
     private static final int[] COMBO_PRESET_HZ = {100, 200, 350, 500, 1000};
+    private static final boolean[] comboDigitHeld = new boolean[COMBO_PRESET_HZ.length];
 
     @Override
     public void onInitializeClient() {
@@ -184,16 +186,23 @@ public class InputBoosterMod implements ClientModInitializer {
 
     private void handleComboKeys(MinecraftClient client) {
         if (!InputBoosterConfig.isComboKeysEnabled()) return;
-        if (client.currentScreen != null) return;
+        if (client.currentScreen != null) {
+            resetComboKeyState();
+            return;
+        }
 
         long window = client.getWindow().getHandle();
         boolean ctrl = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
                     || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
-        if (!ctrl) return;
+        if (!ctrl) {
+            resetComboKeyState();
+            return;
+        }
 
         int[] digits = {GLFW.GLFW_KEY_1, GLFW.GLFW_KEY_2, GLFW.GLFW_KEY_3, GLFW.GLFW_KEY_4, GLFW.GLFW_KEY_5};
         for (int i = 0; i < digits.length; i++) {
-            if (GLFW.glfwGetKey(window, digits[i]) == GLFW.GLFW_PRESS) {
+            boolean pressed = GLFW.glfwGetKey(window, digits[i]) == GLFW.GLFW_PRESS;
+            if (pressed && !comboDigitHeld[i]) {
                 int hz = COMBO_PRESET_HZ[i];
                 InputBoosterConfig.setPollRateAutoMode(false);
                 InputBoosterConfig.setPollRateHz(hz);
@@ -204,7 +213,12 @@ public class InputBoosterMod implements ClientModInitializer {
                 }
                 break;
             }
+            comboDigitHeld[i] = pressed;
         }
+    }
+
+    private void resetComboKeyState() {
+        Arrays.fill(comboDigitHeld, false);
     }
 
     public static void adjustPollRateAuto() {

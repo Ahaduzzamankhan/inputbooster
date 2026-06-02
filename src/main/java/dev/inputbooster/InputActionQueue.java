@@ -19,11 +19,11 @@ public class InputActionQueue {
 
     /** Returns true if the action was queued (false if queue is full). */
     public static boolean queue(InputAction action) {
-        int current;
-        do {
-            current = COUNT.get();
-            if (current >= MAX_QUEUED) return false;
-        } while (!COUNT.compareAndSet(current, current + 1));
+        int newCount = COUNT.incrementAndGet();
+        if (newCount > MAX_QUEUED) {
+            COUNT.decrementAndGet();
+            return false;
+        }
         QUEUE.offer(InputAction.Stamped.of(action));
         return true;
     }
