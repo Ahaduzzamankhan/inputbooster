@@ -54,7 +54,9 @@ public class ReplayRecorder {
         if (!playing) return;
         long elapsed = System.nanoTime() - playStart;
         while (playIndex < frames.size() && frames.get(playIndex).offsetNanos <= elapsed) {
-            InputActionQueue.queue(frames.get(playIndex).action);
+            if (!InputActionQueue.queue(frames.get(playIndex).action)) {
+                break;
+            }
             playIndex++;
         }
         if (playIndex >= frames.size()) playing = false;

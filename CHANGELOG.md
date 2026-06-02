@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.0.1-mc26 - Minecraft 26.1.x
+## 3.0.2-alpha02 - Minecraft 26.1.x
 
 This update focuses on making InputBooster feel more complete for everyday players while keeping the mod stable during combat and low-FPS gameplay.
 
@@ -24,7 +24,7 @@ This update focuses on making InputBooster feel more complete for everyday playe
 
 ### Changed
 
-- Updated mod version to `3.0.1-mc26`.
+- Updated mod version to `3.0.2-alpha02`.
 - Profile saves now include the new CPS mode, replay, safe mode, event log, keybind warning, and per-server profile settings.
 - CPS limiter now uses the selected CPS mode instead of only a fixed cap.
 
@@ -36,4 +36,4 @@ This update focuses on making InputBooster feel more complete for everyday playe
 
 ### Build
 
-- New jar: `build/libs/inputbooster-3.0.1-mc26.jar`
+- New jar: `build/libs/inputbooster-3.0.2-alpha02.jar`

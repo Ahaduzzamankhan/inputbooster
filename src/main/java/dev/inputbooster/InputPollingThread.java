@@ -106,10 +106,10 @@ public class InputPollingThread extends Thread {
         if (!attack &&  prevAttack) queue(InputAction.ATTACK_RELEASED);
         prevAttack = attack;
 
-        // Use/right-click is intentionally not queued. Vanilla already handles
-        // it once per physical click; replaying it here causes duplicate block,
-        // item, and entity use actions.
+        // Use/right-click — queue press only, since releases are not needed for
+        // vanilla use behavior and would only consume queue capacity.
         boolean use = snap.use;
+        if (use && !prevUse) queue(InputAction.USE_PRESSED);
         prevUse = use;
 
         // Sprint

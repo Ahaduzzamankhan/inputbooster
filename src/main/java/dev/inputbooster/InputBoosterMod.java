@@ -21,7 +21,7 @@ public class InputBoosterMod implements ClientModInitializer {
 
     public static final String MOD_ID      = "inputbooster";
     public static final String MOD_NAME    = "InputBooster";
-    public static final String MOD_VERSION = "3.0.1-mc26";
+    public static final String MOD_VERSION = "3.0.2-alpha02";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -238,10 +238,17 @@ public class InputBoosterMod implements ClientModInitializer {
     public static void shutdown() {
         LOGGER.info("[{}] Shutting down...", MOD_NAME);
         try {
-            if (pollingThread != null) { pollingThread.stopPolling(); pollingThread = null; }
+            if (pollingThread != null) {
+                pollingThread.stopPolling();
+                pollingThread.join(1000);
+                pollingThread = null;
+            }
             InputBoosterConfig.save();
             active = false;
             initialized.set(false);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.warn("[{}] Shutdown interrupted", MOD_NAME, e);
         } catch (Exception e) {
             LOGGER.error("[{}] Shutdown error", MOD_NAME, e);
         }

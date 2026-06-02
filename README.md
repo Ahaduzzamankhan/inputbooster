@@ -83,7 +83,7 @@ InputBooster can scan your keybinds and log conflicts so you can spot controls t
 
 1. Install Fabric Loader for Minecraft 26.1.x.
 2. Install Fabric API.
-3. Put `inputbooster-3.0.1-mc26.jar` in your `.minecraft/mods` folder.
+3. Put `inputbooster-3.0.2-alpha02.jar` in your `.minecraft/mods` folder.
 4. Launch the Fabric profile.
 
 ## Requirements
@@ -95,11 +95,11 @@ InputBooster can scan your keybinds and log conflicts so you can spot controls t
 
 ## Latest Version
 
-Current version: `3.0.1-mc26`
+Current version: `3.0.2-alpha02`
 
 The built jar is created at:
 
-`build/libs/inputbooster-3.0.1-mc26.jar`
+`build/libs/inputbooster-3.0.2-alpha02.jar`
 
 ## Notes
 
