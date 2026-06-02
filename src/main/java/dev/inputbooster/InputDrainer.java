@@ -43,6 +43,7 @@ public class InputDrainer {
                 if (InputBoosterMod.cpsLimiter != null &&
                     !InputBoosterMod.cpsLimiter.allowClick()) {
                     if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Attack blocked by CPS mode");
+                    attackHandledThisTick = true; // CRITICAL: Suppress vanilla attack for this blocked click!
                     continue;
                 }
             }

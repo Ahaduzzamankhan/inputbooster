@@ -55,8 +55,17 @@ public class DebugOverlayManager {
         // Measure panel
         int maxTextW = 0;
         for (Line l : lines) maxTextW = Math.max(maxTextW, font.getWidth(l.text));
+        
+        boolean showKeystrokes = InputBoosterConfig.isShowKeystrokes();
+        if (showKeystrokes) {
+            maxTextW = Math.max(60, maxTextW); // Fit keystrokes grid
+        }
+
         int panelW = (int)(maxTextW * scale) + padX * 2 + bgPad * 2;
         int panelH = lines.size() * lineH + padY * 2 + bgPad * 2;
+        if (showKeystrokes) {
+            panelH += (int)((72 + 6) * scale); // 72px for keystrokes grid + 6px spacing
+        }
 
         // Anchor
         int originX, originY;
@@ -88,6 +97,13 @@ public class DebugOverlayManager {
             Line l = lines.get(i);
             ctx.drawText(font, l.text, scaledTextX, scaledTextY + i * scaledLineH, l.color, true);
         }
+
+        if (showKeystrokes) {
+            int gridX = scaledTextX + (maxTextW - 58) / 2;
+            int gridY = scaledTextY + lines.size() * scaledLineH + 4;
+            drawKeystrokesGrid(ctx, font, gridX, gridY, mc);
+        }
+
         ctx.getMatrices().popMatrix();
     }
 
@@ -138,6 +154,38 @@ public class DebugOverlayManager {
         if (n >= 1_000_000) return String.format("%.1fM", n / 1_000_000.0);
         if (n >= 1_000)     return String.format("%.1fK", n / 1_000.0);
         return String.valueOf(n);
+    }
+
+    private static void drawKeystrokesGrid(DrawContext ctx, TextRenderer font, int x, int y, MinecraftClient mc) {
+        boolean w = mc.options.forwardKey.isPressed();
+        boolean a = mc.options.leftKey.isPressed();
+        boolean s = mc.options.backKey.isPressed();
+        boolean d = mc.options.rightKey.isPressed();
+        boolean lmb = mc.options.attackKey.isPressed();
+        boolean rmb = mc.options.useKey.isPressed();
+        boolean space = mc.options.jumpKey.isPressed();
+
+        // Row 1: W
+        drawKey(ctx, font, x + 20, y, 18, 18, "W", w);
+
+        // Row 2: A, S, D
+        drawKey(ctx, font, x, y + 20, 18, 18, "A", a);
+        drawKey(ctx, font, x + 20, y + 20, 18, 18, "S", s);
+        drawKey(ctx, font, x + 40, y + 20, 18, 18, "D", d);
+
+        // Row 3: LMB, RMB
+        drawKey(ctx, font, x, y + 40, 28, 18, "LMB", lmb);
+        drawKey(ctx, font, x + 30, y + 40, 28, 18, "RMB", rmb);
+
+        // Row 4: Space
+        drawKey(ctx, font, x, y + 60, 58, 12, "SPACE", space);
+    }
+
+    private static void drawKey(DrawContext ctx, TextRenderer font, int x, int y, int w, int h, String text, boolean pressed) {
+        int bgColor = pressed ? 0x8055FFFF : 0x40000000; // Aqua highlight if pressed, dark transparent if not
+        int textColor = pressed ? 0xFFFFFFFF : 0xFFAAAAAA;
+        ctx.fill(x, y, x + w, y + h, bgColor);
+        ctx.drawCenteredTextWithShadow(font, net.minecraft.text.Text.literal(text), x + w / 2, y + (h - 8) / 2, textColor);
     }
 
     public static void register() {}

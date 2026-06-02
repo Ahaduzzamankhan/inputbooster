@@ -135,23 +135,28 @@ public class InputBoosterScreen extends Screen {
             btn.setMessage(toggleLabel("HUD Overlay", InputBoosterConfig.isShowF3Info()));
             hasChanges = true;
         }));
+        addDrawableChild(toggleButton(cx, top + gap, "Keystrokes Overlay", InputBoosterConfig.isShowKeystrokes(), btn -> {
+            InputBoosterConfig.setShowKeystrokes(!InputBoosterConfig.isShowKeystrokes());
+            btn.setMessage(toggleLabel("Keystrokes Overlay", InputBoosterConfig.isShowKeystrokes()));
+            hasChanges = true;
+        }));
         addDrawableChild(ButtonWidget.builder(overlayPosLabel(), btn -> {
             InputBoosterConfig.setOverlayPosition((InputBoosterConfig.getOverlayPosition() + 1) % 4);
             btn.setMessage(overlayPosLabel());
             hasChanges = true;
-        }).dimensions(cx - 100, top + gap, 200, bh).build());
-        addDrawableChild(new OverlayScaleSlider(cx - bw / 2, top + gap * 2, bw, bh, InputBoosterConfig.getOverlayScale()));
-        addDrawableChild(toggleButton(cx, top + gap * 3, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
+        }).dimensions(cx - 100, top + gap * 2, 200, bh).build());
+        addDrawableChild(new OverlayScaleSlider(cx - bw / 2, top + gap * 3, bw, bh, InputBoosterConfig.getOverlayScale()));
+        addDrawableChild(toggleButton(cx, top + gap * 4, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
             InputBoosterConfig.setShowActionBar(!InputBoosterConfig.isShowActionBar());
             btn.setMessage(toggleLabel("Action Bar Messages", InputBoosterConfig.isShowActionBar()));
             hasChanges = true;
         }));
-        addDrawableChild(toggleButton(cx, top + gap * 4, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
+        addDrawableChild(toggleButton(cx, top + gap * 5, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
             InputBoosterConfig.setDebugMode(!InputBoosterConfig.isDebugMode());
             btn.setMessage(toggleLabel("Debug Mode", InputBoosterConfig.isDebugMode()));
             hasChanges = true;
         }));
-        addDrawableChild(new FpsCheckSlider(cx - bw / 2, top + gap * 5 + 4, bw, bh, InputBoosterConfig.getFpsCheckInterval()));
+        addDrawableChild(new FpsCheckSlider(cx - bw / 2, top + gap * 6 + 4, bw, bh, InputBoosterConfig.getFpsCheckInterval()));
     }
 
     private void initStatsTab(int cx, int top, int bw, int bh, int gap) {
