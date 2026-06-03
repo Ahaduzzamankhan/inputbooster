@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Client",
+      "presentation": {
+        "group": "Mod Development - inputbooster",
+        "order": 0
+      },
+      "projectName": "inputbooster",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@C:\\Users\\Fluxenite\\Documents\\GitHub\\inputbooster\\build\\moddev\\clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@C:\\Users\\Fluxenite\\Documents\\GitHub\\inputbooster\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dinputbooster%%C:\\Users\\Fluxenite\\Documents\\GitHub\\inputbooster\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    }
+  ]
+}
