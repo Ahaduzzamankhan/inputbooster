@@ -21,7 +21,7 @@ public final class InputClickSoundManager {
         lastSoundNanos = now;
 
         client.getSoundManager().play(PositionedSoundInstance.master(
-            SoundEvents.UI_BUTTON_CLICK,
+            SoundEvents.UI_BUTTON_CLICK.value(),
             InputBoosterConfig.getClickSoundPitch(),
             InputBoosterConfig.getClickSoundVolume()
         ));
