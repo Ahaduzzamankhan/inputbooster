@@ -1,6 +1,7 @@
 package dev.inputbooster;
 
 import dev.inputbooster.feature.LatencyProfiler;
+import dev.inputbooster.feature.InputClickSoundManager;
 import dev.inputbooster.mixin.MinecraftClientAccessor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -49,6 +50,7 @@ public class InputDrainer {
             }
 
             apply(stamped.action(), mc);
+            InputClickSoundManager.playFor(stamped.action(), mc);
             if (stamped.action() == InputAction.ATTACK_PRESSED) {
                 InputBoosterMod.totalHits.incrementAndGet();
             }

@@ -18,8 +18,12 @@ public class InputBoosterScreen extends Screen {
     private final Screen parent;
     private boolean hasChanges = false;
     private int currentTab = 0;
-    private static final String[] TAB_LABELS = {"§ePoll Rate","§aFeatures","§8Advanced","§bStats","§dProfiles"};
+    private static final String[] TAB_LABELS = {"Poll", "Features", "Advanced", "Stats", "Profiles"};
     private static final int TAB_COUNT = 5;
+    private static final int PANEL_COLOR = 0xB0101420;
+    private static final int PANEL_BORDER = 0xFF45D6E8;
+    private static final int PANEL_BORDER_DARK = 0x66355F70;
+    private static final int TEXT_MUTED = 0xFF9BA8B5;
 
     private ButtonWidget modeButton;
     private PollRateSlider pollSlider;
@@ -32,19 +36,20 @@ public class InputBoosterScreen extends Screen {
 
     @Override
     protected void init() {
-        int cx = this.width / 2, bw = 200, bh = 20, gap = 24, top = 50;
+        int cx = this.width / 2, bw = Math.min(220, this.width - 48), bh = 20, gap = 24, top = 64;
 
-        int tabW  = Math.min(60, (this.width - 20) / TAB_COUNT);
+        int panelW = panelWidth();
+        int tabW  = Math.max(54, Math.min(82, (panelW - 28) / TAB_COUNT));
         int tabsW = tabW * TAB_COUNT + (TAB_COUNT - 1) * 4;
         int tabX0 = cx - tabsW / 2;
 
         for (int t = 0; t < TAB_COUNT; t++) {
             final int tab = t;
             int tx = tabX0 + t * (tabW + 4);
-            ButtonWidget btn = ButtonWidget.builder(Text.literal(TAB_LABELS[t]), b -> {
+            ButtonWidget btn = ButtonWidget.builder(tabLabel(t), b -> {
                 currentTab = tab;
                 clearAndInit();
-            }).dimensions(tx, 20, tabW, 16).build();
+            }).dimensions(tx, 34, tabW, 18).build();
             btn.active = (t != currentTab);
             addDrawableChild(btn);
         }
@@ -60,7 +65,7 @@ public class InputBoosterScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal("§a✓ Save & Close"), btn -> {
             InputBoosterConfig.save();
             close();
-        }).dimensions(cx - bw / 2, this.height - 28, bw, bh).build());
+        }).dimensions(cx - bw / 2, this.height - 30, bw, bh).build());
     }
 
     private void initPollRateTab(int cx, int top, int bw, int bh, int gap) {
@@ -90,11 +95,11 @@ public class InputBoosterScreen extends Screen {
 
         int[] presets = {100, 200, 350, 500, 750, 1000};
         String[] names = {"100","200","350","500","750","1000"};
-        int pbw = 32; presetButtons = new ButtonWidget[6];
+        int pbw = 46; presetButtons = new ButtonWidget[6];
         for (int i = 0; i < 6; i++) {
             final int hz = presets[i];
             int col = i % 3, row = i / 3;
-            int px = cx - (pbw * 3 + 4) / 2 + col * (pbw + 2);
+            int px = cx - (pbw * 3 + 8) / 2 + col * (pbw + 4);
             int py = top + gap * 4 + row * (bh + 2);
             presetButtons[i] = ButtonWidget.builder(Text.literal(names[i] + "Hz"), btn -> {
                 InputBoosterConfig.setPollRateHz(hz);
@@ -116,26 +121,38 @@ public class InputBoosterScreen extends Screen {
             new Toggle("Anti-Idle",    InputBoosterConfig.isAntiIdleEnabled(),   InputBoosterConfig::setAntiIdleEnabled),
             new Toggle("Auto-Strafe",  InputBoosterConfig.isAutoStrafeEnabled(), InputBoosterConfig::setAutoStrafeEnabled),
             new Toggle("CPS Limiter",  InputBoosterConfig.isCpsLimiterEnabled(), InputBoosterConfig::setCpsLimiterEnabled),
+            new Toggle("Key Click Sounds", InputBoosterConfig.isClickSoundsEnabled(), InputBoosterConfig::setClickSoundsEnabled),
         };
+        int colW = this.width >= 430 ? 196 : bw;
+        int leftCx = this.width >= 430 ? cx - 104 : cx;
+        int rightCx = this.width >= 430 ? cx + 104 : cx;
         for (int i = 0; i < toggles.length; i++) {
             Toggle t = toggles[i];
-            addDrawableChild(toggleButton(cx, top + gap * i, t.label(), t.state(), btn -> {
+            int row = this.width >= 430 ? i / 2 : i;
+            int colCx = this.width >= 430 && i % 2 == 1 ? rightCx : leftCx;
+            addDrawableChild(toggleButton(colCx, top + gap * row, colW, t.label(), t.state(), btn -> {
                 boolean newVal = !btn.getMessage().getString().contains("ON");
                 t.setter().accept(newVal);
                 btn.setMessage(toggleLabel(t.label(), newVal));
                 hasChanges = true;
             }));
         }
-        addDrawableChild(new MaxCpsSlider(cx - bw / 2, top + gap * toggles.length + 4, bw, bh, InputBoosterConfig.getMaxCps()));
+        int sliderY = top + gap * (this.width >= 430 ? 4 : toggles.length) + 4;
+        addDrawableChild(new MaxCpsSlider(cx - bw / 2, sliderY, bw, bh, InputBoosterConfig.getMaxCps()));
+        addDrawableChild(new ClickPitchSlider(cx - bw / 2, sliderY + gap, bw, bh, InputBoosterConfig.getClickSoundPitch()));
+        addDrawableChild(new ClickVolumeSlider(cx - bw / 2, sliderY + gap * 2, bw, bh, InputBoosterConfig.getClickSoundVolume()));
     }
 
     private void initAdvancedTab(int cx, int top, int bw, int bh, int gap) {
-        addDrawableChild(toggleButton(cx, top, "HUD Overlay", InputBoosterConfig.isShowF3Info(), btn -> {
+        int leftCx = this.width >= 420 ? cx - 105 : cx;
+        int rightCx = this.width >= 420 ? cx + 105 : cx;
+        int colW = this.width >= 420 ? 190 : bw;
+        addDrawableChild(toggleButton(leftCx, top, colW, "HUD Overlay", InputBoosterConfig.isShowF3Info(), btn -> {
             InputBoosterConfig.setShowF3Info(!InputBoosterConfig.isShowF3Info());
             btn.setMessage(toggleLabel("HUD Overlay", InputBoosterConfig.isShowF3Info()));
             hasChanges = true;
         }));
-        addDrawableChild(toggleButton(cx, top + gap, "Keystrokes Overlay", InputBoosterConfig.isShowKeystrokes(), btn -> {
+        addDrawableChild(toggleButton(leftCx, top + gap, colW, "Keystrokes Overlay", InputBoosterConfig.isShowKeystrokes(), btn -> {
             InputBoosterConfig.setShowKeystrokes(!InputBoosterConfig.isShowKeystrokes());
             btn.setMessage(toggleLabel("Keystrokes Overlay", InputBoosterConfig.isShowKeystrokes()));
             hasChanges = true;
@@ -144,17 +161,42 @@ public class InputBoosterScreen extends Screen {
             InputBoosterConfig.setOverlayPosition((InputBoosterConfig.getOverlayPosition() + 1) % 4);
             btn.setMessage(overlayPosLabel());
             hasChanges = true;
-        }).dimensions(cx - 100, top + gap * 2, 200, bh).build());
-        addDrawableChild(new OverlayScaleSlider(cx - bw / 2, top + gap * 3, bw, bh, InputBoosterConfig.getOverlayScale()));
-addDrawableChild(new OverlayOpacitySlider(cx - bw / 2, top + gap * 4, bw, bh, InputBoosterConfig.getOverlayOpacity()));
-        addDrawableChild(toggleButton(cx, top + gap * 5, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
+        }).dimensions(leftCx - colW / 2, top + gap * 2, colW, bh).build());
+        addDrawableChild(new OverlayScaleSlider(leftCx - colW / 2, top + gap * 3, colW, bh, InputBoosterConfig.getOverlayScale()));
+        addDrawableChild(new OverlayOpacitySlider(leftCx - colW / 2, top + gap * 4, colW, bh, InputBoosterConfig.getOverlayOpacity()));
+        addDrawableChild(toggleButton(leftCx, top + gap * 5, colW, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
             InputBoosterConfig.setShowActionBar(!InputBoosterConfig.isShowActionBar());
             btn.setMessage(toggleLabel("Action Bar Messages", InputBoosterConfig.isShowActionBar()));
             hasChanges = true;
         }));
-        addDrawableChild(toggleButton(cx, top + gap * 6, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
+        addDrawableChild(toggleButton(rightCx, top, colW, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
             InputBoosterConfig.setDebugMode(!InputBoosterConfig.isDebugMode());
             btn.setMessage(toggleLabel("Debug Mode", InputBoosterConfig.isDebugMode()));
+            hasChanges = true;
+        }));
+        addDrawableChild(toggleButton(rightCx, top + gap, colW, "Replay Recorder", InputBoosterConfig.isReplayEnabled(), btn -> {
+            InputBoosterConfig.setReplayEnabled(!InputBoosterConfig.isReplayEnabled());
+            btn.setMessage(toggleLabel("Replay Recorder", InputBoosterConfig.isReplayEnabled()));
+            hasChanges = true;
+        }));
+        addDrawableChild(toggleButton(rightCx, top + gap * 2, colW, "Safe Mode", InputBoosterConfig.isSafeModeEnabled(), btn -> {
+            InputBoosterConfig.setSafeModeEnabled(!InputBoosterConfig.isSafeModeEnabled());
+            btn.setMessage(toggleLabel("Safe Mode", InputBoosterConfig.isSafeModeEnabled()));
+            hasChanges = true;
+        }));
+        addDrawableChild(toggleButton(rightCx, top + gap * 3, colW, "Event Log", InputBoosterConfig.isEventLogEnabled(), btn -> {
+            InputBoosterConfig.setEventLogEnabled(!InputBoosterConfig.isEventLogEnabled());
+            btn.setMessage(toggleLabel("Event Log", InputBoosterConfig.isEventLogEnabled()));
+            hasChanges = true;
+        }));
+        addDrawableChild(toggleButton(rightCx, top + gap * 4, colW, "Key Conflict Warn", InputBoosterConfig.isKeyConflictWarn(), btn -> {
+            InputBoosterConfig.setKeyConflictWarn(!InputBoosterConfig.isKeyConflictWarn());
+            btn.setMessage(toggleLabel("Key Conflict Warn", InputBoosterConfig.isKeyConflictWarn()));
+            hasChanges = true;
+        }));
+        addDrawableChild(toggleButton(rightCx, top + gap * 5, colW, "Per-Server Profiles", InputBoosterConfig.isPerServerProfiles(), btn -> {
+            InputBoosterConfig.setPerServerProfiles(!InputBoosterConfig.isPerServerProfiles());
+            btn.setMessage(toggleLabel("Per-Server Profiles", InputBoosterConfig.isPerServerProfiles()));
             hasChanges = true;
         }));
         addDrawableChild(new FpsCheckSlider(cx - bw / 2, top + gap * 7 + 4, bw, bh, InputBoosterConfig.getFpsCheckInterval()));
@@ -202,17 +244,21 @@ addDrawableChild(new OverlayOpacitySlider(cx - bw / 2, top + gap * 4, bw, bh, In
         // Do NOT call renderBackground() here — MC 1.21.11 already calls it
         // via Screen.render() before delegating to us, and calling it twice
         // triggers 'Can only blur once per frame'.
-        ctx.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 8, 0xFFFFFF);
+        int panelX = (this.width - panelWidth()) / 2;
+        int panelY = 24;
+        int panelH = Math.max(120, this.height - 62);
+        drawPanel(ctx, panelX, panelY, panelWidth(), panelH);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 10, 0xFFFFFF);
 
         String tabLabel = switch (currentTab) {
-            case 0 -> "Poll Rate Configuration";
-            case 1 -> "Feature Toggles";
-            case 2 -> "Advanced Settings";
-            case 3 -> "Session Statistics";
-            case 4 -> "Config Profiles";
+            case 0 -> "Adaptive polling and manual presets";
+            case 1 -> "Movement, combat, and click feedback";
+            case 2 -> "Overlay, safety, logs, and profiles";
+            case 3 -> "Session statistics";
+            case 4 -> "Config profiles";
             default -> "";
         };
-        ctx.drawCenteredTextWithShadow(this.textRenderer, Text.literal("§8" + tabLabel), this.width / 2, 38, 0x888888);
+        ctx.drawCenteredTextWithShadow(this.textRenderer, Text.literal(tabLabel), this.width / 2, 55, TEXT_MUTED);
 
         if (currentTab == 3) renderStatsContent(ctx);
 
@@ -222,6 +268,19 @@ addDrawableChild(new OverlayOpacitySlider(cx - bw / 2, top + gap * 4, bw, bh, In
         }
 
         super.render(ctx, mouseX, mouseY, delta);
+    }
+
+    private int panelWidth() {
+        return Math.min(456, Math.max(280, this.width - 24));
+    }
+
+    private void drawPanel(DrawContext ctx, int x, int y, int w, int h) {
+        ctx.fill(x, y, x + w, y + h, PANEL_COLOR);
+        ctx.fill(x, y, x + w, y + 1, PANEL_BORDER);
+        ctx.fill(x, y + h - 1, x + w, y + h, PANEL_BORDER_DARK);
+        ctx.fill(x, y, x + 1, y + h, PANEL_BORDER_DARK);
+        ctx.fill(x + w - 1, y, x + w, y + h, PANEL_BORDER_DARK);
+        ctx.fill(x + 8, y + 26, x + w - 8, y + 27, 0x3335D7E8);
     }
 
     private void renderStatsContent(DrawContext ctx) {
@@ -294,9 +353,18 @@ addDrawableChild(new OverlayOpacitySlider(cx - bw / 2, top + gap * 4, bw, bh, In
             : Text.literal("§eMode: MANUAL §r§7(fixed Hz)");
     }
 
+    private Text tabLabel(int tab) {
+        String color = tab == currentTab ? "§b§l" : "§7";
+        return Text.literal(color + TAB_LABELS[tab]);
+    }
+
     private ButtonWidget toggleButton(int cx, int y, String label, boolean initial, ButtonWidget.PressAction action) {
+        return toggleButton(cx, y, 200, label, initial, action);
+    }
+
+    private ButtonWidget toggleButton(int cx, int y, int width, String label, boolean initial, ButtonWidget.PressAction action) {
         return ButtonWidget.builder(toggleLabel(label, initial), action)
-            .dimensions(cx - 100, y, 200, 20).build();
+            .dimensions(cx - width / 2, y, width, 20).build();
     }
 
     private Text toggleLabel(String label, boolean on) {
@@ -334,6 +402,39 @@ addDrawableChild(new OverlayOpacitySlider(cx - bw / 2, top + gap * 4, bw, bh, In
         @Override protected void applyValue() {
             cps = 1 + (int)(value * 19);
             InputBoosterConfig.setMaxCps(cps);
+            updateMessage();
+        }
+    }
+
+    private static class ClickPitchSlider extends SliderWidget {
+        private float pitch;
+        ClickPitchSlider(int x, int y, int w, int h, float currentPitch) {
+            super(x, y, w, h, Text.literal("Click Pitch: " + currentPitch + "x"), (currentPitch - 0.5f) / 1.5f);
+            this.pitch = currentPitch;
+        }
+        @Override protected void updateMessage() {
+            setMessage(Text.literal(String.format("Click Pitch: §e%.2fx", pitch)));
+        }
+        @Override protected void applyValue() {
+            pitch = 0.5f + (float)(value * 1.5f);
+            pitch = Math.round(pitch * 20) / 20.0f;
+            InputBoosterConfig.setClickSoundPitch(pitch);
+            updateMessage();
+        }
+    }
+
+    private static class ClickVolumeSlider extends SliderWidget {
+        private float volume;
+        ClickVolumeSlider(int x, int y, int w, int h, float currentVolume) {
+            super(x, y, w, h, Text.literal("Click Volume: " + (int)(currentVolume * 100) + "%"), currentVolume);
+            this.volume = currentVolume;
+        }
+        @Override protected void updateMessage() {
+            setMessage(Text.literal(String.format("Click Volume: §e%d%%", Math.round(volume * 100))));
+        }
+        @Override protected void applyValue() {
+            volume = Math.round(value * 100) / 100.0f;
+            InputBoosterConfig.setClickSoundVolume(volume);
             updateMessage();
         }
     }

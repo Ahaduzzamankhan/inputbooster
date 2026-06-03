@@ -1,14 +1,12 @@
 package dev.inputbooster;
 
 import dev.inputbooster.feature.*;
-import dev.inputbooster.screen.InputBoosterScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,8 +19,8 @@ public class InputBoosterMod implements ClientModInitializer {
 
     public static final String MOD_ID      = "inputbooster";
     public static final String MOD_NAME    = "InputBooster";
-    public static final String MOD_VERSION = "3.0.2-rl1";
-    public static final String DISPLAY_VERSION = "3.0.2-rl1-mc26";
+    public static final String MOD_VERSION = "3.0.2-rl02";
+    public static final String DISPLAY_VERSION = "3.0.2-rl02-mc26";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -57,12 +55,13 @@ public class InputBoosterMod implements ClientModInitializer {
     public static PerServerProfileManager perServerProfileManager;
     public static ConfigTools         configTools;
 
-    private static KeyBinding openScreenKey;
-    private static KeyBinding toggleModKey;
     private static KeyBinding replayRecordKey;
     private static KeyBinding replayPlayKey;
     private static final int[] COMBO_PRESET_HZ = {100, 200, 350, 500, 1000};
     private static final boolean[] comboDigitHeld = new boolean[COMBO_PRESET_HZ.length];
+    private static double smoothedFps = 60.0D;
+    private static int stableFpsTicks = 0;
+    private static int unstableFpsTicks = 0;
 
     @Override
     public void onInitializeClient() {
@@ -95,10 +94,6 @@ public class InputBoosterMod implements ClientModInitializer {
             pollingThread.start();
             currentPollHz = initialHz;
 
-            openScreenKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.inputbooster.options", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, KeyBinding.Category.MISC));
-            toggleModKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.inputbooster.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_P, KeyBinding.Category.MISC));
             replayRecordKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.inputbooster.replay_record", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, KeyBinding.Category.MISC));
             replayPlayKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -117,8 +112,7 @@ public class InputBoosterMod implements ClientModInitializer {
     }
 
     private void onClientTick(MinecraftClient client) {
-        // Handle keybinds BEFORE the active guard so P can re-enable the mod
-        // and O can still open settings even when the mod is toggled off.
+        // Replay keybinds are independent of movement/input processing.
         if (initialized.get()) handleKeybinds(client);
 
         if (!active || !initialized.get()) return;
@@ -158,19 +152,6 @@ public class InputBoosterMod implements ClientModInitializer {
     }
 
     private void handleKeybinds(MinecraftClient client) {
-        if (openScreenKey.wasPressed()) {
-            if (client.currentScreen == null || !(client.currentScreen instanceof InputBoosterScreen)) {
-                client.setScreen(new InputBoosterScreen(client.currentScreen));
-            }
-        }
-        if (toggleModKey.wasPressed()) {
-            active = !active;
-            String status = active ? "§a§lON" : "§c§lOFF";
-            if (client.player != null) {
-                client.player.sendMessage(Text.literal("§7InputBooster " + status), true);
-            }
-            if (eventLog != null) eventLog.add("Mod toggled " + (active ? "on" : "off"));
-        }
         if (replayRecordKey.wasPressed() && replayRecorder != null) {
             boolean recording = replayRecorder.toggleRecording();
             if (eventLog != null) eventLog.add("Replay recording " + (recording ? "started" : "stopped"));
@@ -238,11 +219,38 @@ public class InputBoosterMod implements ClientModInitializer {
     }
 
     public static int calculateAutoHz(int fps) {
-        if (fps <= 20)  return 500;
-        if (fps <= 30)  return 400;
-        if (fps <= 60)  return 200;
-        if (fps <= 120) return 150;
-        return 100;
+        if (fps <= 0) fps = (int)Math.round(smoothedFps);
+
+        double previous = smoothedFps;
+        smoothedFps = previous * 0.82D + fps * 0.18D;
+        double dropRatio = previous <= 1.0D ? 0.0D : (previous - fps) / previous;
+        boolean unstable = dropRatio > 0.18D || Math.abs(fps - smoothedFps) > 16.0D;
+
+        if (unstable) {
+            unstableFpsTicks = Math.min(40, unstableFpsTicks + 1);
+            stableFpsTicks = 0;
+        } else {
+            stableFpsTicks = Math.min(40, stableFpsTicks + 1);
+            if (stableFpsTicks >= 8) unstableFpsTicks = Math.max(0, unstableFpsTicks - 1);
+        }
+
+        int target;
+        if (smoothedFps <= 16.0D)      target = 250;
+        else if (smoothedFps <= 24.0D) target = 500;
+        else if (smoothedFps <= 35.0D) target = 450;
+        else if (smoothedFps <= 50.0D) target = 350;
+        else if (smoothedFps <= 75.0D) target = 250;
+        else if (smoothedFps <= 120.0D) target = 180;
+        else                           target = 120;
+
+        if (unstableFpsTicks >= 3) {
+            target = Math.min(target, smoothedFps <= 24.0D ? 350 : 250);
+        }
+
+        int current = currentPollHz <= 0 ? target : currentPollHz;
+        if (target > current) return Math.min(target, current + 100);
+        if (target < current) return Math.max(target, current - 50);
+        return target;
     }
 
     public static boolean debugMode() { return InputBoosterConfig.isDebugMode(); }

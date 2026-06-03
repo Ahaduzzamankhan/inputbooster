@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
  * Each profile captures all InputBoosterConfig values and is persisted to
  * config/inputbooster_profiles.json.
  *
- * Access: O key → "Profiles" tab in InputBoosterScreen.
+ * Access: Options menu -> "InputBooster..." -> "Profiles" tab.
  * Command: /inputbooster profile <name>  (to be registered in InputBoosterMod)
  *
  * Version: 3.0.0

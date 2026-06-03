@@ -47,7 +47,10 @@ public class InputBoosterConfig {
     private static boolean eventLogEnabled   = true;
     private static boolean keyConflictWarn   = true;
     private static boolean perServerProfiles = true;
-    private static int     configVersion     = 301;
+    private static boolean clickSoundsEnabled = true;
+    private static float   clickSoundPitch   = 1.35f;
+    private static float   clickSoundVolume  = 0.35f;
+    private static int     configVersion     = 302;
 
     // ── UI ───────────────────────────────────────────────────────────────────
     private static boolean showF3Info        = true;
@@ -113,7 +116,10 @@ public class InputBoosterConfig {
                 eventLogEnabled   = parseBool(props, "event_log",             true);
                 keyConflictWarn   = parseBool(props, "key_conflict_warn",     true);
                 perServerProfiles = parseBool(props, "per_server_profiles",   true);
-                configVersion     = Math.max(1, parseInt(props, "config_version", 301));
+                clickSoundsEnabled = parseBool(props, "click_sounds",         true);
+                clickSoundPitch   = Math.max(0.5f, Math.min(2.0f, parseFloat(props, "click_sound_pitch", 1.35f)));
+                clickSoundVolume  = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "click_sound_volume", 0.35f)));
+                configVersion     = Math.max(1, parseInt(props, "config_version", 302));
                 showF3Info        = parseBool(props, "show_f3_info",          true);
                 showKeystrokes    = parseBool(props, "show_keystrokes",       true);
                 overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", 0)));
@@ -156,6 +162,9 @@ public class InputBoosterConfig {
             props.setProperty("event_log",           String.valueOf(eventLogEnabled));
             props.setProperty("key_conflict_warn",   String.valueOf(keyConflictWarn));
             props.setProperty("per_server_profiles", String.valueOf(perServerProfiles));
+            props.setProperty("click_sounds",        String.valueOf(clickSoundsEnabled));
+            props.setProperty("click_sound_pitch",   String.valueOf(clickSoundPitch));
+            props.setProperty("click_sound_volume",  String.valueOf(clickSoundVolume));
             props.setProperty("config_version",      String.valueOf(configVersion));
             props.setProperty("show_f3_info",        String.valueOf(showF3Info));
             props.setProperty("show_keystrokes",     String.valueOf(showKeystrokes));
@@ -166,7 +175,7 @@ public class InputBoosterConfig {
             props.setProperty("fps_check_interval",  String.valueOf(fpsCheckInterval));
             props.setProperty("debug_mode",          String.valueOf(debugMode));
             try (OutputStream out = Files.newOutputStream(CONFIG_PATH)) {
-                props.store(out, "InputBooster v3.0.0 Configuration — by Ahaduzzaman Khan");
+                props.store(out, "InputBooster v3.0.2-rl02 Configuration - by Ahaduzzaman Khan");
             }
             LOGGER.info("✓ Config saved to {}", CONFIG_PATH);
         } catch (Exception e) {
@@ -196,7 +205,8 @@ public class InputBoosterConfig {
         antiIdleEnabled = true; autoStrafeEnabled = true; cpsLimiterEnabled = true;
         burstModeEnabled = true; maxCps = 20; comboKeysEnabled = true;
         cpsMode = "FIXED"; replayEnabled = true; safeModeEnabled = true;
-        eventLogEnabled = true; keyConflictWarn = true; perServerProfiles = true; configVersion = 301;
+        eventLogEnabled = true; keyConflictWarn = true; perServerProfiles = true;
+        clickSoundsEnabled = true; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f; configVersion = 302;
         showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
         overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
     }
@@ -220,6 +230,9 @@ public class InputBoosterConfig {
     public static boolean isEventLogEnabled()    { return eventLogEnabled; }
     public static boolean isKeyConflictWarn()    { return keyConflictWarn; }
     public static boolean isPerServerProfiles()  { return perServerProfiles; }
+    public static boolean isClickSoundsEnabled() { return clickSoundsEnabled; }
+    public static float   getClickSoundPitch()   { return clickSoundPitch; }
+    public static float   getClickSoundVolume()  { return clickSoundVolume; }
     public static int     getConfigVersion()     { return configVersion; }
     public static boolean isShowF3Info()         { return showF3Info; }
     public static boolean isShowKeystrokes()     { return showKeystrokes; }
@@ -249,6 +262,9 @@ public class InputBoosterConfig {
     public static void setEventLogEnabled(boolean v)   { eventLogEnabled = v; }
     public static void setKeyConflictWarn(boolean v)   { keyConflictWarn = v; }
     public static void setPerServerProfiles(boolean v) { perServerProfiles = v; }
+    public static void setClickSoundsEnabled(boolean v) { clickSoundsEnabled = v; }
+    public static void setClickSoundPitch(float v)      { clickSoundPitch = Math.max(0.5f, Math.min(2.0f, v)); }
+    public static void setClickSoundVolume(float v)     { clickSoundVolume = Math.max(0.0f, Math.min(1.0f, v)); }
     public static void setShowF3Info(boolean v)       { showF3Info = v; }
     public static void setShowKeystrokes(boolean v)   { showKeystrokes = v; }
     public static void setOverlayPosition(int v)      { overlayPosition = Math.max(0, Math.min(3, v)); }
