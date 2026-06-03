@@ -1,17 +1,13 @@
 pluginManagement {
     repositories {
-        maven { name = "Fabric"; url = "https://maven.fabricmc.net/" }
-        maven { name = "Architectury"; url = "https://maven.architectury.dev/" }
         gradlePluginPortal()
         mavenCentral()
-    }
-    resolutionStrategy {
-        eachPlugin {
-            if (requested.id.id == "fabric-loom") {
-                useModule("net.fabricmc:fabric-loom:${requested.version}")
-            }
-        }
+        maven { url = 'https://maven.neoforged.net/releases' }
     }
 }
 
-rootProject.name = "inputbooster"
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'inputbooster'
