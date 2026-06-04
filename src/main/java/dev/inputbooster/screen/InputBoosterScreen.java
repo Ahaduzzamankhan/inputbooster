@@ -364,7 +364,7 @@ public class InputBoosterScreen extends Screen {
 
     private Button toggleButton(int cx, int y, int width, String label, boolean initial, Button.OnPress action) {
         return Button.builder(toggleLabel(label, initial), action)
-            .dimensions(cx - width / 2, y, width, 20).build();
+            .bounds(cx - width / 2, y, width, 20).build();
     }
 
     private Component toggleLabel(String label, boolean on) {

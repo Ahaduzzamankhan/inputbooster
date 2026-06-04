@@ -6,7 +6,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.TickEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 
 import net.minecraft.client.KeyMapping;
@@ -130,7 +130,7 @@ public class InputBoosterMod {
         if (replayPlayKey != null) event.register(replayPlayKey);
     }
 
-    private void onClientTick(final TickEvent.ClientTickEvent event) {
+    private void onClientTick(final ClientTickEvent.Post event) {
         Minecraft client = Minecraft.getInstance();
         if (initialized.get()) handleKeybinds(client);
         if (!active || !initialized.get()) return;
@@ -184,7 +184,11 @@ public class InputBoosterMod {
             resetComboKeyState();
             return;
         }
-        long window = net.minecraft.client.Minecraft.getInstance().getWindow().getWindow();
+        long window = client.getWindow().handle();
+        if (window == 0L) {
+            resetComboKeyState();
+            return;
+        }
         boolean ctrl = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
         if (!ctrl) {
