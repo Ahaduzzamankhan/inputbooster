@@ -2,7 +2,8 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 import java.io.*;
 import java.nio.file.*;
@@ -234,7 +235,7 @@ public class ProfileManager {
     }
 
     /** Load a profile by name. Returns false if not found. */
-    public boolean loadProfile(String name, net.minecraft.client.MinecraftClient mc) {
+    public boolean loadProfile(String name, Minecraft mc) {
         for (int i = 0; i < profiles.size(); i++) {
             if (profiles.get(i).name().equalsIgnoreCase(name)) {
                 profiles.get(i).apply();
@@ -242,8 +243,8 @@ public class ProfileManager {
                 InputBoosterConfig.save();
                 InputBoosterMod.LOGGER.info("[ProfileManager] Loaded profile: {}", name);
                 if (mc != null && mc.player != null) {
-                    mc.player.sendMessage(
-                        Text.literal("§b[InputBooster] §aProfile loaded: §e" + name), true);
+                    mc.player.displayClientMessage(
+                        Component.literal("§b[InputBooster] §aProfile loaded: §e" + name), true);
                 }
                 return true;
             }

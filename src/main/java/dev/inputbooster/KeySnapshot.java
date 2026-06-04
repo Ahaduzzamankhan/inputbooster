@@ -1,6 +1,6 @@
 package dev.inputbooster;
 
-import net.minecraft.client.option.GameOptions;
+import net.minecraft.client.Options;
 
 /**
  * KeySnapshot — immutable snapshot of key states for a single polling cycle.
@@ -18,23 +18,23 @@ public final class KeySnapshot {
     public final boolean jump, forward, back, left, right;
     public final boolean drop, swap, pickBlock;
 
-    public KeySnapshot(GameOptions opt) {
+    public KeySnapshot(Options opt) {
         // All reads happen on the game tick thread — safe, consistent snapshot.
         // The volatile write to InputBoosterMod.keySnapshot ensures the polling
         // thread sees the fully constructed object (Java memory model guarantee:
         // a volatile write happens-after all prior writes in the same thread).
-        this.attack    = opt.attackKey.isPressed();
-        this.use       = opt.useKey.isPressed();
-        this.sprint    = opt.sprintKey.isPressed();
-        this.sneak     = opt.sneakKey.isPressed();
-        this.jump      = opt.jumpKey.isPressed();
-        this.forward   = opt.forwardKey.isPressed();
-        this.back      = opt.backKey.isPressed();
-        this.left      = opt.leftKey.isPressed();
-        this.right     = opt.rightKey.isPressed();
-        this.drop      = opt.dropKey.isPressed();
-        this.swap      = opt.swapHandsKey.isPressed();
-        this.pickBlock = opt.pickItemKey.isPressed();
+        this.attack    = opt.keyAttack.isPressed();
+        this.use       = opt.keyUse.isPressed();
+        this.sprint    = opt.keySprint.isPressed();
+        this.sneak     = opt.keyShift.isPressed();
+        this.jump      = opt.keyJump.isPressed();
+        this.forward   = opt.keyUp.isPressed();
+        this.back      = opt.keyDown.isPressed();
+        this.left      = opt.keyLeft.isPressed();
+        this.right     = opt.keyRight.isPressed();
+        this.drop      = opt.keyDrop.isPressed();
+        this.swap      = opt.keySwapOffhand.isPressed();
+        this.pickBlock = opt.keyPickItem.isPressed();
     }
 
     /** Returns an empty snapshot (all keys released). Used during init/pause. */

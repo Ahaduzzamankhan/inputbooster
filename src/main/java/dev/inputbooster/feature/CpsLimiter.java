@@ -1,7 +1,7 @@
 package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ThreadLocalRandom;
@@ -76,7 +76,7 @@ public class CpsLimiter {
     }
 
     /** Called every game tick — prune stale entries. */
-    public void tick(MinecraftClient client) {
+    public void tick(Minecraft client) {
         long now = System.currentTimeMillis();
         while (!accepted.isEmpty() && now - accepted.peekFirst() > 1000) accepted.pollFirst();
         while (!attempted.isEmpty() && now - attempted.peekFirst() > 1000) attempted.pollFirst();

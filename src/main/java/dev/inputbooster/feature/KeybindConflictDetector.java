@@ -2,7 +2,7 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -13,7 +13,7 @@ import java.util.Map;
 public class KeybindConflictDetector {
     private boolean checked;
 
-    public void tick(MinecraftClient client) {
+    public void tick(Minecraft client) {
         if (checked || !InputBoosterConfig.isKeyConflictWarn() || client == null || client.options == null) return;
         checked = true;
         Object keys = readField(client.options, "allKeys");

@@ -2,9 +2,9 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputAction;
 import dev.inputbooster.InputBoosterConfig;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
 
 public final class InputClickSoundManager {
     private static long lastSoundNanos = 0L;
@@ -12,7 +12,7 @@ public final class InputClickSoundManager {
 
     private InputClickSoundManager() {}
 
-    public static void playFor(InputAction action, MinecraftClient client) {
+    public static void playFor(InputAction action, Minecraft client) {
         if (!InputBoosterConfig.isClickSoundsEnabled() || client == null || client.player == null) return;
         if (!isPressedAction(action)) return;
 
@@ -20,10 +20,9 @@ public final class InputClickSoundManager {
         if (now - lastSoundNanos < MIN_INTERVAL_NANOS) return;
         lastSoundNanos = now;
 
-        client.getSoundManager().play(PositionedSoundInstance.master(
+        client.getSoundManager().play(SimpleSoundInstance.forUI(
             SoundEvents.UI_BUTTON_CLICK.value(),
-            InputBoosterConfig.getClickSoundPitch(),
-            InputBoosterConfig.getClickSoundVolume()
+            InputBoosterConfig.getClickSoundPitch()
         ));
     }
 

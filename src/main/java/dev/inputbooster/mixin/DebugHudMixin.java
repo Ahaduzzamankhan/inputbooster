@@ -1,6 +1,6 @@
 package dev.inputbooster.mixin;
 
-import net.minecraft.client.gui.hud.DebugHud;
+import net.minecraft.client.gui.components.DebugScreenOverlay;
 import org.spongepowered.asm.mixin.Mixin;
 
 /**
@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.Mixin;
  * info directly via DrawContext in the top-right corner whenever F3 is open.
  * This approach works on every MC version with no mapping dependency.
  */
-@Mixin(value = DebugHud.class, priority = 900)
+@Mixin(value = DebugScreenOverlay.class, priority = 900)
 public class DebugHudMixin {
     // Intentionally empty — see DebugOverlayManager for the actual rendering.
 }

@@ -6,15 +6,14 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.TickEvent.ClientTickEvent;
+import net.neoforged.neoforge.event.tick.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.fml.client.registry.ClientRegistry;
+
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.util.InputConstants;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,11 +74,10 @@ public class InputBoosterMod {
     private static int stableFpsTicks = 0;
     private static int unstableFpsTicks = 0;
 
-    public InputBoosterMod() {
-        IEventBus bus = ModLoadingContext.get().getActiveContainer().getEventBus();
+    public InputBoosterMod(IEventBus bus) {
+        bus.addListener(this::onRegisterKeyMappings);
         bus.addListener(this::onClientSetup);
         NeoForge.EVENT_BUS.register(this);
-        // Register tick listener
         NeoForge.EVENT_BUS.addListener(this::onClientTick);
     }
 
@@ -115,8 +113,7 @@ public class InputBoosterMod {
             // Register key bindings
             replayRecordKey = new KeyMapping("key.inputbooster.replay_record", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.categories.misc");
             replayPlayKey = new KeyMapping("key.inputbooster.replay_play", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.misc");
-            ClientRegistry.registerKeyBinding(replayRecordKey);
-            ClientRegistry.registerKeyBinding(replayPlayKey);
+            // key mappings registered via onRegisterKeyMappings event
 
             DebugOverlayManager.register();
             initialized.set(true);
@@ -128,7 +125,12 @@ public class InputBoosterMod {
         }
     }
 
-    private void onClientTick(final ClientTickEvent event) {
+    private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
+        if (replayRecordKey != null) event.register(replayRecordKey);
+        if (replayPlayKey != null) event.register(replayPlayKey);
+    }
+
+    private void onClientTick(final ClientTickEvent.Post event) {
         Minecraft client = Minecraft.getInstance();
         if (initialized.get()) handleKeybinds(client);
         if (!active || !initialized.get()) return;
@@ -162,12 +164,12 @@ public class InputBoosterMod {
         }
     }
 
-    private void handleKeybinds(MinecraftClient client) {
+    private void handleKeybinds(Minecraft client) {
         if (replayRecordKey.consumeClick() && replayRecorder != null) {
             boolean recording = replayRecorder.toggleRecording();
             if (eventLog != null) eventLog.add("Replay recording " + (recording ? "started" : "stopped"));
             if (client.player != null) {
-                client.player.sendMessage(Text.literal("InputBooster replay " + (recording ? "REC" : "STOP")), true);
+                client.player.displayClientMessage(Component.literal("InputBooster replay " + (recording ? "REC" : "STOP")), true);
             }
         }
         if (replayPlayKey.consumeClick() && replayRecorder != null) {
@@ -176,15 +178,15 @@ public class InputBoosterMod {
         }
     }
 
-    private void handleComboKeys(MinecraftClient client) {
+    private void handleComboKeys(Minecraft client) {
         if (!InputBoosterConfig.isComboKeysEnabled()) return;
-        if (client.currentScreen != null) {
+        if (client.screen != null) {
             resetComboKeyState();
             return;
         }
         long window = client.getWindow().getHandle();
         boolean ctrl = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(window, GLFW.GLFW_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
+                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
         if (!ctrl) {
             resetComboKeyState();
             return;
@@ -198,7 +200,7 @@ public class InputBoosterMod {
                 InputBoosterConfig.setPollRateHz(hz);
                 adjustPollRateManual();
                 if (client.player != null) {
-                    client.player.sendMessage(Text.literal("§b[InputBooster] §ePoll rate: §a" + hz + " Hz"), true);
+                    client.player.displayClientMessage(Component.literal("§b[InputBooster] §ePoll rate: §a" + hz + " Hz"), true);
                 }
                 break;
             }

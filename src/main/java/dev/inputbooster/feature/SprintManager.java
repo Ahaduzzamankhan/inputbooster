@@ -2,19 +2,19 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.McCompat;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 public class SprintManager {
     private int sprintHoldTicks = 0;
 
-    public void tick(MinecraftClient mc) {
+    public void tick(Minecraft mc) {
         if (!InputBoosterConfig.isSprintFixEnabled()) return;
-        ClientPlayerEntity player = mc.player;
+        LocalPlayer player = mc.player;
         if (player == null) return;
 
-        boolean forward  = mc.options.forwardKey.isPressed();
-        boolean sprint   = mc.options.sprintKey.isPressed();
+        boolean forward  = mc.options.keyUp.isPressed();
+        boolean sprint   = mc.options.keySprint.isPressed();
         boolean sneaking = player.isSneaking();
         int foodLevel    = McCompat.getFoodLevel(player);
 

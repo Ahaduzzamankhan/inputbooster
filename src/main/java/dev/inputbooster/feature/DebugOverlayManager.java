@@ -3,9 +3,9 @@ package dev.inputbooster.feature;
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
 import dev.inputbooster.McCompat;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,16 +27,16 @@ public class DebugOverlayManager {
     private static final int COLOR_GRAY   = 0xFFAAAAAA;
 
     /** Called from InGameHudMixin every frame. */
-    public static void render(DrawContext ctx) {
+    public static void render(GuiGraphics ctx) {
         if (!InputBoosterConfig.isShowF3Info()) return;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.player == null) return;
 
         // Hide overlay while F3 is open — it clutters the debug screen
-        if (mc.getDebugHud().shouldShowDebugHud()) return;
+        if (mc.gui.getDebugOverlay().showDebugScreen()) return;
 
-        TextRenderer font = mc.textRenderer;
+        Font font = mc.font;
         boolean burst  = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
         int hz         = InputBoosterMod.currentPollHz;
         int fps        = InputBoosterMod.currentFps > 0 ? InputBoosterMod.currentFps : McCompat.getFps(mc);
@@ -49,8 +49,8 @@ public class DebugOverlayManager {
         float scale     = InputBoosterConfig.getOverlayScale();
         int   lineH     = (int)(10 * scale);
         int   padX      = 3, padY = 3, bgPad = 2;
-        int   screenW   = mc.getWindow().getScaledWidth();
-        int   screenH   = mc.getWindow().getScaledHeight();
+        int   screenW   = mc.getWindow().getGuiScaledWidth();
+        int   screenH   = mc.getWindow().getGuiScaledHeight();
 
         // Measure panel
         int maxTextW = 0;
@@ -92,14 +92,14 @@ public class DebugOverlayManager {
         int textX = originX + padX + bgPad;
         int textY = originY + padY + bgPad;
 
-        ctx.getMatrices().pushMatrix();
-        ctx.getMatrices().scale(scale, scale);
+        ctx.pose().pushPose();
+        ctx.pose().scale(scale, scale, 1f);
         int scaledTextX = Math.round(textX / scale);
         int scaledTextY = Math.round(textY / scale);
         int scaledLineH = Math.max(10, Math.round(lineH / scale));
         for (int i = 0; i < lines.size(); i++) {
             Line l = lines.get(i);
-            ctx.drawText(font, l.text, scaledTextX, scaledTextY + i * scaledLineH, l.color, true);
+            ctx.drawString(font, l.text, scaledTextX, scaledTextY + i * scaledLineH, l.color, true);
         }
 
         if (showKeystrokes) {
@@ -108,7 +108,7 @@ public class DebugOverlayManager {
             drawKeystrokesGrid(ctx, font, gridX, gridY, mc);
         }
 
-        ctx.getMatrices().popMatrix();
+        ctx.pose().popPose();
     }
 
     private static List<Line> buildLines(boolean burst, int hz, int fps, int cps, int maxCps) {
@@ -160,14 +160,14 @@ public class DebugOverlayManager {
         return String.valueOf(n);
     }
 
-    private static void drawKeystrokesGrid(DrawContext ctx, TextRenderer font, int x, int y, MinecraftClient mc) {
-        boolean w = mc.options.forwardKey.isPressed();
-        boolean a = mc.options.leftKey.isPressed();
-        boolean s = mc.options.backKey.isPressed();
-        boolean d = mc.options.rightKey.isPressed();
-        boolean lmb = mc.options.attackKey.isPressed();
-        boolean rmb = mc.options.useKey.isPressed();
-        boolean space = mc.options.jumpKey.isPressed();
+    private static void drawKeystrokesGrid(GuiGraphics ctx, Font font, int x, int y, Minecraft mc) {
+        boolean w = mc.options.keyUp.isPressed();
+        boolean a = mc.options.keyLeft.isPressed();
+        boolean s = mc.options.keyDown.isPressed();
+        boolean d = mc.options.keyRight.isPressed();
+        boolean lmb = mc.options.keyAttack.isPressed();
+        boolean rmb = mc.options.keyUse.isPressed();
+        boolean space = mc.options.keyJump.isPressed();
 
         // Row 1: W
         drawKey(ctx, font, x + 20, y, 18, 18, "W", w);
@@ -185,11 +185,11 @@ public class DebugOverlayManager {
         drawKey(ctx, font, x, y + 60, 58, 12, "SPACE", space);
     }
 
-    private static void drawKey(DrawContext ctx, TextRenderer font, int x, int y, int w, int h, String text, boolean pressed) {
+    private static void drawKey(GuiGraphics ctx, Font font, int x, int y, int w, int h, String text, boolean pressed) {
         int bgColor = pressed ? 0x8055FFFF : 0x40000000; // Aqua highlight if pressed, dark transparent if not
         int textColor = pressed ? 0xFFFFFFFF : 0xFFAAAAAA;
         ctx.fill(x, y, x + w, y + h, bgColor);
-        ctx.drawCenteredTextWithShadow(font, net.minecraft.text.Text.literal(text), x + w / 2, y + (h - 8) / 2, textColor);
+        ctx.drawCenteredString(font, text, x + w / 2, y + (h - 8) / 2, textColor);
     }
 
     public static void register() {}

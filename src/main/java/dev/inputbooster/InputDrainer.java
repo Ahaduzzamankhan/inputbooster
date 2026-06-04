@@ -3,10 +3,10 @@ package dev.inputbooster;
 import dev.inputbooster.feature.LatencyProfiler;
 import dev.inputbooster.feature.InputClickSoundManager;
 import dev.inputbooster.mixin.MinecraftClientAccessor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.HitResult;
 
 public class InputDrainer {
 
@@ -23,8 +23,8 @@ public class InputDrainer {
      */
     public static volatile boolean useHandledThisTick = false;
 
-    public static void drainAll(MinecraftClient mc) {
-        if (mc == null || mc.player == null || mc.interactionManager == null) return;
+    public static void drainAll(Minecraft mc) {
+        if (mc == null || mc.player == null || mc.gameMode == null) return;
         if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()) {
             attackHandledThisTick = false;
             useHandledThisTick = false;
@@ -62,21 +62,21 @@ public class InputDrainer {
         }
     }
 
-    private static void apply(InputAction action, MinecraftClient mc) {
-        ClientPlayerEntity player = mc.player;
+    private static void apply(InputAction action, Minecraft mc) {
+        LocalPlayer player = mc.player;
         if (player == null) return;
 
         switch (action) {
 
             case ATTACK_PRESSED -> {
-                if (mc.crosshairTarget != null) {
-                    switch (mc.crosshairTarget.getType()) {
+                if (mc.hitResult != null) {
+                    switch (mc.hitResult.getType()) {
                         case ENTITY -> {
                             // Entity hits are one-shot events: fire from the drainer and
                             // suppress vanilla's doAttack() so it doesn't hit a second time.
-                            if (mc.targetedEntity != null) {
-                                mc.interactionManager.attackEntity(player, mc.targetedEntity);
-                                player.swingHand(Hand.MAIN_HAND);
+                            if (mc.crosshairEntity != null) {
+                                mc.gameMode.attack(player, mc.crosshairEntity);
+                                player.swing(InteractionHand.MAIN_HAND);
                                 if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Entity attack fired");
                                 // Signal vanilla's doAttack() to back off — we already fired.
                                 attackHandledThisTick = true;
@@ -98,18 +98,18 @@ public class InputDrainer {
             }
 
             case USE_PRESSED -> {
-                mc.interactionManager.interactItem(player, Hand.MAIN_HAND);
+                mc.gameMode.useItem(player, InteractionHand.MAIN_HAND);
                 useHandledThisTick = true;
             }
 
             case SPRINT_PRESSED  -> player.setSprinting(true);
             case SPRINT_RELEASED -> {
-                if (!mc.options.sprintKey.isPressed()) player.setSprinting(false);
+                if (!mc.options.keySprint.isPressed()) player.setSprinting(false);
             }
 
             case SNEAK_PRESSED  -> McCompat.setSneaking(player, true);
             case SNEAK_RELEASED -> {
-                if (!mc.options.sneakKey.isPressed()) McCompat.setSneaking(player, false);
+                if (!mc.options.keyShift.isPressed()) McCompat.setSneaking(player, false);
             }
 
             case JUMP_PRESSED -> {
@@ -117,7 +117,7 @@ public class InputDrainer {
                     || McCompat.isInWater(player)
                     || player.isInLava()
                     || McCompat.isClimbing(player);
-                if (!mc.options.jumpKey.isPressed() && canJump) {
+                if (!mc.options.keyJump.isPressed() && canJump) {
                     player.jump();
                 }
             }
@@ -137,15 +137,15 @@ public class InputDrainer {
             case DROP_PRESSED -> player.dropSelectedItem(false);
 
             case SWAP_PRESSED -> {
-                if (!mc.options.swapHandsKey.isPressed()) {
-                    mc.interactionManager.interactItem(player, Hand.OFF_HAND);
+                if (!mc.options.keySwapOffhand.isPressed()) {
+                    mc.gameMode.useItem(player, InteractionHand.OFF_HAND);
                 }
             }
 
             case PICK_BLOCK_PRESSED -> {
-                if (mc.crosshairTarget != null &&
-                    mc.crosshairTarget.getType() == HitResult.Type.BLOCK &&
-                    mc.world != null) {
+                if (mc.hitResult != null &&
+                    mc.hitResult.getType() == HitResult.Type.BLOCK &&
+                    mc.level != null) {
                     ((MinecraftClientAccessor) mc).invokeDoItemPick();
                 }
             }
