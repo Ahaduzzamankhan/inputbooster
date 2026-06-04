@@ -111,8 +111,8 @@ public class InputBoosterMod {
             currentPollHz = initialHz;
 
             // Register key bindings
-            replayRecordKey = new KeyMapping("key.inputbooster.replay_record", GLFW.GLFW_KEY_R, "key.categories.misc");
-            replayPlayKey = new KeyMapping("key.inputbooster.replay_play", GLFW.GLFW_KEY_K, "key.categories.misc");
+            replayRecordKey = new KeyMapping("key.inputbooster.replay_record", GLFW.GLFW_KEY_R, KeyMapping.Category.MISC);
+            replayPlayKey = new KeyMapping("key.inputbooster.replay_play", GLFW.GLFW_KEY_K, KeyMapping.Category.MISC);
             // key mappings registered via onRegisterKeyMappings event
 
             DebugOverlayManager.register();
