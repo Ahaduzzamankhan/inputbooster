@@ -50,7 +50,7 @@ public class InputBoosterConfig {
     private static boolean clickSoundsEnabled = true;
     private static float   clickSoundPitch   = 1.35f;
     private static float   clickSoundVolume  = 0.35f;
-    private static int     configVersion     = 302;
+    private static int     configVersion     = 303;
 
     // ── UI ───────────────────────────────────────────────────────────────────
     private static boolean showF3Info        = true;
@@ -119,7 +119,7 @@ public class InputBoosterConfig {
                 clickSoundsEnabled = parseBool(props, "click_sounds",         true);
                 clickSoundPitch   = Math.max(0.5f, Math.min(2.0f, parseFloat(props, "click_sound_pitch", 1.35f)));
                 clickSoundVolume  = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "click_sound_volume", 0.35f)));
-                configVersion     = Math.max(1, parseInt(props, "config_version", 302));
+                configVersion     = Math.max(1, parseInt(props, "config_version", 303));
                 showF3Info        = parseBool(props, "show_f3_info",          true);
                 showKeystrokes    = parseBool(props, "show_keystrokes",       true);
                 overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", 0)));
@@ -175,7 +175,7 @@ public class InputBoosterConfig {
             props.setProperty("fps_check_interval",  String.valueOf(fpsCheckInterval));
             props.setProperty("debug_mode",          String.valueOf(debugMode));
             try (OutputStream out = Files.newOutputStream(CONFIG_PATH)) {
-                props.store(out, "InputBooster v3.0.2-rl02 Configuration - by Ahaduzzaman Khan");
+                props.store(out, "InputBooster v3.0.3nf-beta01 Configuration - by Ahaduzzaman Khan");
             }
             LOGGER.info("✓ Config saved to {}", CONFIG_PATH);
         } catch (Exception e) {
@@ -206,7 +206,7 @@ public class InputBoosterConfig {
         burstModeEnabled = true; maxCps = 20; comboKeysEnabled = true;
         cpsMode = "FIXED"; replayEnabled = true; safeModeEnabled = true;
         eventLogEnabled = true; keyConflictWarn = true; perServerProfiles = true;
-        clickSoundsEnabled = true; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f; configVersion = 302;
+        clickSoundsEnabled = true; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f; configVersion = 303;
         showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
         overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
     }
