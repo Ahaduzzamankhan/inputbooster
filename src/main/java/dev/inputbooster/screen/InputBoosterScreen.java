@@ -342,18 +342,18 @@ public class InputBoosterScreen extends Screen {
         }
     }
 
-    private Component() {
+    private Component overlayPosLabel() {
         String[] names = {"Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right"};
         return Component.literal("Overlay Position: §e" + names[InputBoosterConfig.getOverlayPosition()]);
     }
 
-    private Component() {
+    private Component modeLabel() {
         return InputBoosterConfig.isPollRateAutoMode()
             ? Component.literal("§aMode: AUTO §r§7(FPS-adaptive)")
             : Component.literal("§eMode: MANUAL §r§7(fixed Hz)");
     }
 
-    private Component(int tab) {
+    private Component tabLabel(int tab) {
         String color = tab == currentTab ? "§b§l" : "§7";
         return Component.literal(color + TAB_LABELS[tab]);
     }
@@ -367,7 +367,7 @@ public class InputBoosterScreen extends Screen {
             .dimensions(cx - width / 2, y, width, 20).build();
     }
 
-    private Component(String label, boolean on) {
+    private Component toggleLabel(String label, boolean on) {
         return Component.literal(label + ": " + (on ? "§a✓ ON" : "§c✗ OFF"));
     }
 
