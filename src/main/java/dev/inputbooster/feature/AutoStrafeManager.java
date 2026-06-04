@@ -13,14 +13,14 @@ public class AutoStrafeManager {
         if (!player.isSprinting()) return;
         if (McCompat.getFps(mc) > 40) return;
 
-        boolean left  = mc.options.keyLeft.isPressed();
-        boolean right = mc.options.keyRight.isPressed();
-        boolean fwd   = mc.options.keyUp.isPressed();
+        boolean left  = mc.options.keyLeft.isDown();
+        boolean right = mc.options.keyRight.isDown();
+        boolean fwd   = mc.options.keyUp.isDown();
 
         if (!fwd) return;
         if (left == right) return;
 
         float yawDelta = left ? -0.4f : 0.4f;
-        player.setYRot(player.getYaw() + yawDelta * (40f / Math.max(1, McCompat.getFps(mc))));
+        player.setYRot(player.getYRot() + yawDelta * (40f / Math.max(1, McCompat.getFps(mc))));
     }
 }

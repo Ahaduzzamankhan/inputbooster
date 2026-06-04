@@ -60,7 +60,7 @@ public class PerServerProfileManager {
         if (client == null) return "singleplayer";
         Object entry = call(client, "getCurrentServerEntry");
         if (entry == null) entry = read(client, "currentServerEntry");
-        if (entry == null) return client.isInSingleplayer() ? "singleplayer" : "unknown";
+        if (entry == null) return client.hasSingleplayerServer() ? "singleplayer" : "unknown";
         Object address = read(entry, "address");
         if (address == null) address = call(entry, "address");
         return address == null ? "unknown" : address.toString();

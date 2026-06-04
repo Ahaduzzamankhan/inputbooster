@@ -74,8 +74,8 @@ public class InputDrainer {
                         case ENTITY -> {
                             // Entity hits are one-shot events: fire from the drainer and
                             // suppress vanilla's doAttack() so it doesn't hit a second time.
-                            if (mc.crosshairEntity != null) {
-                                mc.gameMode.attack(player, mc.crosshairEntity);
+                            if (((net.minecraft.world.phys.EntityHitResult) mc.hitResult).getEntity() != null) {
+                                mc.gameMode.attack(player, ((net.minecraft.world.phys.EntityHitResult) mc.hitResult).getEntity());
                                 player.swing(InteractionHand.MAIN_HAND);
                                 if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Entity attack fired");
                                 // Signal vanilla's doAttack() to back off — we already fired.
@@ -104,21 +104,21 @@ public class InputDrainer {
 
             case SPRINT_PRESSED  -> player.setSprinting(true);
             case SPRINT_RELEASED -> {
-                if (!mc.options.keySprint.isPressed()) player.setSprinting(false);
+                if (!mc.options.keySprint.isDown()) player.setSprinting(false);
             }
 
             case SNEAK_PRESSED  -> McCompat.setSneaking(player, true);
             case SNEAK_RELEASED -> {
-                if (!mc.options.keyShift.isPressed()) McCompat.setSneaking(player, false);
+                if (!mc.options.keyShift.isDown()) McCompat.setSneaking(player, false);
             }
 
             case JUMP_PRESSED -> {
-                boolean canJump = player.isOnGround()
+                boolean canJump = player.onGround()
                     || McCompat.isInWater(player)
                     || player.isInLava()
                     || McCompat.isClimbing(player);
-                if (!mc.options.keyJump.isPressed() && canJump) {
-                    player.jump();
+                if (!mc.options.keyJump.isDown() && canJump) {
+                    player.jumpFromGround();
                 }
             }
 
@@ -134,10 +134,10 @@ public class InputDrainer {
             case RIGHT_RELEASED -> {}
             case BACK_RELEASED  -> {}
 
-            case DROP_PRESSED -> player.dropSelectedItem(false);
+            case DROP_PRESSED -> player.drop(false);
 
             case SWAP_PRESSED -> {
-                if (!mc.options.keySwapOffhand.isPressed()) {
+                if (!mc.options.keySwapOffhand.isDown()) {
                     mc.gameMode.useItem(player, InteractionHand.OFF_HAND);
                 }
             }

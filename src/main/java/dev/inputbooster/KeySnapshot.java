@@ -23,18 +23,18 @@ public final class KeySnapshot {
         // The volatile write to InputBoosterMod.keySnapshot ensures the polling
         // thread sees the fully constructed object (Java memory model guarantee:
         // a volatile write happens-after all prior writes in the same thread).
-        this.attack    = opt.keyAttack.isPressed();
-        this.use       = opt.keyUse.isPressed();
-        this.sprint    = opt.keySprint.isPressed();
-        this.sneak     = opt.keyShift.isPressed();
-        this.jump      = opt.keyJump.isPressed();
-        this.forward   = opt.keyUp.isPressed();
-        this.back      = opt.keyDown.isPressed();
-        this.left      = opt.keyLeft.isPressed();
-        this.right     = opt.keyRight.isPressed();
-        this.drop      = opt.keyDrop.isPressed();
-        this.swap      = opt.keySwapOffhand.isPressed();
-        this.pickBlock = opt.keyPickItem.isPressed();
+        this.attack    = opt.keyAttack.isDown();
+        this.use       = opt.keyUse.isDown();
+        this.sprint    = opt.keySprint.isDown();
+        this.sneak     = opt.keyShift.isDown();
+        this.jump      = opt.keyJump.isDown();
+        this.forward   = opt.keyUp.isDown();
+        this.back      = opt.keyDown.isDown();
+        this.left      = opt.keyLeft.isDown();
+        this.right     = opt.keyRight.isDown();
+        this.drop      = opt.keyDrop.isDown();
+        this.swap      = opt.keySwapOffhand.isDown();
+        this.pickBlock = opt.keyPickItem.isDown();
     }
 
     /** Returns an empty snapshot (all keys released). Used during init/pause. */

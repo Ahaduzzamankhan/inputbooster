@@ -54,7 +54,7 @@ public class DebugOverlayManager {
 
         // Measure panel
         int maxTextW = 0;
-        for (Line l : lines) maxTextW = Math.max(maxTextW, font.getWidth(l.text));
+        for (Line l : lines) maxTextW = Math.max(maxTextW, font.width(l.text));
         
         boolean showKeystrokes = InputBoosterConfig.isShowKeystrokes();
         if (showKeystrokes) {
@@ -87,16 +87,15 @@ public class DebugOverlayManager {
             bgColor
         );
 
-        // Draw each line manually at scaled positions — no matrix stack needed.
-        // We pre-compute pixel positions using the scale factor directly.
+        // Draw each line manually at pre-computed scaled positions.
         int textX = originX + padX + bgPad;
         int textY = originY + padY + bgPad;
-
-        ctx.pose().pushPose();
-        ctx.pose().scale(scale, scale, 1f);
         int scaledTextX = Math.round(textX / scale);
         int scaledTextY = Math.round(textY / scale);
         int scaledLineH = Math.max(10, Math.round(lineH / scale));
+
+        ctx.pose().pushMatrix();
+        ctx.pose().scale(scale, scale);
         for (int i = 0; i < lines.size(); i++) {
             Line l = lines.get(i);
             ctx.drawString(font, l.text, scaledTextX, scaledTextY + i * scaledLineH, l.color, true);
@@ -108,7 +107,7 @@ public class DebugOverlayManager {
             drawKeystrokesGrid(ctx, font, gridX, gridY, mc);
         }
 
-        ctx.pose().popPose();
+        ctx.pose().popMatrix();
     }
 
     private static List<Line> buildLines(boolean burst, int hz, int fps, int cps, int maxCps) {
@@ -161,13 +160,13 @@ public class DebugOverlayManager {
     }
 
     private static void drawKeystrokesGrid(GuiGraphics ctx, Font font, int x, int y, Minecraft mc) {
-        boolean w = mc.options.keyUp.isPressed();
-        boolean a = mc.options.keyLeft.isPressed();
-        boolean s = mc.options.keyDown.isPressed();
-        boolean d = mc.options.keyRight.isPressed();
-        boolean lmb = mc.options.keyAttack.isPressed();
-        boolean rmb = mc.options.keyUse.isPressed();
-        boolean space = mc.options.keyJump.isPressed();
+        boolean w = mc.options.keyUp.isDown();
+        boolean a = mc.options.keyLeft.isDown();
+        boolean s = mc.options.keyDown.isDown();
+        boolean d = mc.options.keyRight.isDown();
+        boolean lmb = mc.options.keyAttack.isDown();
+        boolean rmb = mc.options.keyUse.isDown();
+        boolean space = mc.options.keyJump.isDown();
 
         // Row 1: W
         drawKey(ctx, font, x + 20, y, 18, 18, "W", w);

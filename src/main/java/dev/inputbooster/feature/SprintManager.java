@@ -13,9 +13,9 @@ public class SprintManager {
         LocalPlayer player = mc.player;
         if (player == null) return;
 
-        boolean forward  = mc.options.keyUp.isPressed();
-        boolean sprint   = mc.options.keySprint.isPressed();
-        boolean sneaking = player.isSneaking();
+        boolean forward  = mc.options.keyUp.isDown();
+        boolean sprint   = mc.options.keySprint.isDown();
+        boolean sneaking = player.isShiftKeyDown();
         int foodLevel    = McCompat.getFoodLevel(player);
 
         if (InputBoosterConfig.isAutoSprintEnabled()) {

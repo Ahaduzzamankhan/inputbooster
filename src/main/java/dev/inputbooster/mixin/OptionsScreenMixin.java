@@ -28,6 +28,6 @@ public class OptionsScreenMixin extends Screen {
                     this.minecraft.setScreen(new InputBoosterScreen(this));
                 }
             }
-        ).dimensions(this.width - 110, 6, 100, 20).build());
+        ).bounds(this.width - 110, 6, 100, 20).build());
     }
 }

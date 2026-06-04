@@ -49,7 +49,7 @@ public class InputBoosterScreen extends Screen {
             Button btn = Button.builder(tabLabel(t), b -> {
                 currentTab = tab;
                 rebuildWidgets();
-            }).dimensions(tx, 34, tabW, 18).build();
+            }).bounds(tx, 34, tabW, 18).build();
             btn.active = (t != currentTab);
             addRenderableWidget(btn);
         }
@@ -64,8 +64,8 @@ public class InputBoosterScreen extends Screen {
 
         addRenderableWidget(Button.builder(Component.literal("§a✓ Save & Close"), btn -> {
             InputBoosterConfig.save();
-            close();
-        }).dimensions(cx - bw / 2, this.height - 30, bw, bh).build());
+            onClose();
+        }).bounds(cx - bw / 2, this.height - 30, bw, bh).build());
     }
 
     private void initPollRateTab(int cx, int top, int bw, int bh, int gap) {
@@ -75,7 +75,7 @@ public class InputBoosterScreen extends Screen {
             updateSliderActive();
             applyPollRate();
             hasChanges = true;
-        }).dimensions(cx - bw / 2, top, bw, bh).build();
+        }).bounds(cx - bw / 2, top, bw, bh).build();
         addRenderableWidget(modeButton);
 
         pollSlider = new PollRateSlider(cx - bw / 2, top + gap, bw, bh, InputBoosterConfig.getPollRateHz());
@@ -106,7 +106,7 @@ public class InputBoosterScreen extends Screen {
                 pollSlider.updateValue(hz);
                 applyPollRate();
                 hasChanges = true;
-            }).dimensions(px, py, pbw, bh).build();
+            }).bounds(px, py, pbw, bh).build();
             addRenderableWidget(presetButtons[i]);
         }
         updateSliderActive();
@@ -161,7 +161,7 @@ public class InputBoosterScreen extends Screen {
             InputBoosterConfig.setOverlayPosition((InputBoosterConfig.getOverlayPosition() + 1) % 4);
             btn.setMessage(overlayPosLabel());
             hasChanges = true;
-        }).dimensions(leftCx - colW / 2, top + gap * 2, colW, bh).build());
+        }).bounds(leftCx - colW / 2, top + gap * 2, colW, bh).build());
         addRenderableWidget(new OverlayScaleSlider(leftCx - colW / 2, top + gap * 3, colW, bh, InputBoosterConfig.getOverlayScale()));
         addRenderableWidget(new OverlayOpacitySlider(leftCx - colW / 2, top + gap * 4, colW, bh, InputBoosterConfig.getOverlayOpacity()));
         addRenderableWidget(toggleButton(leftCx, top + gap * 5, colW, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
@@ -205,7 +205,7 @@ public class InputBoosterScreen extends Screen {
     private void initStatsTab(int cx, int top, int bw, int bh, int gap) {
         addRenderableWidget(Button.builder(Component.literal("§cReset Peak Latency"), btn ->
             LatencyProfiler.resetPeak()
-        ).dimensions(cx - bw / 2, top + gap * 8, bw, bh).build());
+        ).bounds(cx - bw / 2, top + gap * 8, bw, bh).build());
     }
 
     private void initProfilesTab(int cx, int top, int bw, int bh, int gap) {
@@ -218,11 +218,11 @@ public class InputBoosterScreen extends Screen {
             int rowY = top + gap * i;
             addRenderableWidget(Button.builder(Component.literal("§a▶ " + p.name()), btn ->
                 pm.loadProfile(p.name(), this.minecraft)
-            ).dimensions(cx - 110, rowY, 100, bh).build());
+            ).bounds(cx - 110, rowY, 100, bh).build());
             addRenderableWidget(Button.builder(Component.literal("§c✕"), btn -> {
                 pm.deleteProfile(idx);
                 rebuildWidgets();
-            }).dimensions(cx + 5, rowY, 30, bh).build());
+            }).bounds(cx + 5, rowY, 30, bh).build());
         }
 
         int saveY = top + gap * ProfileManager.MAX_PROFILES + 10;
@@ -234,7 +234,7 @@ public class InputBoosterScreen extends Screen {
                 addRenderableWidget(Button.builder(Component.literal(qn), btn -> {
                     pm.saveProfile(qn);
                     rebuildWidgets();
-                }).dimensions(cx - 100 + i * (qbw + 2), saveY, qbw, bh).build());
+                }).bounds(cx - 100 + i * (qbw + 2), saveY, qbw, bh).build());
             }
         }
     }
@@ -322,7 +322,7 @@ public class InputBoosterScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 
@@ -342,18 +342,18 @@ public class InputBoosterScreen extends Screen {
         }
     }
 
-    private Component overlayPosLabel() {
+    private Component() {
         String[] names = {"Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right"};
         return Component.literal("Overlay Position: §e" + names[InputBoosterConfig.getOverlayPosition()]);
     }
 
-    private Component modeLabel() {
+    private Component() {
         return InputBoosterConfig.isPollRateAutoMode()
             ? Component.literal("§aMode: AUTO §r§7(FPS-adaptive)")
             : Component.literal("§eMode: MANUAL §r§7(fixed Hz)");
     }
 
-    private Component tabLabel(int tab) {
+    private Component(int tab) {
         String color = tab == currentTab ? "§b§l" : "§7";
         return Component.literal(color + TAB_LABELS[tab]);
     }
@@ -367,7 +367,7 @@ public class InputBoosterScreen extends Screen {
             .dimensions(cx - width / 2, y, width, 20).build();
     }
 
-    private Component toggleLabel(String label, boolean on) {
+    private Component(String label, boolean on) {
         return Component.literal(label + ": " + (on ? "§a✓ ON" : "§c✗ OFF"));
     }
 

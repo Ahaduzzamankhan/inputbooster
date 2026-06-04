@@ -15,7 +15,7 @@ public class AntiIdleManager {
         tickCounter++;
         if (tickCounter >= NUDGE_INTERVAL) {
             tickCounter = 0;
-            player.setYRot(player.getYaw() + 0.0001f);
+            player.setYRot(player.getYRot() + 0.0001f);
         }
     }
 }

@@ -6,7 +6,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.tick.ClientTickEvent;
+import net.neoforged.neoforge.event.TickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 
 import net.minecraft.client.KeyMapping;
@@ -111,8 +111,8 @@ public class InputBoosterMod {
             currentPollHz = initialHz;
 
             // Register key bindings
-            replayRecordKey = new KeyMapping("key.inputbooster.replay_record", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.categories.misc");
-            replayPlayKey = new KeyMapping("key.inputbooster.replay_play", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.misc");
+            replayRecordKey = new KeyMapping("key.inputbooster.replay_record", GLFW.GLFW_KEY_R, "key.categories.misc");
+            replayPlayKey = new KeyMapping("key.inputbooster.replay_play", GLFW.GLFW_KEY_K, "key.categories.misc");
             // key mappings registered via onRegisterKeyMappings event
 
             DebugOverlayManager.register();
@@ -130,7 +130,7 @@ public class InputBoosterMod {
         if (replayPlayKey != null) event.register(replayPlayKey);
     }
 
-    private void onClientTick(final ClientTickEvent.Post event) {
+    private void onClientTick(final TickEvent.ClientTickEvent event) {
         Minecraft client = Minecraft.getInstance();
         if (initialized.get()) handleKeybinds(client);
         if (!active || !initialized.get()) return;
@@ -184,7 +184,7 @@ public class InputBoosterMod {
             resetComboKeyState();
             return;
         }
-        long window = client.getWindow().getHandle();
+        long window = net.minecraft.client.Minecraft.getInstance().getWindow().getWindow();
         boolean ctrl = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
         if (!ctrl) {
