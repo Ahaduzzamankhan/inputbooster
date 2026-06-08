@@ -6,6 +6,6 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(Minecraft.class)
 public interface MinecraftClientAccessor {
-    @Invoker("pick")
+    @Invoker("pickBlock")
     void invokeDoItemPick();
 }

@@ -81,13 +81,13 @@ public class InputBoosterScreen extends Screen {
         pollSlider = new PollRateSlider(cx - bw / 2, top + gap, bw, bh, InputBoosterConfig.getPollRateHz());
         addRenderableWidget(pollSlider);
 
-        addRenderableWidget(toggleButton(cx, top + gap * 2, "Burst Mode", InputBoosterConfig.isBurstModeEnabled(), btn -> {
+        addRenderableWidget(toggleButton(cx, top + gap * 2, bw, "Burst Mode", InputBoosterConfig.isBurstModeEnabled(), btn -> {
             InputBoosterConfig.setBurstModeEnabled(!InputBoosterConfig.isBurstModeEnabled());
             btn.setMessage(toggleLabel("Burst Mode", InputBoosterConfig.isBurstModeEnabled()));
             hasChanges = true;
         }));
 
-        addRenderableWidget(toggleButton(cx, top + gap * 3, "Combo Keys (Ctrl+1-5)", InputBoosterConfig.isComboKeysEnabled(), btn -> {
+        addRenderableWidget(toggleButton(cx, top + gap * 3, bw, "Combo Keys (Ctrl+1-5)", InputBoosterConfig.isComboKeysEnabled(), btn -> {
             InputBoosterConfig.setComboKeysEnabled(!InputBoosterConfig.isComboKeysEnabled());
             btn.setMessage(toggleLabel("Combo Keys", InputBoosterConfig.isComboKeysEnabled()));
             hasChanges = true;
@@ -115,25 +115,26 @@ public class InputBoosterScreen extends Screen {
     private void initFeaturesTab(int cx, int top, int bw, int bh, int gap) {
         record Toggle(String label, boolean state, java.util.function.Consumer<Boolean> setter) {}
         Toggle[] toggles = {
-            new Toggle("Sprint Fix",   InputBoosterConfig.isSprintFixEnabled(),  InputBoosterConfig::setSprintFixEnabled),
-            new Toggle("Auto-Sprint",  InputBoosterConfig.isAutoSprintEnabled(), InputBoosterConfig::setAutoSprintEnabled),
-            new Toggle("W-Tap Assist", InputBoosterConfig.isWTapAssistEnabled(), InputBoosterConfig::setWTapAssistEnabled),
-            new Toggle("Anti-Idle",    InputBoosterConfig.isAntiIdleEnabled(),   InputBoosterConfig::setAntiIdleEnabled),
-            new Toggle("Auto-Strafe",  InputBoosterConfig.isAutoStrafeEnabled(), InputBoosterConfig::setAutoStrafeEnabled),
-            new Toggle("CPS Limiter",  InputBoosterConfig.isCpsLimiterEnabled(), InputBoosterConfig::setCpsLimiterEnabled),
-            new Toggle("Key Click Sounds", InputBoosterConfig.isClickSoundsEnabled(), InputBoosterConfig::setClickSoundsEnabled),
+            new Toggle("Sprint Fix",       InputBoosterConfig.isSprintFixEnabled(),   InputBoosterConfig::setSprintFixEnabled),
+            new Toggle("Auto-Sprint",      InputBoosterConfig.isAutoSprintEnabled(),  InputBoosterConfig::setAutoSprintEnabled),
+            new Toggle("W-Tap Assist",     InputBoosterConfig.isWTapAssistEnabled(),  InputBoosterConfig::setWTapAssistEnabled),
+            new Toggle("Anti-Idle",        InputBoosterConfig.isAntiIdleEnabled(),    InputBoosterConfig::setAntiIdleEnabled),
+            new Toggle("Auto-Strafe",      InputBoosterConfig.isAutoStrafeEnabled(),  InputBoosterConfig::setAutoStrafeEnabled),
+            new Toggle("CPS Limiter",      InputBoosterConfig.isCpsLimiterEnabled(),  InputBoosterConfig::setCpsLimiterEnabled),
+            new Toggle("Key Click Sounds (BETA)", InputBoosterConfig.isClickSoundsEnabled(), InputBoosterConfig::setClickSoundsEnabled),
         };
         int colW = this.width >= 430 ? 196 : bw;
-        int leftCx = this.width >= 430 ? cx - 104 : cx;
+        int leftCx  = this.width >= 430 ? cx - 104 : cx;
         int rightCx = this.width >= 430 ? cx + 104 : cx;
         for (int i = 0; i < toggles.length; i++) {
             Toggle t = toggles[i];
             int row = this.width >= 430 ? i / 2 : i;
             int colCx = this.width >= 430 && i % 2 == 1 ? rightCx : leftCx;
+            final int fi = i;
             addRenderableWidget(toggleButton(colCx, top + gap * row, colW, t.label(), t.state(), btn -> {
                 boolean newVal = !btn.getMessage().getString().contains("ON");
-                t.setter().accept(newVal);
-                btn.setMessage(toggleLabel(t.label(), newVal));
+                toggles[fi].setter().accept(newVal);
+                btn.setMessage(toggleLabel(toggles[fi].label(), newVal));
                 hasChanges = true;
             }));
         }
@@ -144,9 +145,10 @@ public class InputBoosterScreen extends Screen {
     }
 
     private void initAdvancedTab(int cx, int top, int bw, int bh, int gap) {
-        int leftCx = this.width >= 420 ? cx - 105 : cx;
+        int leftCx  = this.width >= 420 ? cx - 105 : cx;
         int rightCx = this.width >= 420 ? cx + 105 : cx;
         int colW = this.width >= 420 ? 190 : bw;
+
         addRenderableWidget(toggleButton(leftCx, top, colW, "HUD Overlay", InputBoosterConfig.isShowF3Info(), btn -> {
             InputBoosterConfig.setShowF3Info(!InputBoosterConfig.isShowF3Info());
             btn.setMessage(toggleLabel("HUD Overlay", InputBoosterConfig.isShowF3Info()));
@@ -169,6 +171,7 @@ public class InputBoosterScreen extends Screen {
             btn.setMessage(toggleLabel("Action Bar Messages", InputBoosterConfig.isShowActionBar()));
             hasChanges = true;
         }));
+
         addRenderableWidget(toggleButton(rightCx, top, colW, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
             InputBoosterConfig.setDebugMode(!InputBoosterConfig.isDebugMode());
             btn.setMessage(toggleLabel("Debug Mode", InputBoosterConfig.isDebugMode()));
@@ -241,9 +244,6 @@ public class InputBoosterScreen extends Screen {
 
     @Override
     public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta) {
-        // Do NOT call renderBackground() here — MC 1.21.11 already calls it
-        // via Screen.render() before delegating to us, and calling it twice
-        // triggers 'Can only blur once per frame'.
         int panelX = (this.width - panelWidth()) / 2;
         int panelY = 24;
         int panelH = Math.max(120, this.height - 62);
@@ -262,9 +262,14 @@ public class InputBoosterScreen extends Screen {
 
         if (currentTab == 3) renderStatsContent(ctx);
 
+        if (currentTab == 1 && InputBoosterConfig.isClickSoundsEnabled()) {
+            int sliderY = 64 + 24 * (this.width >= 430 ? 4 : 7) + 4;
+            int warningY = sliderY + 24 * 3;
+            ctx.drawCenteredString(this.font, "§e⚠ Warning: Key Click Sounds feature is in Beta!", this.width / 2, warningY, 0xFFFF55);
+        }
+
         if (hasChanges) {
-            ctx.drawCenteredString(this.font,
-                "§e⚠ Unsaved changes", this.width / 2, this.height - 56, 0xFFFF55);
+            ctx.drawCenteredString(this.font, "§e⚠ Unsaved changes", this.width / 2, this.height - 56, 0xFFFF55);
         }
 
         super.render(ctx, mouseX, mouseY, delta);
@@ -450,7 +455,6 @@ public class InputBoosterScreen extends Screen {
         }
         @Override protected void applyValue() {
             scale = 0.5f + (float)(value * 2.5f);
-            // Round to nearest 0.1
             scale = Math.round(scale * 10) / 10.0f;
             InputBoosterConfig.setOverlayScale(scale);
             updateMessage();

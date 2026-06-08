@@ -71,6 +71,12 @@ jar {
     }
 }
 
+task printCompileClasspath {
+    doLast {
+        sourceSets.main.compileClasspath.each { println it }
+    }
+}
+
 publishing {
     publications {
         register('mavenJava', MavenPublication) {
