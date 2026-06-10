@@ -21,7 +21,7 @@ public class InputBoosterMod implements ClientModInitializer {
 
     public static final String MOD_ID      = "inputbooster";
     public static final String MOD_NAME    = "InputBooster";
-    public static final String MOD_VERSION = "3.0.2-alpha02";
+    public static final String MOD_VERSION = "3.0.3+mc26";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 

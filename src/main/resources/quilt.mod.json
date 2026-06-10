@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "quilt_loader": {
+    "group": "dev.inputbooster",
+    "id": "inputbooster",
+    "version": "${version}",
+    "metadata": {
+      "name": "InputBooster",
+      "description": "Ultra-fast input registration for low-FPS PvP players.",
+      "contributors": {
+        "Ahaduzzaman Khan": "Owner"
+      },
+      "license": "MIT",
+      "icon": "assets/inputbooster/icon.png"
+    },
+    "intermediate_mappings": "net.fabricmc:intermediary",
+    "entrypoints": {
+      "client_init": [
+        {
+          "value": "dev.inputbooster.InputBoosterMod"
+        }
+      ]
+    },
+    "depends": [
+      {
+        "id": "quilt_loader",
+        "versions": ">=0.19.0"
+      },
+      {
+        "id": "quilted_fabric_api",
+        "versions": "*"
+      },
+      {
+        "id": "minecraft",
+        "versions": "${minecraft_version_range}"
+      },
+      {
+        "id": "java",
+        "versions": ">=25"
+      }
+    ]
+  },
+  "mixin": "inputbooster.mixins.json"
+}
