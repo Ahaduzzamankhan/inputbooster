@@ -2,7 +2,6 @@ package dev.inputbooster;
 
 import dev.inputbooster.feature.LatencyProfiler;
 import dev.inputbooster.feature.InputClickSoundManager;
-import dev.inputbooster.mixin.MinecraftClientAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
@@ -146,7 +145,7 @@ public class InputDrainer {
                 if (mc.hitResult != null &&
                     mc.hitResult.getType() == HitResult.Type.BLOCK &&
                     mc.level != null) {
-                    ((MinecraftClientAccessor) mc).invokeDoItemPick();
+                    mc.options.keyPickItem.click();
                 }
             }
 
