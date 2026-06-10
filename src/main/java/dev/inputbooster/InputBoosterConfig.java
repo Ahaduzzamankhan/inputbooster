@@ -47,7 +47,7 @@ public class InputBoosterConfig {
     private static boolean eventLogEnabled   = true;
     private static boolean keyConflictWarn   = true;
     private static boolean perServerProfiles = true;
-    private static boolean clickSoundsEnabled = true;
+    private static boolean clickSoundsEnabled = false;
     private static float   clickSoundPitch   = 1.35f;
     private static float   clickSoundVolume  = 0.35f;
     private static int     configVersion     = 303;
@@ -116,7 +116,7 @@ public class InputBoosterConfig {
                 eventLogEnabled   = parseBool(props, "event_log",             true);
                 keyConflictWarn   = parseBool(props, "key_conflict_warn",     true);
                 perServerProfiles = parseBool(props, "per_server_profiles",   true);
-                clickSoundsEnabled = parseBool(props, "click_sounds",         true);
+                clickSoundsEnabled = parseBool(props, "click_sounds",         false);
                 clickSoundPitch   = Math.max(0.5f, Math.min(2.0f, parseFloat(props, "click_sound_pitch", 1.35f)));
                 clickSoundVolume  = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "click_sound_volume", 0.35f)));
                 configVersion     = Math.max(1, parseInt(props, "config_version", 303));
@@ -206,7 +206,7 @@ public class InputBoosterConfig {
         burstModeEnabled = true; maxCps = 20; comboKeysEnabled = true;
         cpsMode = "FIXED"; replayEnabled = true; safeModeEnabled = true;
         eventLogEnabled = true; keyConflictWarn = true; perServerProfiles = true;
-        clickSoundsEnabled = true; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f; configVersion = 303;
+        clickSoundsEnabled = false; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f; configVersion = 303;
         showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
         overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
     }
