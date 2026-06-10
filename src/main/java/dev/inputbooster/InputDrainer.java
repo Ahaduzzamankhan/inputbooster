@@ -145,7 +145,7 @@ public class InputDrainer {
                 if (mc.hitResult != null &&
                     mc.hitResult.getType() == HitResult.Type.BLOCK &&
                     mc.level != null) {
-                    mc.options.keyPickItem.click();
+                    mc.options.keyPickItem.click(mc.options.keyPickItem.getKey());
                 }
             }
 
