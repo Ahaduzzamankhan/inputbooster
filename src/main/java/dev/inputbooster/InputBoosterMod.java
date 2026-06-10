@@ -77,7 +77,6 @@ public class InputBoosterMod {
     public InputBoosterMod(IEventBus bus) {
         bus.addListener(this::onRegisterKeyMappings);
         bus.addListener(this::onClientSetup);
-        NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.addListener(this::onClientTick);
     }
 
