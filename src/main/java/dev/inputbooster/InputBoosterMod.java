@@ -1,20 +1,20 @@
 package dev.inputbooster;
 
 import dev.inputbooster.feature.*;
-import dev.inputbooster.screen.InputBoosterScreen;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.InputEvent;
+
 import net.minecraft.client.KeyMapping;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.settings.KeyConflictContext;
-import com.mojang.blaze3d.platform.InputConstants;
 import org.lwjgl.glfw.GLFW;
-import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,15 +22,19 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * NeoForge port of InputBooster.
+ */
 @Mod(InputBoosterMod.MOD_ID)
 public class InputBoosterMod {
     public static final String MOD_ID = "inputbooster";
     public static final String MOD_NAME = "InputBooster";
-    public static final String MOD_VERSION = "3.0.3nf-beta01";
-    public static final String DISPLAY_VERSION = "3.0.3nf-beta01-mc26";
+    public static final String MOD_VERSION = "3.0.3nf-mc261";
+    public static final String DISPLAY_VERSION = "3.0.3nf-mc261-mc26";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+    // Runtime state
     public static volatile boolean gameReady = false;
     public static volatile boolean gamePaused = false;
     public static volatile boolean active = true;
@@ -42,6 +46,7 @@ public class InputBoosterMod {
     public static volatile int currentFps = 0;
     public static volatile long lastTickTime = 0;
 
+    // Managers & utilities
     public static InputPollingThread pollingThread;
     public static SprintManager sprintManager;
     public static WTapAssist wTapAssist;
@@ -60,14 +65,9 @@ public class InputBoosterMod {
     public static PerServerProfileManager perServerProfileManager;
     public static ConfigTools configTools;
 
-    private static final KeyMapping.Category KEY_CATEGORY =
-        new KeyMapping.Category(Identifier.fromNamespaceAndPath(MOD_ID, "main"));
-
+    // Key bindings
     private static KeyMapping replayRecordKey;
     private static KeyMapping replayPlayKey;
-    private static KeyMapping settingsKey;
-    private static KeyMapping toggleKey;
-    private static KeyMapping toggleSoundsKey;
     private static final int[] COMBO_PRESET_HZ = {100, 200, 350, 500, 1000};
     private static final boolean[] comboDigitHeld = new boolean[COMBO_PRESET_HZ.length];
     private static double smoothedFps = 60.0D;
@@ -77,6 +77,7 @@ public class InputBoosterMod {
     public InputBoosterMod(IEventBus bus) {
         bus.addListener(this::onRegisterKeyMappings);
         bus.addListener(this::onClientSetup);
+        NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.addListener(this::onClientTick);
     }
 
@@ -84,6 +85,7 @@ public class InputBoosterMod {
         LOGGER.info("[{}] Starting v{}", MOD_NAME, MOD_VERSION);
         try {
             InputBoosterConfig.load();
+            // Initialise managers
             sprintManager = new SprintManager();
             wTapAssist = new WTapAssist();
             antiIdle = new AntiIdleManager();
@@ -108,36 +110,10 @@ public class InputBoosterMod {
             pollingThread.start();
             currentPollHz = initialHz;
 
-            replayRecordKey = new KeyMapping(
-                "key.inputbooster.replay_record",
-                KeyConflictContext.IN_GAME,
-                InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_R),
-                KEY_CATEGORY
-            );
-            replayPlayKey = new KeyMapping(
-                "key.inputbooster.replay_play",
-                KeyConflictContext.IN_GAME,
-                InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_K),
-                KEY_CATEGORY
-            );
-            settingsKey = new KeyMapping(
-                "key.inputbooster.settings",
-                KeyConflictContext.IN_GAME,
-                InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_O),
-                KEY_CATEGORY
-            );
-            toggleKey = new KeyMapping(
-                "key.inputbooster.toggle",
-                KeyConflictContext.IN_GAME,
-                InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_P),
-                KEY_CATEGORY
-            );
-            toggleSoundsKey = new KeyMapping(
-                "key.inputbooster.toggle_sounds",
-                KeyConflictContext.IN_GAME,
-                InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_H),
-                KEY_CATEGORY
-            );
+            // Register key bindings
+            replayRecordKey = new KeyMapping("key.inputbooster.replay_record", GLFW.GLFW_KEY_R, KeyMapping.Category.MISC);
+            replayPlayKey = new KeyMapping("key.inputbooster.replay_play", GLFW.GLFW_KEY_K, KeyMapping.Category.MISC);
+            // key mappings registered via onRegisterKeyMappings event
 
             DebugOverlayManager.register();
             initialized.set(true);
@@ -150,12 +126,8 @@ public class InputBoosterMod {
     }
 
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
-        event.registerCategory(KEY_CATEGORY);
         if (replayRecordKey != null) event.register(replayRecordKey);
         if (replayPlayKey != null) event.register(replayPlayKey);
-        if (settingsKey != null) event.register(settingsKey);
-        if (toggleKey != null) event.register(toggleKey);
-        if (toggleSoundsKey != null) event.register(toggleSoundsKey);
     }
 
     private void onClientTick(final ClientTickEvent.Post event) {
@@ -193,51 +165,36 @@ public class InputBoosterMod {
     }
 
     private void handleKeybinds(Minecraft client) {
-        if (replayRecordKey != null && replayRecordKey.consumeClick() && replayRecorder != null) {
+        if (replayRecordKey.consumeClick() && replayRecorder != null) {
             boolean recording = replayRecorder.toggleRecording();
             if (eventLog != null) eventLog.add("Replay recording " + (recording ? "started" : "stopped"));
             if (client.player != null) {
-                client.player.displayClientMessage(
-                    Component.literal("InputBooster replay " + (recording ? "REC" : "STOP")), true);
+                Minecraft.getInstance().gui.setOverlayMessage(Component.literal("InputBooster replay " + (recording ? "REC" : "STOP")), false);
             }
         }
-        if (replayPlayKey != null && replayPlayKey.consumeClick() && replayRecorder != null) {
+        if (replayPlayKey.consumeClick() && replayRecorder != null) {
             replayRecorder.startPlayback();
             if (eventLog != null) eventLog.add("Replay playback started");
-        }
-        if (settingsKey != null && settingsKey.consumeClick()) {
-            client.setScreen(new InputBoosterScreen(null));
-        }
-        if (toggleKey != null && toggleKey.consumeClick()) {
-            active = !active;
-            if (client.player != null) {
-                String status = active ? "§aACTIVE" : "§cINACTIVE";
-                client.player.displayClientMessage(
-                    Component.literal("§b[InputBooster] §7Status: " + status), true);
-            }
-            if (eventLog != null) eventLog.add("Mod state toggled to " + (active ? "ACTIVE" : "INACTIVE"));
-        }
-        if (toggleSoundsKey != null && toggleSoundsKey.consumeClick()) {
-            boolean current = InputBoosterConfig.isClickSoundsEnabled();
-            InputBoosterConfig.setClickSoundsEnabled(!current);
-            InputBoosterConfig.save();
-            if (client.player != null) {
-                String status = (!current) ? "§aON" : "§cOFF";
-                client.player.displayClientMessage(
-                    Component.literal("§b[InputBooster] §7Key Click Sounds: " + status), true);
-            }
-            if (eventLog != null) eventLog.add("Click sounds toggled to " + (!current ? "ON" : "OFF"));
         }
     }
 
     private void handleComboKeys(Minecraft client) {
         if (!InputBoosterConfig.isComboKeysEnabled()) return;
-        if (client.screen != null) { resetComboKeyState(); return; }
+        if (client.screen != null) {
+            resetComboKeyState();
+            return;
+        }
         long window = client.getWindow().handle();
-        if (window == 0L) { resetComboKeyState(); return; }
+        if (window == 0L) {
+            resetComboKeyState();
+            return;
+        }
         boolean ctrl = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
                 || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
-        if (!ctrl) { resetComboKeyState(); return; }
+        if (!ctrl) {
+            resetComboKeyState();
+            return;
+        }
         int[] digits = {GLFW.GLFW_KEY_1, GLFW.GLFW_KEY_2, GLFW.GLFW_KEY_3, GLFW.GLFW_KEY_4, GLFW.GLFW_KEY_5};
         for (int i = 0; i < digits.length; i++) {
             boolean pressed = GLFW.glfwGetKey(window, digits[i]) == GLFW.GLFW_PRESS;
@@ -247,8 +204,7 @@ public class InputBoosterMod {
                 InputBoosterConfig.setPollRateHz(hz);
                 adjustPollRateManual();
                 if (client.player != null) {
-                    client.player.displayClientMessage(
-                        Component.literal("§b[InputBooster] §ePoll rate: §a" + hz + " Hz"), true);
+                    Minecraft.getInstance().gui.setOverlayMessage(Component.literal("§b[InputBooster] §ePoll rate: §a" + hz + " Hz"), false);
                 }
                 break;
             }

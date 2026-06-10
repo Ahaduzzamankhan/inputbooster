@@ -13,7 +13,7 @@ base {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -68,12 +68,6 @@ processResources {
 jar {
     from('LICENSE') {
         rename { "${it}_${project.base.archivesName.get()}" }
-    }
-}
-
-task printCompileClasspath {
-    doLast {
-        sourceSets.main.compileClasspath.each { println it }
     }
 }
 
