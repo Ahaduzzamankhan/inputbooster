@@ -4,16 +4,16 @@ import dev.inputbooster.feature.*;
 import dev.inputbooster.screen.InputBoosterScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
+import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.mojang.blaze3d.platform.InputConstants;
 
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -21,7 +21,12 @@ public class InputBoosterMod implements ClientModInitializer {
 
     public static final String MOD_ID      = "inputbooster";
     public static final String MOD_NAME    = "InputBooster";
+<<<<<<< Updated upstream
     public static final String MOD_VERSION = "3.0.2-alpha02";
+=======
+    public static final String MOD_VERSION = "3.0.3+1.21.1";
+    public static final String DISPLAY_VERSION = "3.0.3+1.21.1";
+>>>>>>> Stashed changes
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -56,15 +61,12 @@ public class InputBoosterMod implements ClientModInitializer {
     public static PerServerProfileManager perServerProfileManager;
     public static ConfigTools         configTools;
 
-    private static KeyMapping openScreenKey;
-    private static KeyMapping toggleModKey;
-    private static KeyMapping replayRecordKey;
-    private static KeyMapping replayPlayKey;
+    private static KeyBinding openScreenKey;
+    private static KeyBinding toggleModKey;
+    private static KeyBinding replayRecordKey;
+    private static KeyBinding replayPlayKey;
     private static final int[] COMBO_PRESET_HZ = {100, 200, 350, 500, 1000};
-
-    private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(
-        Identifier.fromNamespaceAndPath(MOD_ID, "keys")
-    );
+    private static final boolean[] comboDigitHeld = new boolean[COMBO_PRESET_HZ.length];
 
     @Override
     public void onInitializeClient() {
@@ -97,14 +99,14 @@ public class InputBoosterMod implements ClientModInitializer {
             pollingThread.start();
             currentPollHz = initialHz;
 
-            openScreenKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.inputbooster.options", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_O, KEY_CATEGORY));
-            toggleModKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.inputbooster.toggle", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_P, KEY_CATEGORY));
-            replayRecordKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.inputbooster.replay_record", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY));
-            replayPlayKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.inputbooster.replay_play", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, KEY_CATEGORY));
+            openScreenKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.inputbooster.options", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "misc"));
+            toggleModKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.inputbooster.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_P, "misc"));
+            replayRecordKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.inputbooster.replay_record", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, "misc"));
+            replayPlayKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.inputbooster.replay_play", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_K, "misc"));
 
             ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
             DebugOverlayManager.register();
@@ -118,7 +120,9 @@ public class InputBoosterMod implements ClientModInitializer {
         }
     }
 
-    private void onClientTick(Minecraft client) {
+    private void onClientTick(MinecraftClient client) {
+        // Handle keybinds BEFORE the active guard so P can re-enable the mod
+        // and O can still open settings even when the mod is toggled off.
         if (initialized.get()) handleKeybinds(client);
 
         if (!active || !initialized.get()) return;
@@ -157,56 +161,68 @@ public class InputBoosterMod implements ClientModInitializer {
         }
     }
 
-    private void handleKeybinds(Minecraft client) {
-        if (openScreenKey.consumeClick()) {
-            if (client.screen == null || !(client.screen instanceof InputBoosterScreen)) {
-                client.setScreen(new InputBoosterScreen(client.screen));
+    private void handleKeybinds(MinecraftClient client) {
+        if (openScreenKey.wasPressed()) {
+            if (client.currentScreen == null || !(client.currentScreen instanceof InputBoosterScreen)) {
+                client.setScreen(new InputBoosterScreen(client.currentScreen));
             }
         }
-        if (toggleModKey.consumeClick()) {
+        if (toggleModKey.wasPressed()) {
             active = !active;
             String status = active ? "§a§lON" : "§c§lOFF";
             if (client.player != null) {
-                client.player.sendSystemMessage(Component.literal("§7InputBooster " + status));
+                client.player.sendMessage(Text.literal("§7InputBooster " + status), true);
             }
             if (eventLog != null) eventLog.add("Mod toggled " + (active ? "on" : "off"));
         }
-        if (replayRecordKey.consumeClick() && replayRecorder != null) {
+        if (replayRecordKey.wasPressed() && replayRecorder != null) {
             boolean recording = replayRecorder.toggleRecording();
             if (eventLog != null) eventLog.add("Replay recording " + (recording ? "started" : "stopped"));
             if (client.player != null) {
-                client.player.sendSystemMessage(Component.literal("InputBooster replay " + (recording ? "REC" : "STOP")));
+                client.player.sendMessage(Text.literal("InputBooster replay " + (recording ? "REC" : "STOP")), true);
             }
         }
-        if (replayPlayKey.consumeClick() && replayRecorder != null) {
+        if (replayPlayKey.wasPressed() && replayRecorder != null) {
             replayRecorder.startPlayback();
             if (eventLog != null) eventLog.add("Replay playback started");
         }
     }
 
-    private void handleComboKeys(Minecraft client) {
+    private void handleComboKeys(MinecraftClient client) {
         if (!InputBoosterConfig.isComboKeysEnabled()) return;
-        if (client.screen != null) return;
+        if (client.currentScreen != null) {
+            resetComboKeyState();
+            return;
+        }
 
-        long windowHandle = GLFW.glfwGetCurrentContext();
-        boolean ctrlDown = GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
-                        || GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
-        if (!ctrlDown) return;
+        long window = client.getWindow().getHandle();
+        boolean ctrl = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
+                    || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
+        if (!ctrl) {
+            resetComboKeyState();
+            return;
+        }
 
         int[] digits = {GLFW.GLFW_KEY_1, GLFW.GLFW_KEY_2, GLFW.GLFW_KEY_3, GLFW.GLFW_KEY_4, GLFW.GLFW_KEY_5};
         for (int i = 0; i < digits.length; i++) {
-            if (GLFW.glfwGetKey(windowHandle, digits[i]) == GLFW.GLFW_PRESS) {
+            boolean pressed = GLFW.glfwGetKey(window, digits[i]) == GLFW.GLFW_PRESS;
+            if (pressed && !comboDigitHeld[i]) {
                 int hz = COMBO_PRESET_HZ[i];
                 InputBoosterConfig.setPollRateAutoMode(false);
                 InputBoosterConfig.setPollRateHz(hz);
                 adjustPollRateManual();
                 if (client.player != null) {
-                    client.player.sendSystemMessage(
-                        Component.literal("§b[InputBooster] §ePoll rate: §a" + hz + " Hz"));
+                    client.player.sendMessage(
+                        Text.literal("§b[InputBooster] §ePoll rate: §a" + hz + " Hz"), true);
                 }
                 break;
             }
+            comboDigitHeld[i] = pressed;
         }
+    }
+
+    private void resetComboKeyState() {
+        Arrays.fill(comboDigitHeld, false);
     }
 
     public static void adjustPollRateAuto() {
@@ -238,17 +254,10 @@ public class InputBoosterMod implements ClientModInitializer {
     public static void shutdown() {
         LOGGER.info("[{}] Shutting down...", MOD_NAME);
         try {
-            if (pollingThread != null) {
-                pollingThread.stopPolling();
-                pollingThread.join(1000);
-                pollingThread = null;
-            }
+            if (pollingThread != null) { pollingThread.stopPolling(); pollingThread = null; }
             InputBoosterConfig.save();
             active = false;
             initialized.set(false);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            LOGGER.warn("[{}] Shutdown interrupted", MOD_NAME, e);
         } catch (Exception e) {
             LOGGER.error("[{}] Shutdown error", MOD_NAME, e);
         }

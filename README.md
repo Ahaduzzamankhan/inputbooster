@@ -1,8 +1,9 @@
+
 # InputBooster
 
 InputBooster is a client-side Fabric mod for players who want cleaner input during PvP, survival, and low-FPS gameplay. It keeps your clicks and movement keys responsive when frames dip, shows useful live stats, and gives you simple tools for profiles, CPS control, and replay testing.
 
-This build is for Minecraft 26.1.x.
+This build is for Minecraft 1.21.11.
 
 ## What It Does
 
@@ -81,25 +82,25 @@ InputBooster can scan your keybinds and log conflicts so you can spot controls t
 
 ## Installation
 
-1. Install Fabric Loader for Minecraft 26.1.x.
+1. Install Fabric Loader for Minecraft 1.21.11.
 2. Install Fabric API.
-3. Put `inputbooster-3.0.2-alpha02.jar` in your `.minecraft/mods` folder.
+3. Put `inputbooster-3.0.2-beta01.jar` in your `.minecraft/mods` folder.
 4. Launch the Fabric profile.
 
 ## Requirements
 
-- Minecraft Java Edition 26.1.x
+- Minecraft Java Edition 1.21.11
 - Fabric Loader
 - Fabric API
-- Java 25 or newer
+- Java 21 or newer
 
 ## Latest Version
 
-Current version: `3.0.2-alpha02`
+Current version: `3.0.2-beta01`
 
 The built jar is created at:
 
-`build/libs/inputbooster-3.0.2-alpha02.jar`
+`build/libs/inputbooster-3.0.2-beta01.jar`
 
 ## Notes
 

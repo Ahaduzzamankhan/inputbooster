@@ -2,8 +2,7 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.MinecraftClient;
 
 public class BurstModeManager {
 
@@ -15,7 +14,7 @@ public class BurstModeManager {
     private boolean bursting       = false;
     private boolean endMsgSent     = false;
 
-    public void tick(Minecraft mc) {
+    public void tick(MinecraftClient mc) {
         if (!InputBoosterConfig.isBurstModeEnabled()) {
             bursting = false;
             return;
@@ -33,8 +32,8 @@ public class BurstModeManager {
                     "[BurstMode] FPS dropped from {} to {} ({}%), bursting to 1000 Hz for 3s",
                     lastFps, fps, String.format("%.0f", drop * 100));
                 if (mc.player != null && InputBoosterConfig.isShowActionBar()) {
-                    mc.player.sendSystemMessage(
-                        Component.literal("§c⚡ InputBooster Burst Mode ACTIVE (1000 Hz)"));
+                    mc.player.sendMessage(
+                        net.minecraft.text.Text.literal("§c⚡ InputBooster Burst Mode ACTIVE (1000 Hz)"), true);
                 }
             }
         }
@@ -45,8 +44,8 @@ public class BurstModeManager {
                 bursting = false;
                 InputBoosterMod.LOGGER.info("[BurstMode] Burst mode ended, returning to normal rate.");
                 if (!endMsgSent && mc.player != null && InputBoosterConfig.isShowActionBar()) {
-                    mc.player.sendSystemMessage(
-                        Component.literal("§a⚡ InputBooster Burst Mode ended"));
+                    mc.player.sendMessage(
+                        net.minecraft.text.Text.literal("§a⚡ InputBooster Burst Mode ended"), true);
                     endMsgSent = true;
                 }
             }

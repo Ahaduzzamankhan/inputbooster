@@ -1,6 +1,51 @@
 # Changelog
 
-## 3.0.2-alpha02 - Minecraft 26.1.x
+## [3.0.3+1.21.1] - Minecraft 1.21.1 (Backport Release)
+
+Backport of InputBooster v3.0.3 targeting Minecraft 1.21.1 with added Quilt loader support.
+
+### Added
+
+- **Quilt Loader support**: Native `quilt.mod.json` manifest included — InputBooster now loads on both Fabric and Quilt without wrappers. Requires Quilted Fabric API.
+
+### Changed
+
+- Target Minecraft version downgraded from 1.21.11 to 1.21.1 (`yarn_mappings=1.21.1+build.3`, `fabric_version=0.106.1+1.21.1`).
+- `InGameHudMixin` updated for 1.21.1's `InGameHud.render(DrawContext, float)` signature — `RenderTickCounter` was not available until 1.21.2.
+
+## [3.0.2-rl1] - Minecraft 1.21.11 (Production Release)
+
+This is the final stable production release of InputBooster v3.0.2. This update fixes several critical thread-safety and performance bugs, ensuring a rock-solid, production-grade gameplay experience.
+
+### Added
+
+- Full profile serialization support for the new Keystrokes visualizer configuration.
+
+### Fixed
+
+- **CRITICAL THREAD-SAFETY FIX**: Fully synchronized the list in `ReplayRecorder` and declared control flags volatile, preventing concurrent modification exceptions, memory torn-reads, and crashes caused by thread race conditions between the main Minecraft rendering thread and the high-frequency polling thread.
+- **CRITICAL CPS GRAPH FIX**: Resolved a bug in `SessionStats` where the CPS sparkline was calculating cumulative values 20 times too high (due to rolling totals multiplied by ticks per second). Now accurately calculates CPS delta per second.
+- **PERFORMANCE FIX**: Replaced standard `O(N)` list size operations in `EventLog` with a thread-safe `O(1)` AtomicInteger counter, eliminating log polling overhead during busy PvP sessions.
+
+## 3.0.2-beta02 - Minecraft 1.21.11
+
+This update resolves the keybind layout as requested by transitioning settings access to the vanilla Minecraft Options screen, introduces a premium Keystrokes Visualizer HUD element, and resolves a critical CPS Limiter bypass bug.
+
+### Added
+
+- A new **Keystrokes Visualizer** inside the HUD overlay displaying in real-time the state of forward/left/back/right movement keys, LMB, RMB, and Spacebar. Toggled via the Advanced Settings tab.
+- Integrated **"InputBooster..." Options button** in the top-right corner of the standard Minecraft `OptionsScreen` for quick and elegant access.
+
+### Changed
+
+- Disabled default keybind mapping for settings screen opening (set `GLFW_KEY_O` to `GLFW_KEY_UNKNOWN`) to keep options clean and accessible without key overlaps.
+- Mod version advanced to `3.0.2-beta02` and display version to `3.0.2-beta02-mc26`.
+
+### Fixed
+
+- **CRITICAL BUG FIX**: Resolved a CPS Limiter bypass bug where attacks blocked by the limiter were still registered by Minecraft's vanilla mouse click listener, completely bypassing the limiter cap. Set `attackHandledThisTick = true` on blocked attacks to successfully suppress vanilla handling.
+
+## 3.0.2-beta01 - Minecraft 1.21.11
 
 This update focuses on making InputBooster feel more complete for everyday players while keeping the mod stable during combat and low-FPS gameplay.
 
@@ -24,7 +69,7 @@ This update focuses on making InputBooster feel more complete for everyday playe
 
 ### Changed
 
-- Updated mod version to `3.0.2-alpha02`.
+- Updated mod version to `3.0.2-beta01`.
 - Profile saves now include the new CPS mode, replay, safe mode, event log, keybind warning, and per-server profile settings.
 - CPS limiter now uses the selected CPS mode instead of only a fixed cap.
 
@@ -36,4 +81,4 @@ This update focuses on making InputBooster feel more complete for everyday playe
 
 ### Build
 
-- New jar: `build/libs/inputbooster-3.0.2-alpha02.jar`
+- New jar: `build/libs/inputbooster-3.0.2-beta01.jar`

@@ -28,16 +28,16 @@ All keybinds can be changed in Minecraft's controls menu.
 
 ## Requirements
 
-- Minecraft 26.1.x
+- Minecraft 1.21.11
 - Fabric Loader
 - Fabric API
-- Java 25 or newer
+- Java 21 or newer
 
 ## Version
 
-Latest build: `3.0.2-alpha02`
+Latest build: `3.0.2-rl1`
 
-Download/use: `inputbooster-3.0.2-alpha02.jar`
+Download/use: `inputbooster-3.0.2-rl1.jar`
 
 ## Important
 

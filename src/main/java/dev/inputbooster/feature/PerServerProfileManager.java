@@ -2,7 +2,7 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -33,7 +33,7 @@ public class PerServerProfileManager {
         persist();
     }
 
-    public void tick(Minecraft client) {
+    public void tick(MinecraftClient client) {
         if (!InputBoosterConfig.isPerServerProfiles() || InputBoosterMod.profileManager == null) return;
         String serverId = detectServerId(client);
         if (serverId.equals(lastServerId)) return;
@@ -56,13 +56,13 @@ public class PerServerProfileManager {
         }
     }
 
-    private static String detectServerId(Minecraft client) {
+    private static String detectServerId(MinecraftClient client) {
         if (client == null) return "singleplayer";
-        Object entry = call(client, "getCurrentServer");
-        if (entry == null) entry = read(client, "currentServer");
-        if (entry == null) return client.hasSingleplayerServer() ? "singleplayer" : "unknown";
-        Object address = read(entry, "ip");
-        if (address == null) address = read(entry, "address");
+        Object entry = call(client, "getCurrentServerEntry");
+        if (entry == null) entry = read(client, "currentServerEntry");
+        if (entry == null) return client.isInSingleplayer() ? "singleplayer" : "unknown";
+        Object address = read(entry, "address");
+        if (address == null) address = call(entry, "address");
         return address == null ? "unknown" : address.toString();
     }
 

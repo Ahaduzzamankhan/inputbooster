@@ -1,29 +1,28 @@
 package dev.inputbooster;
 
-import dev.inputbooster.mixin.MinecraftClientAccessor;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 
 public final class McCompat {
     private McCompat() {}
 
-    public static int getFps(Minecraft mc) {
-        return ((MinecraftClientAccessor) mc).invokeGetFps();
+    public static int getFps(MinecraftClient mc) {
+        return mc.getCurrentFps();
     }
 
-    public static boolean isInWater(LocalPlayer player) {
-        return player.isInWater();
+    public static boolean isInWater(ClientPlayerEntity player) {
+        return player.isTouchingWater();
     }
 
-    public static boolean isClimbing(LocalPlayer player) {
-        return player.onClimbable();
+    public static boolean isClimbing(ClientPlayerEntity player) {
+        return player.isClimbing();
     }
 
-    public static int getFoodLevel(LocalPlayer player) {
-        return player.getFoodData().getFoodLevel();
+    public static int getFoodLevel(ClientPlayerEntity player) {
+        return player.getHungerManager().getFoodLevel();
     }
 
-    public static void setSneaking(LocalPlayer player, boolean sneaking) {
-        player.setShiftKeyDown(sneaking);
+    public static void setSneaking(ClientPlayerEntity player, boolean sneaking) {
+        player.setSneaking(sneaking);
     }
 }

@@ -2,7 +2,7 @@ package dev.inputbooster.feature;
 
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -13,20 +13,19 @@ import java.util.Map;
 public class KeybindConflictDetector {
     private boolean checked;
 
-    public void tick(Minecraft client) {
+    public void tick(MinecraftClient client) {
         if (checked || !InputBoosterConfig.isKeyConflictWarn() || client == null || client.options == null) return;
         checked = true;
-        Object keys = readField(client.options, "keyMappings");
-        if (keys == null) keys = readField(client.options, "allKeys");
+        Object keys = readField(client.options, "allKeys");
+        if (keys == null) keys = readField(client.options, "keyBindings");
         if (keys == null || !keys.getClass().isArray()) return;
 
         Map<String, String> seen = new HashMap<>();
         for (int i = 0; i < Array.getLength(keys); i++) {
             Object key = Array.get(keys, i);
-            String bound = callString(key, "getKeyModifierAndCode");
-            if (bound == null) bound = callString(key, "getTranslatedKeyMessage");
-            String name = callString(key, "getName");
-            if (bound == null || bound.isBlank() || bound.contains("unknown")) continue;
+            String bound = callString(key, "getBoundKeyTranslationKey");
+            String name = callString(key, "getTranslationKey");
+            if (bound == null || bound.isBlank() || "key.keyboard.unknown".equals(bound)) continue;
             String previous = seen.putIfAbsent(bound, name == null ? "unknown" : name);
             if (previous != null && InputBoosterMod.eventLog != null) {
                 InputBoosterMod.eventLog.add("Key conflict: " + previous + " and " + name + " use " + bound);

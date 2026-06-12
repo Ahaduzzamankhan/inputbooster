@@ -1,14 +1,11 @@
 package dev.inputbooster.mixin;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.MinecraftClient;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin(Minecraft.class)
+@Mixin(MinecraftClient.class)
 public interface MinecraftClientAccessor {
-    @Invoker("pickBlockOrEntity")
-    void invokePickBlock();
-
-    @Invoker("getFps")
-    int invokeGetFps();
+    @Invoker("doItemPick")
+    void invokeDoItemPick();
 }
