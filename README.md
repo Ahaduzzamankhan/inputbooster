@@ -1,109 +1,245 @@
+# ⚡ InputBooster
 
-# InputBooster
+<p align="center">
+  <strong>High-frequency input handling for Minecraft Java Edition.</strong><br>
+  Cleaner clicks • More consistent movement • Useful live diagnostics • Replay testing
+</p>
 
-InputBooster is a client-side Fabric mod for players who want cleaner input during PvP, survival, and low-FPS gameplay. It keeps your clicks and movement keys responsive when frames dip, shows useful live stats, and gives you simple tools for profiles, CPS control, and replay testing.
+<p align="center">
+  <img src="https://img.shields.io/badge/Minecraft-1.21.11-62b47a?style=for-the-badge&logo=minecraft&logoColor=white" alt="Minecraft 1.21.11">
+  <img src="https://img.shields.io/badge/Fabric-Client--Side-DBD0B5?style=for-the-badge" alt="Fabric">
+  <img src="https://img.shields.io/badge/Java-21%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21+">
+  <img src="https://img.shields.io/badge/Version-3.0.2--beta01-8B5CF6?style=for-the-badge" alt="Version 3.0.2-beta01">
+</p>
 
-This build is for Minecraft 1.21.11.
+> **InputBooster** is a client-side Fabric mod focused on making keyboard and mouse input feel more consistent during PvP, survival, and low-FPS gameplay.
 
-## What It Does
+---
 
-Minecraft normally checks input as part of the client loop. When your FPS drops, fast clicks and key taps can feel late or inconsistent. InputBooster adds a high-frequency input layer that watches important controls, queues clean press events, and applies them safely on the game tick.
+## ✨ Why InputBooster?
 
-The goal is simple: fewer missed clicks, smoother movement timing, and better feedback while you play.
+Minecraft normally processes input around the client/game loop. When frame rate drops or the game stutters, very short key presses and clicks can feel delayed or inconsistent.
 
-## Feature Showcase
+InputBooster adds a dedicated input layer that can poll important controls at a higher frequency, queue clean input events, and safely apply them on the game tick.
 
-### Faster Input Feel
+**The goal:** better input consistency without turning the mod into an automated gameplay system.
 
-InputBooster polls attack, use, sprint, sneak, jump, movement, drop, swap, and pick-block inputs at a higher rate than normal frame timing. This helps short taps register even when your game stutters.
+---
 
-### PvP-Friendly Combat Tools
+## 🚀 Features
 
-The built-in CPS limiter can run in multiple modes:
+| Feature | What it does |
+| --- | --- |
+| ⚡ **High-frequency input** | Polls important mouse and keyboard actions more frequently than normal frame timing. |
+| 🖱️ **CPS control** | Configurable click limiting with multiple modes. |
+| ⚔️ **Combat helpers** | Includes entity double-hit protection and PvP-oriented input tools. |
+| 🏃 **Movement helpers** | Sprint support, W-tap timing support, auto-strafe correction, and anti-idle protection. |
+| 🎛️ **Profiles** | Save different configurations for PvP, Survival, Low FPS, Debug, and Balanced play. |
+| 🌐 **Server profiles** | Automatically switch profiles based on the server you join. |
+| 🎥 **Input Replay** | Record and replay input sequences for timing and debugging tests. |
+| 📊 **Live overlay** | View FPS, CPS, poll rate, recovered inputs, latency, module count, and more. |
+| 🛡️ **Safe Mode** | Can disable active modules after repeated internal errors. |
+| 🔎 **Keybind diagnostics** | Detect and log keybind conflicts. |
 
-- `FIXED`: steady max CPS cap
-- `HUMANIZED`: lightly varies the limit so clicks feel less robotic
-- `COOLDOWN`: spaces clicks with a minimum delay
-- `WEAPON_AWARE`: keeps combat CPS more conservative
+---
 
-The entity double-hit protection is also active, so one physical click should not become two entity attacks from the mod and vanilla at the same time.
+## 🖱️ CPS Modes
 
-### Movement Helpers
+InputBooster provides several CPS-limit modes:
 
-InputBooster includes sprint support, W-tap timing support, auto-strafe correction, and anti-idle protection. These are designed to improve input consistency without playing the game for you.
+- **`FIXED`** — keeps a steady maximum CPS limit.
+- **`HUMANIZED`** — lightly varies the limit to avoid perfectly uniform timing.
+- **`COOLDOWN`** — spaces clicks using a minimum delay.
+- **`WEAPON_AWARE`** — uses a more conservative combat CPS limit.
 
-### Profiles
+> ⚠️ Multiplayer servers can have different rules for client-side utilities. Always check the server's rules before using InputBooster.
 
-Save different settings for different play styles. For example:
+---
 
-- PvP
-- Survival
-- Low FPS
-- Debug
-- Balanced
+## 🎮 Movement Helpers
 
-The new per-server profile backend can auto-switch profiles based on the server you join.
+InputBooster can assist with **input consistency** through:
 
-### Input Replay
+- Sprint support
+- W-tap timing support
+- Auto-strafe correction
+- Anti-idle protection
 
-Replay tools help test whether input timing is working correctly.
+These features are designed around input handling rather than automatically playing the game for you.
 
-Default keybinds:
+---
 
-- `R`: start or stop replay recording
-- `K`: play the recorded input replay
-- `O`: open InputBooster settings
-- `P`: toggle InputBooster on or off
+## 🎛️ Profiles
 
-You can change these in Minecraft's keybind menu.
+Create separate configurations for different situations:
 
-### Live Overlay
+```text
+PvP
+Survival
+Low FPS
+Debug
+Balanced
+```
 
-The in-game overlay can show:
+The server-profile system can automatically select a configuration when you connect to a supported server.
+
+---
+
+## 🎥 Input Replay
+
+Replay tools make it easier to test whether input timing behaves as expected.
+
+### Default keybinds
+
+| Key | Action |
+| --- | --- |
+| `R` | Start / stop replay recording |
+| `K` | Play the recorded replay |
+| `O` | Open InputBooster settings |
+| `P` | Toggle InputBooster on / off |
+
+All keybinds can be changed from Minecraft's normal keybind menu.
+
+---
+
+## 📊 Live Overlay
+
+The in-game overlay can display:
 
 - InputBooster version
 - Poll rate
 - FPS
 - CPS
 - Recovered inputs
-- Latency stats
+- Latency statistics
 - Active module count
 - Replay status
-- Safe mode status
-- Latest debug event when debug mode is enabled
+- Safe Mode status
+- Latest debug event when Debug Mode is enabled
 
-### Safe Mode
+This makes the overlay useful for both everyday gameplay and diagnosing input problems.
 
-If the mod sees repeated internal errors, safe mode can disable active modules instead of letting errors repeat during gameplay.
+---
 
-### Keybind Conflict Warnings
+## 🛡️ Safe Mode
 
-InputBooster can scan your keybinds and log conflicts so you can spot controls that share the same key.
+If InputBooster detects repeated internal errors, **Safe Mode** can disable active modules instead of allowing the same errors to continue during gameplay.
 
-## Installation
+This provides an additional layer of protection while testing new configurations or features.
 
-1. Install Fabric Loader for Minecraft 1.21.11.
-2. Install Fabric API.
-3. Put `inputbooster-3.0.2-beta01.jar` in your `.minecraft/mods` folder.
-4. Launch the Fabric profile.
+---
 
-## Requirements
+## 🔎 Keybind Conflict Detection
 
-- Minecraft Java Edition 1.21.11
-- Fabric Loader
-- Fabric API
-- Java 21 or newer
+InputBooster can inspect Minecraft keybinds and log conflicts, making it easier to find controls that accidentally share the same key.
 
-## Latest Version
+---
 
-Current version: `3.0.2-beta01`
+## 📦 Installation
 
-The built jar is created at:
+### Requirements
 
-`build/libs/inputbooster-3.0.2-beta01.jar`
+- **Minecraft Java Edition:** `1.21.11`
+- **Fabric Loader**
+- **Fabric API**
+- **Java:** `21+`
 
-## Notes
+### Install
 
-InputBooster is client-side. It does not need to be installed on a server.
+1. Install **Fabric Loader** for Minecraft `1.21.11`.
+2. Install **Fabric API** for the same Minecraft version.
+3. Download or build `inputbooster-3.0.2-beta01.jar`.
+4. Place the JAR inside your Minecraft `mods` folder.
+5. Start Minecraft using your Fabric profile.
 
-Some multiplayer servers have strict rules about client mods. Check the server rules before using any PvP utility mod.
+The development build is produced at:
+
+```text
+build/libs/inputbooster-3.0.2-beta01.jar
+```
+
+---
+
+## 🧑‍💻 Development
+
+InputBooster is a Java-based Minecraft client mod built around Fabric's client-side modding environment.
+
+The codebase separates important responsibilities into components such as:
+
+```text
+InputPollingThread
+        ↓
+   KeySnapshot
+        ↓
+ InputActionQueue
+        ↓
+   InputDrainer
+        ↓
+ Minecraft client tick
+```
+
+This architecture keeps high-frequency input collection separate from the safer game-tick application path.
+
+---
+
+## 🗂️ Project Structure
+
+```text
+src/main/java/dev/inputbooster/
+├── InputBoosterMod.java       # Main mod entry point
+├── InputBoosterConfig.java    # Configuration
+├── InputPollingThread.java    # High-frequency input polling
+├── InputAction.java           # Input action definitions
+├── InputActionQueue.java      # Queued input events
+├── InputDrainer.java          # Applies queued actions
+├── KeySnapshot.java           # Input state snapshots
+├── McCompat.java              # Minecraft compatibility helpers
+└── feature/                   # Feature modules and diagnostics
+```
+
+---
+
+## 🧪 Version
+
+**Current build:** `3.0.2-beta01`
+
+Minecraft target: **`1.21.11`**
+
+> This is a **beta** build. Features and behavior may change as development continues.
+
+---
+
+## ⚠️ Multiplayer Notice
+
+InputBooster is **client-side** and does not need to be installed on a server.
+
+However, individual multiplayer servers may restrict or prohibit certain client modifications. **Read the rules of the server you play on before enabling InputBooster features.**
+
+---
+
+## 🤝 Contributing
+
+Found a bug, have an improvement, or want to help develop InputBooster?
+
+- Open an issue with clear reproduction steps.
+- Include your Minecraft version and InputBooster version.
+- For technical bugs, include relevant logs when possible.
+- Keep pull requests focused and easy to review.
+
+---
+
+## 📌 Quick Summary
+
+```text
+InputBooster
+├─ ⚡ High-frequency input
+├─ 🖱️ CPS control
+├─ 🏃 Movement helpers
+├─ 🎛️ Profiles
+├─ 🎥 Input replay
+├─ 📊 Live diagnostics
+├─ 🛡️ Safe Mode
+└─ 🔎 Keybind conflict detection
+```
+
+**Built for players who want their inputs to feel more consistent — especially when Minecraft isn't running perfectly smoothly.**
