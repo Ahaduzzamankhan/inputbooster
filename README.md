@@ -12,6 +12,12 @@
   <img src="https://img.shields.io/badge/Version-3.0.2--beta01-8B5CF6?style=for-the-badge" alt="Version 3.0.2-beta01">
 </p>
 
+<p align="center">
+  <a href="https://www.supportkori.com/fluxenite">
+    <img src="assets/supportkori.svg" alt="Buy me a coffee on SupportKori">
+  </a>
+</p>
+
 > **InputBooster** is a client-side Fabric mod focused on making keyboard and mouse input feel more consistent during PvP, survival, and low-FPS gameplay.
 
 ---
@@ -225,24 +231,6 @@ Found a bug, have an improvement, or want to help develop InputBooster?
 - Include your Minecraft version and InputBooster version.
 - For technical bugs, include relevant logs when possible.
 - Keep pull requests focused and easy to review.
-
----
-
-## ☕ Support InputBooster
-
-If you find InputBooster useful, you can support the project through SupportKori:
-
-```html
-<script
-  src="https://www.supportkori.com/widget.js"
-  data-id="fluxenite"
-  data-message="Buy me a coffee "
-  data-color="#FFDD00"
-  data-position="right"
-></script>
-```
-
-> **Note:** GitHub README pages sanitize executable `<script>` tags, so this widget will be displayed as code rather than executed on GitHub. It should be placed on a website page that supports JavaScript if you want the floating widget to actually appear.
 
 ---
 
