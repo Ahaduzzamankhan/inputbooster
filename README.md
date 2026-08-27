@@ -228,6 +228,24 @@ Found a bug, have an improvement, or want to help develop InputBooster?
 
 ---
 
+## ☕ Support InputBooster
+
+If you find InputBooster useful, you can support the project through SupportKori:
+
+```html
+<script
+  src="https://www.supportkori.com/widget.js"
+  data-id="fluxenite"
+  data-message="Buy me a coffee "
+  data-color="#FFDD00"
+  data-position="right"
+></script>
+```
+
+> **Note:** GitHub README pages sanitize executable `<script>` tags, so this widget will be displayed as code rather than executed on GitHub. It should be placed on a website page that supports JavaScript if you want the floating widget to actually appear.
+
+---
+
 ## 📌 Quick Summary
 
 ```text
