@@ -14,9 +14,10 @@
 
 <p align="center">
   <a href="https://www.supportkori.com/fluxenite">
-    <img src="assets/supportkori.svg" alt="Buy me a coffee on SupportKori">
+    <img src="assests/supportkori.svg" alt="Buy me a coffee on SupportKori">
   </a>
 </p>
+
 
 > **InputBooster** is a client-side Fabric mod focused on making keyboard and mouse input feel more consistent during PvP, survival, and low-FPS gameplay.
 
