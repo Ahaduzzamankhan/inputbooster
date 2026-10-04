@@ -243,8 +243,8 @@ public class ProfileManager {
                 InputBoosterConfig.save();
                 InputBoosterMod.LOGGER.info("[ProfileManager] Loaded profile: {}", name);
                 if (mc != null && mc.player != null) {
-                    Minecraft.getInstance().gui.setOverlayMessage(
-                        Component.literal("§b[InputBooster] §aProfile loaded: §e" + name), false);
+                    mc.player.sendOverlayMessage(
+                        Component.literal("§b[InputBooster] §aProfile loaded: §e" + name));
                 }
                 return true;
             }

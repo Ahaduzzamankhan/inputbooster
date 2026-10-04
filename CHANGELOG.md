@@ -1,5 +1,56 @@
 # Changelog
 
+## 3.1.0 - Minecraft 26.2 (NeoForge) / 26.2 + 26.3 (Fabric)
+
+The mod core is now loader-neutral: one implementation under `src/main/java`, with a
+small platform entrypoint per loader and a per-version API shim under
+`src/compat/`.
+
+### Loader support
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-3.1.0-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-3.1.0-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-3.1.0-fabric-mc263.jar` |
+
+### Added
+
+- Fabric support for Minecraft 26.2 and 26.3 (Fabric Loader 0.19+, Fabric API 0.161+).
+- Per-version compatibility shim (`dev.inputbooster.compat.McVersion`) for the
+  input / swing / drop API differences between 26.2 and 26.3.
+- 24 JUnit regression tests run by CI (`fabric/` build) covering the queue, config,
+  CPS limiter, latency profiler, session stats and combo keys.
+
+### Fixed
+
+- **Key bindings were never registered**: the mappings were created in the client
+  setup callback, which runs *after* the key-mapping registration event, so the
+  R / K bindings were silently missing from the controls screen.
+- **Unbounded input backlog**: `InputActionQueue.clear()` reset the counter while
+  the polling thread could be mid-enqueue, so the queue could grow past its bound.
+- **Ctrl+1..5 re-applied the poll rate every tick** while the digit was held, because
+  the key latch was written after the loop `break`.
+- **Config reload leaked stale settings**: `load()` only assigned keys present in the
+  file, so importing a partial config kept the previous session's values.
+- **Hand-edited config booleans disabled features**: only lowercase `true` was
+  accepted; `True`, `yes`, `1` and `on` now parse correctly, garbage falls back to
+  the default.
+- **CPS sparkline froze after a stall**: bucket rotation used the wall clock and
+  advanced at most one bucket per tick, so a gap longer than a second left the graph
+  stale. It is now monotonic and closes every elapsed second.
+- **Latency average included stale samples** once the ring buffer wrapped.
+- **The F3 overlay never appeared**: its visibility check was inverted and it bailed
+  out exactly when the debug screen was open.
+
+### Changed
+
+- Ported to the 26.x client API: `setScreenAndShow`, `Gui.screen()`,
+  `Player.sendOverlayMessage`, `Minecraft.getDebugOverlay()`, deferred
+  `Gui.extractRenderState` HUD rendering, `startAttack` / `startUseItem` mixin hooks,
+  and SDL-backed key state through `InputConstants` (LWJGL/GLFW is no longer part of
+  the game distribution).
+
 ## 3.0.2-rl1 - Minecraft 1.21.11 (Production Release)
 
 This is the final stable production release of InputBooster v3.0.2. This update fixes several critical thread-safety and performance bugs, ensuring a rock-solid, production-grade gameplay experience.

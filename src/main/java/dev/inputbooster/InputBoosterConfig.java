@@ -23,7 +23,13 @@ import java.util.*;
 public class InputBoosterConfig {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("inputbooster-config");
-    private static final Path CONFIG_PATH = Paths.get("config", "inputbooster.properties");
+    /**
+     * Config location. Defaults to {@code config/inputbooster.properties} next to the
+     * game; the {@code inputbooster.configDir} system property overrides the parent
+     * directory so the automated tests can use a throwaway location.
+     */
+    private static final Path CONFIG_PATH = Paths.get(
+        System.getProperty("inputbooster.configDir", "config"), "inputbooster.properties");
 
     // ── Poll Rate ────────────────────────────────────────────────────────────
     private static int     pollRateHz        = 200;
@@ -92,6 +98,12 @@ public class InputBoosterConfig {
     // ── Load ─────────────────────────────────────────────────────────────────
 
     public static void load() {
+        // FIX (stale settings after reload): load() only assigned the keys that
+        // were present in the file, so every option missing from the file kept
+        // whatever value it had in memory — importing a partial config or
+        // switching profiles leaked the previous session's settings. Start from
+        // the documented defaults every time before applying the file.
+        resetDefaults();
         try {
             Properties props = new Properties();
             if (Files.exists(CONFIG_PATH)) {
@@ -196,7 +208,15 @@ public class InputBoosterConfig {
     }
 
     private static boolean parseBool(Properties p, String key, boolean def) {
-        return Boolean.parseBoolean(p.getProperty(key, String.valueOf(def)));
+        // FIX (hand-edited configs silently disabling features):
+        // Boolean.parseBoolean only accepts a lowercase "true", so "True",
+        // "yes" or "1" all resolved to false. Accept the common spellings.
+        String raw = p.getProperty(key);
+        if (raw == null) return def;
+        String v = raw.trim();
+        if (v.equalsIgnoreCase("true") || v.equalsIgnoreCase("yes") || v.equals("1") || v.equalsIgnoreCase("on")) return true;
+        if (v.equalsIgnoreCase("false") || v.equalsIgnoreCase("no") || v.equals("0") || v.equalsIgnoreCase("off")) return false;
+        return def;
     }
 
     private static void resetDefaults() {

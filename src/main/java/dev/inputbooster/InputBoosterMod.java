@@ -1,36 +1,32 @@
 package dev.inputbooster;
 
 import dev.inputbooster.feature.*;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModLoadingContext;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
-
-import net.minecraft.client.KeyMapping;
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.inputbooster.compat.McVersion;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * NeoForge port of InputBooster.
+ * Loader-neutral core of InputBooster.
+ *
+ * The class no longer carries any loader-specific entrypoint. Platform mods
+ * (NeoForge {@code @Mod} class, Fabric {@code ClientModInitializer}) call
+ * {@link #bootstrap()}, register the key mappings returned by
+ * {@link #createKeyMappings()} with their own registry, and then forward
+ * {@link #onClientTick()} from the client tick event.
+ *
+ * Author: Ahaduzzaman Khan
  */
-@Mod(InputBoosterMod.MOD_ID)
-public class InputBoosterMod {
+public final class InputBoosterMod {
     public static final String MOD_ID = "inputbooster";
     public static final String MOD_NAME = "InputBooster";
-    public static final String MOD_VERSION = "3.0.3nf-mc261";
-    public static final String DISPLAY_VERSION = "3.0.3nf-mc261-mc26";
+    public static final String MOD_VERSION = "3.1.0";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -66,23 +62,47 @@ public class InputBoosterMod {
     public static ConfigTools configTools;
 
     // Key bindings
-    private static KeyMapping replayRecordKey;
-    private static KeyMapping replayPlayKey;
-    private static final int[] COMBO_PRESET_HZ = {100, 200, 350, 500, 1000};
-    private static final boolean[] comboDigitHeld = new boolean[COMBO_PRESET_HZ.length];
+    private static volatile KeyMapping replayRecordKey;
+    private static volatile KeyMapping replayPlayKey;
+    private static final ComboKeyPresets COMBO_KEYS = new ComboKeyPresets();
     private static double smoothedFps = 60.0D;
     private static int stableFpsTicks = 0;
     private static int unstableFpsTicks = 0;
 
-    public InputBoosterMod(IEventBus bus) {
-        bus.addListener(this::onRegisterKeyMappings);
-        bus.addListener(this::onClientSetup);
-        NeoForge.EVENT_BUS.addListener(this::onClientTick);
+    private InputBoosterMod() {}
+
+    /**
+     * Creates the mod's key mappings.
+     *
+     * FIX (keybinds never registered): the mappings used to be constructed in
+     * the client-setup callback, which on NeoForge runs *after* the
+     * key-mapping registration event. The registration handler therefore only
+     * ever saw {@code null} and the R / K bindings were silently dropped from
+     * the controls screen. Platforms must call this during their own bootstrap
+     * — before they register the returned mappings.
+     *
+     * @return the two mod key mappings, in a stable order
+     */
+    public static KeyMapping[] createKeyMappings() {
+        if (replayRecordKey == null) {
+            replayRecordKey = new KeyMapping("key.inputbooster.replay_record", InputConstants.KEY_R, KeyMapping.Category.MISC);
+        }
+        if (replayPlayKey == null) {
+            replayPlayKey = new KeyMapping("key.inputbooster.replay_play", InputConstants.KEY_K, KeyMapping.Category.MISC);
+        }
+        return new KeyMapping[]{replayRecordKey, replayPlayKey};
     }
 
-    private void onClientSetup(final FMLClientSetupEvent event) {
+    /** Called by the platform entrypoint during mod construction. */
+    public static void bootstrap() {
+        createKeyMappings();
+    }
+
+    public static void initialize() {
+        if (initialized.get()) return;
         LOGGER.info("[{}] Starting v{}", MOD_NAME, MOD_VERSION);
         try {
+            createKeyMappings();
             InputBoosterConfig.load();
             // Initialise managers
             sprintManager = new SprintManager();
@@ -109,11 +129,6 @@ public class InputBoosterMod {
             pollingThread.start();
             currentPollHz = initialHz;
 
-            // Register key bindings
-            replayRecordKey = new KeyMapping("key.inputbooster.replay_record", GLFW.GLFW_KEY_R, KeyMapping.Category.MISC);
-            replayPlayKey = new KeyMapping("key.inputbooster.replay_play", GLFW.GLFW_KEY_K, KeyMapping.Category.MISC);
-            // key mappings registered via onRegisterKeyMappings event
-
             DebugOverlayManager.register();
             initialized.set(true);
             eventLog.add("InputBooster initialized");
@@ -124,14 +139,13 @@ public class InputBoosterMod {
         }
     }
 
-    private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
-        if (replayRecordKey != null) event.register(replayRecordKey);
-        if (replayPlayKey != null) event.register(replayPlayKey);
-    }
+    
 
-    private void onClientTick(final ClientTickEvent.Post event) {
+    /** Called from the client tick event of the active loader. */
+    public static void onClientTick() {
+        initialize();
         Minecraft client = Minecraft.getInstance();
-        if (initialized.get()) handleKeybinds(client);
+        handleKeybinds(client);
         if (!active || !initialized.get()) return;
         try {
             lastTickTime = System.nanoTime();
@@ -163,56 +177,61 @@ public class InputBoosterMod {
         }
     }
 
-    private void handleKeybinds(Minecraft client) {
-        if (replayRecordKey.consumeClick() && replayRecorder != null) {
+    private static void handleKeybinds(Minecraft client) {
+        KeyMapping record = replayRecordKey;
+        KeyMapping play = replayPlayKey;
+        if (record != null && record.consumeClick() && replayRecorder != null) {
             boolean recording = replayRecorder.toggleRecording();
             if (eventLog != null) eventLog.add("Replay recording " + (recording ? "started" : "stopped"));
             if (client.player != null) {
-                Minecraft.getInstance().gui.setOverlayMessage(Component.literal("InputBooster replay " + (recording ? "REC" : "STOP")), false);
+                client.player.sendOverlayMessage(Component.literal("InputBooster replay " + (recording ? "REC" : "STOP")));
             }
         }
-        if (replayPlayKey.consumeClick() && replayRecorder != null) {
+        if (play != null && play.consumeClick() && replayRecorder != null) {
             replayRecorder.startPlayback();
             if (eventLog != null) eventLog.add("Replay playback started");
         }
     }
 
-    private void handleComboKeys(Minecraft client) {
-        if (!InputBoosterConfig.isComboKeysEnabled()) return;
-        if (client.screen != null) {
+    private static void handleComboKeys(Minecraft client) {
+        if (!InputBoosterConfig.isComboKeysEnabled()) {
             resetComboKeyState();
             return;
         }
-        long window = client.getWindow().handle();
-        if (window == 0L) {
+        if (client.gui != null && client.gui.screen() != null) {
             resetComboKeyState();
             return;
         }
-        boolean ctrl = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
+        // Raw key state is read through the version compat shim: 26.2 still passes
+        // the window handle to InputConstants, 26.3 does not.
+        boolean ctrl = McVersion.isKeyDown(InputConstants.KEY_LCONTROL)
+                || McVersion.isKeyDown(InputConstants.KEY_RCONTROL);
         if (!ctrl) {
             resetComboKeyState();
             return;
         }
-        int[] digits = {GLFW.GLFW_KEY_1, GLFW.GLFW_KEY_2, GLFW.GLFW_KEY_3, GLFW.GLFW_KEY_4, GLFW.GLFW_KEY_5};
+        int[] digits = {InputConstants.KEY_1, InputConstants.KEY_2, InputConstants.KEY_3,
+                        InputConstants.KEY_4, InputConstants.KEY_5};
         for (int i = 0; i < digits.length; i++) {
-            boolean pressed = GLFW.glfwGetKey(window, digits[i]) == GLFW.GLFW_PRESS;
-            if (pressed && !comboDigitHeld[i]) {
-                int hz = COMBO_PRESET_HZ[i];
+            boolean pressed = McVersion.isKeyDown(digits[i]);
+            // FIX (combo keys re-triggered every tick): the latch used to be
+            // written *after* the break, so the digit that fired the preset was
+            // never marked as held and Ctrl+1 re-applied the poll rate on every
+            // single tick while the key was kept down.
+            if (COMBO_KEYS.press(i, pressed)) {
+                int hz = ComboKeyPresets.HZ[i];
                 InputBoosterConfig.setPollRateAutoMode(false);
                 InputBoosterConfig.setPollRateHz(hz);
                 adjustPollRateManual();
                 if (client.player != null) {
-                    Minecraft.getInstance().gui.setOverlayMessage(Component.literal("§b[InputBooster] §ePoll rate: §a" + hz + " Hz"), false);
+                    client.player.sendOverlayMessage(Component.literal("§b[InputBooster] §ePoll rate: §a" + hz + " Hz"));
                 }
-                break;
             }
-            comboDigitHeld[i] = pressed;
         }
     }
 
-    private void resetComboKeyState() {
-        Arrays.fill(comboDigitHeld, false);
+    private static void resetComboKeyState() {
+        COMBO_KEYS.reset();
     }
 
     public static void adjustPollRateAuto() {

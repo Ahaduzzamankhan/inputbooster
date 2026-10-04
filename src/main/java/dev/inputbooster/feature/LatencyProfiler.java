@@ -52,10 +52,15 @@ public class LatencyProfiler {
     /** Rolling average latency in milliseconds. */
     public static double getAverageMs() {
         if (count == 0) return 0.0;
+        // FIX (average included stale samples): the ring buffer was read as
+        // samples[0..count-1], which is only correct until it wraps. Once the
+        // buffer had rolled over, indices 0..count-1 mixed fresh samples with
+        // the oldest ones in the window and the reported average drifted.
+        // Read the live window in chronological order instead.
+        int oldest = (count < WINDOW) ? 0 : head;
         long sum = 0;
-        int n = count;
-        for (int i = 0; i < n; i++) sum += samples[i];
-        return (sum / (double) n) / 1_000_000.0;
+        for (int i = 0; i < count; i++) sum += samples[(oldest + i) % WINDOW];
+        return (sum / (double) count) / 1_000_000.0;
     }
 
     /** Peak latency in milliseconds (session-wide). */

@@ -25,7 +25,7 @@ public class OptionsScreenMixin extends Screen {
             Component.literal("§bInputBooster..."),
             button -> {
                 if (this.minecraft != null) {
-                    this.minecraft.setScreen(new InputBoosterScreen(this));
+                    this.minecraft.setScreenAndShow(new InputBoosterScreen(this));
                 }
             }
         ).bounds(this.width - 110, 6, 100, 20).build());

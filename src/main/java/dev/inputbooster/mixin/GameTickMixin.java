@@ -26,18 +26,16 @@ public class GameTickMixin {
 
     /**
      * FIX — Double-click bug (attack side):
-     * doAttack() is the exact internal method MC calls when the attack button
-     * is held. Injecting HERE (not into the now-removed handleInputEvents) is
-     * the correct 1.21.x hook point.
-     *
-     * If InputDrainer already fired an attack this tick we cancel doAttack()
-     * so vanilla cannot fire a second hit on the same physical click.
+     * startAttack() is the internal method MC calls when the attack button is
+     * pressed (it replaced doAttack() in 26.x). If InputDrainer already fired
+     * an attack this tick we cancel it so vanilla cannot fire a second hit on
+     * the same physical click.
      *
      * require=0 → if the method name ever changes the game still loads;
      * the fix simply won't apply rather than crashing.
      */
-    @Inject(method = "doAttack", at = @At("HEAD"), cancellable = true, require = 0)
-    private void onDoAttack(CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "startAttack", at = @At("HEAD"), cancellable = true, require = 0)
+    private void onStartAttack(CallbackInfoReturnable<Boolean> cir) {
         if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()) return;
         if (InputDrainer.attackHandledThisTick) {
             InputDrainer.attackHandledThisTick = false; // reset so next tick works normally
@@ -47,10 +45,10 @@ public class GameTickMixin {
 
     /**
      * FIX — Double-click bug (use/right-click side):
-     * Same pattern applied to item/block use.
+     * Same pattern applied to item/block use (startUseItem replaced doItemUse).
      */
-    @Inject(method = "doItemUse", at = @At("HEAD"), cancellable = true, require = 0)
-    private void onDoItemUse(CallbackInfo ci) {
+    @Inject(method = "startUseItem", at = @At("HEAD"), cancellable = true, require = 0)
+    private void onStartUseItem(CallbackInfo ci) {
         if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()) return;
         if (InputDrainer.useHandledThisTick) {
             InputDrainer.useHandledThisTick = false;

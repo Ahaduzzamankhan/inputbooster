@@ -35,7 +35,12 @@ public class SessionStats {
     // CPS sparkline: circular buffer of 60 one-second buckets
     private final int[] cpsBuckets    = new int[CPS_HISTORY_SECONDS];
     private int cpsBucketHead         = 0;
-    private long lastBucketMs         = System.currentTimeMillis();
+    // FIX (CPS history frozen after a stall): the bucket boundary used
+    // System.currentTimeMillis() and only ever advanced one bucket per call,
+    // so any gap of more than a second (alt-tab, lag spike, a clock change)
+    // left the whole sparkline stale. Timing is now monotonic and every
+    // elapsed second is closed out, so the graph keeps real 1-second buckets.
+    private long lastBucketNs         = System.nanoTime();
     private int currentBucketCount    = 0;
 
     // FPS history for missed-input estimation (last 60 ticks = ~3s)
@@ -48,14 +53,14 @@ public class SessionStats {
     private long hitsAtLastTick = 0;
 
     public void tick(int currentFps, int currentCps) {
-        long nowMs = System.currentTimeMillis();
-
-        // Advance CPS bucket if 1 second has passed
-        if (nowMs - lastBucketMs >= 1000) {
+        // Close out every whole second that elapsed since the last tick.
+        long elapsedMs = (System.nanoTime() - lastBucketNs) / 1_000_000L;
+        while (elapsedMs >= 1000) {
             cpsBuckets[cpsBucketHead] = currentBucketCount;
             cpsBucketHead = (cpsBucketHead + 1) % CPS_HISTORY_SECONDS;
             currentBucketCount = 0;
-            lastBucketMs = nowMs;
+            lastBucketNs += 1_000_000_000L;
+            elapsedMs -= 1000;
         }
 
         // Use hits delta instead of cumulative rolling CPS to avoid 20x multiplication bug

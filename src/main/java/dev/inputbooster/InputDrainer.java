@@ -1,7 +1,9 @@
 package dev.inputbooster;
 
+import dev.inputbooster.compat.McVersion;
 import dev.inputbooster.feature.LatencyProfiler;
 import dev.inputbooster.feature.InputClickSoundManager;
+import dev.inputbooster.mixin.MinecraftClientAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
@@ -75,7 +77,9 @@ public class InputDrainer {
                             // suppress vanilla's doAttack() so it doesn't hit a second time.
                             if (((net.minecraft.world.phys.EntityHitResult) mc.hitResult).getEntity() != null) {
                                 mc.gameMode.attack(player, ((net.minecraft.world.phys.EntityHitResult) mc.hitResult).getEntity());
-                                player.swing(InteractionHand.MAIN_HAND);
+                                // 26.x requires an explicit swing animation component on 26.3 and a plain
+                                // hand on 26.2; the compat shim hides the difference.
+                                McVersion.swingArm(player);
                                 if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Entity attack fired");
                                 // Signal vanilla's doAttack() to back off — we already fired.
                                 attackHandledThisTick = true;
@@ -133,7 +137,7 @@ public class InputDrainer {
             case RIGHT_RELEASED -> {}
             case BACK_RELEASED  -> {}
 
-            case DROP_PRESSED -> player.drop(false);
+            case DROP_PRESSED -> McVersion.dropHeldItem(player);
 
             case SWAP_PRESSED -> {
                 if (!mc.options.keySwapOffhand.isDown()) {
@@ -145,7 +149,10 @@ public class InputDrainer {
                 if (mc.hitResult != null &&
                     mc.hitResult.getType() == HitResult.Type.BLOCK &&
                     mc.level != null) {
-                    mc.options.keyPickItem.click(mc.options.keyPickItem.getKey());
+                    // 26.x exposes KeyMapping.click() as a static helper that takes
+                    // an InputConstants.Key; the vanilla action is still the
+                    // authoritative implementation, so invoke it directly.
+                    ((MinecraftClientAccessor) mc).invokeDoItemPick();
                 }
             }
 

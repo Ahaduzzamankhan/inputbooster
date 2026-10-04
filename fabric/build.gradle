@@ -1,0 +1,116 @@
+plugins {
+    // Minecraft 26.x ships unobfuscated, so no mappings layer is needed and the
+    // non-remapping Loom plugin variant is the correct one.
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+
+group = mod_group_id
+version = "${mod_version}-mc${minecraft_version.replace('.', '')}"
+
+base {
+    archivesName = mod_id
+}
+
+repositories {
+    maven {
+        name = 'FabricMC'
+        url = 'https://maven.fabricmc.net/'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    // Used by the HUD overlay to build the text transform matrix.
+    implementation "org.joml:joml:${joml_version}"
+
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+loom {
+    runs {
+        client {
+            client()
+        }
+    }
+}
+
+// The shared core lives in ../../src so both loaders share one implementation.
+sourceSets {
+    main {
+        java {
+            // Version specific API shim (26.2 vs 26.3) plus the shared core.
+            srcDirs = ['../src/main/java', 'src/main/java',
+                       "../src/compat/mc${minecraft_version.replace('.', '_')}/java"]
+        }
+        resources {
+            srcDirs = ['../src/main/resources', 'src/main/resources']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['src/test/java']
+        }
+    }
+}
+
+processResources {
+    def properties = [
+        version               : project.version,
+        mod_id                : mod_id,
+        minecraft_version     : minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        loader_version_range  : loader_version_range,
+        fabric_version_range  : fabric_version_range
+    ]
+    inputs.properties properties
+    filteringCharset = 'UTF-8'
+
+    // NeoForge-only metadata must not ship in the Fabric jar.
+    exclude 'META-INF/neoforge.mods.toml'
+
+    filesMatching('fabric.mod.json') {
+        expand properties
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+test {
+    useJUnitPlatform()
+    // Keep the config tests off the developer's real config directory.
+    systemProperty 'inputbooster.configDir', layout.buildDirectory.dir('test-config').get().asFile.absolutePath
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        showStandardStreams = false
+    }
+}
+
+jar {
+    // The licence file lives in the repository root, not in this build dir.
+    from("${rootDir}/../LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+}

@@ -22,6 +22,16 @@ repositories {
     maven { url 'https://maven.neoforged.net/releases' }
 }
 
+// Shared loader-neutral core, the Minecraft 26.2 API shim and the
+// NeoForge-only entrypoint.
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java', 'src/neoforge/java', 'src/compat/mc26_2/java']
+        }
+    }
+}
+
 neoForge {
     version = neo_version
 

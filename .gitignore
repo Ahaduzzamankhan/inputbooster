@@ -5,7 +5,12 @@ out/
 *.cache
 .gradle/
 
-# Ignore JARs except the Gradle wrapper (required for CI)
+# Ignore JARs except the Gradle wrappers (required for CI)
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
+!fabric/gradle/wrapper/gradle-wrapper.jar
 
+# Local game/config directories created while running the mod
+config/
+run/
+logs/
