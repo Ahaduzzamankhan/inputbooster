@@ -19,7 +19,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(OptionsScreen.class)
 public class OptionsScreenMixin extends Screen {
 
-    protected OptionsScreenMixin(Component title) {
+    // Private so Mixin cannot copy the constructor into OptionsScreen; only the
+    // injected method below may be merged.
+    private OptionsScreenMixin(Component title) {
         super(title);
     }
 

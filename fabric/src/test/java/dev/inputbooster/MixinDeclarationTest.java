@@ -70,6 +70,32 @@ class MixinDeclarationTest {
     }
 
     @Test
+    void mixinsContainNothingButMergeableAccessors() throws Exception {
+        // Mixin merges every member of a class-form mixin into the target and
+        // aborts the game for anything it cannot merge. "contains non-private
+        // static method" is the observed crash, so helpers must live outside.
+        for (String name : clientMixins()) {
+            Class<?> mixin = load(name);
+            for (Method method : mixin.getDeclaredMethods()) {
+                assertFalse(Modifier.isStatic(method.getModifiers()),
+                    name + "#" + method.getName()
+                        + " is static: a class-form mixin may not declare static methods, "
+                        + "Mixin fails with \"contains non-private static method\"");
+            }
+            // A mixin may extend its target to reach protected members, but a
+            // non-private constructor would be copied into that target.
+            java.lang.reflect.Constructor<?>[] constructors = mixin.getDeclaredConstructors();
+            for (java.lang.reflect.Constructor<?> constructor : constructors) {
+                // javac emits one implicit no-argument constructor; anything else
+                // was written by hand and would be merged into the target.
+                boolean implicitDefault = constructors.length == 1 && constructor.getParameterCount() == 0;
+                assertTrue(implicitDefault || Modifier.isPrivate(constructor.getModifiers()),
+                    name + " must not declare a non-private constructor to copy into the target");
+            }
+        }
+    }
+
+    @Test
     void accessorsAndInvokersAreAbstractPublicMembers() throws Exception {
         for (String name : clientMixins()) {
             Class<?> mixin = load(name);

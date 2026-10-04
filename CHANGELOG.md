@@ -1,5 +1,45 @@
 # Changelog
 
+## 3.1.5 - Launch crash fix, per-version Fabric branches
+
+The 3.1.4 jars still could not start the client:
+
+```
+InvalidMixinException: Mixin inputbooster.mixins.json:MinecraftClientAccessor
+from mod inputbooster contains non-private static method pickBlockOrEntity(...)
+```
+
+| Branch | Minecraft | Jar |
+| ------ | --------- | --- |
+| `fabric-26.2` | 26.2 | `inputbooster-3.1.5-fabric-mc262.jar` |
+| `fabric-26.3` | 26.3 | `inputbooster-3.1.5-fabric-mc263.jar` |
+
+### Fixed
+
+- **CRITICAL - the client crashed on startup.** Moving the accessor mixins from
+  interfaces to classes (3.1.4) was not enough: Mixin merges every member of a
+  class-form mixin into the target, so the `public static` helper methods added
+  in 3.1.4 aborted the game with "contains non-private static method". The
+  helpers now live in `MixinAccess`, a plain utility class, and each mixin holds
+  nothing but its accessor or invoker.
+- **Accessor mixins are now minimal by contract.** `MixinDeclarationTest`
+  additionally fails the build if a mixin declares a static method or a
+  non-private constructor. Verified to fail when a static helper is put back.
+
+### Changed
+
+- **One branch per Minecraft version.** `fabric-26.2` builds only 26.2 and
+  `fabric-26.3` only 26.3; each pins `minecraft_version`, the dependency range
+  and the Fabric API version in `fabric/gradle.properties`, so no build-time
+  overrides are needed.
+- **NeoForge is paused.** The CI job is gone; the NeoForge sources stay in the
+  repository but are not built or released until they are ported separately.
+- **All 3.1.0 - 3.1.4 releases are marked as prereleases**, because each of them
+  shipped a jar that could not start the game.
+- `docs/MINECRAFT_VERSION_COMPATIBILITY.md` documents every 26.2 / 26.3 API
+  difference the mod touches and the mixin rules above, with the verification
+  method.
+
 ## 3.1.4 - Mixin declaration fix (launch crash)
 
 The 3.1.3 jars could not start the client at all:

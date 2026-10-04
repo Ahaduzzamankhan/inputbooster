@@ -3,7 +3,7 @@ package dev.inputbooster.feature;
 import dev.inputbooster.InputActionQueue;
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
-import dev.inputbooster.mixin.GuiAccessor;
+import dev.inputbooster.mixin.MixinAccess;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Gui;
@@ -43,7 +43,7 @@ public class DebugOverlayManager {
         if (mc.getDebugOverlay() == null || !mc.getDebugOverlay().showDebugScreen()) return;
 
         Gui gui = mc.gui;
-        GuiRenderState renderState = GuiAccessor.renderState(gui);
+        GuiRenderState renderState = MixinAccess.renderState(gui);
         if (renderState == null) return;
 
         Font font = mc.font;

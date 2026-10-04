@@ -3,7 +3,7 @@ package dev.inputbooster;
 import dev.inputbooster.compat.McVersion;
 import dev.inputbooster.feature.LatencyProfiler;
 import dev.inputbooster.feature.InputClickSoundManager;
-import dev.inputbooster.mixin.MinecraftClientAccessor;
+import dev.inputbooster.mixin.MixinAccess;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
@@ -208,7 +208,7 @@ public class InputDrainer {
                     // authoritative implementation, so invoke it directly.
                     // Guard the cast: if the accessor mixin did not apply this
                     // would otherwise be a ClassCastException on a key press.
-                    if (MinecraftClientAccessor.pickBlockOrEntity(mc)) {
+                    if (MixinAccess.pickBlockOrEntity(mc)) {
                         // vanilla pick-block ran
                     } else if (!PICK_BLOCK_MIXIN_WARNED) {
                         PICK_BLOCK_MIXIN_WARNED = true;

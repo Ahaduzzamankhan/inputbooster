@@ -50,7 +50,7 @@ public final class KeyBindingSet {
             int code = -1;
             if (mapping != null) {
                 try {
-                    code = dev.inputbooster.mixin.KeyMappingAccessor.boundCode(mapping);
+                    code = dev.inputbooster.mixin.MixinAccess.boundKeyCode(mapping);
                 } catch (Throwable t) {
                     code = -1;
                 }
