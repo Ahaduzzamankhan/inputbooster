@@ -1,17 +1,18 @@
 package dev.inputbooster;
 
+import dev.inputbooster.input.KeyBindingSet;
+import dev.inputbooster.input.RawKeyState;
 import net.minecraft.client.Options;
 
 /**
- * KeySnapshot — immutable snapshot of key states for a single polling cycle.
+ * Immutable snapshot of the key states the input pipeline reacts to.
  *
- * FIX: All fields are final and the object is constructed atomically on the
- * game tick thread, then published via a volatile reference in InputBoosterMod.
- * The polling thread always reads a complete, consistent snapshot rather than
- * individual volatile booleans that could be seen partially written.
- *
- * This eliminates the race condition where the polling thread could read a
- * mix of old and new key states from a snapshot being concurrently written.
+ * Two sources are supported:
+ *  - {@link #KeySnapshot(Options)} — Minecraft's per-tick key bindings. Used as
+ *    a fallback when raw key state cannot be read.
+ *  - {@link #fromRaw(RawKeyState, KeyBindingSet)} — the platform key state,
+ *    sampled by the polling thread between ticks. This is what gives the mod
+ *    genuine sub-tick input resolution.
  */
 public final class KeySnapshot {
     public final boolean attack, use, sprint, sneak;
@@ -35,6 +36,41 @@ public final class KeySnapshot {
         this.drop      = opt.keyDrop.isDown();
         this.swap      = opt.keySwapOffhand.isDown();
         this.pickBlock = opt.keyPickItem.isDown();
+    }
+
+    private KeySnapshot(boolean attack, boolean use, boolean sprint, boolean sneak, boolean jump,
+                        boolean forward, boolean back, boolean left, boolean right,
+                        boolean drop, boolean swap, boolean pickBlock) {
+        this.attack = attack;
+        this.use = use;
+        this.sprint = sprint;
+        this.sneak = sneak;
+        this.jump = jump;
+        this.forward = forward;
+        this.back = back;
+        this.left = left;
+        this.right = right;
+        this.drop = drop;
+        this.swap = swap;
+        this.pickBlock = pickBlock;
+    }
+
+    /** Samples the platform key state for the player's current key bindings. */
+    public static KeySnapshot fromRaw(RawKeyState state, KeyBindingSet bindings) {
+        return new KeySnapshot(
+            state.isDown(bindings.code(KeyBindingSet.ATTACK)),
+            state.isDown(bindings.code(KeyBindingSet.USE)),
+            state.isDown(bindings.code(KeyBindingSet.SPRINT)),
+            state.isDown(bindings.code(KeyBindingSet.SNEAK)),
+            state.isDown(bindings.code(KeyBindingSet.JUMP)),
+            state.isDown(bindings.code(KeyBindingSet.FORWARD)),
+            state.isDown(bindings.code(KeyBindingSet.BACK)),
+            state.isDown(bindings.code(KeyBindingSet.LEFT)),
+            state.isDown(bindings.code(KeyBindingSet.RIGHT)),
+            state.isDown(bindings.code(KeyBindingSet.DROP)),
+            state.isDown(bindings.code(KeyBindingSet.SWAP)),
+            state.isDown(bindings.code(KeyBindingSet.PICK_BLOCK))
+        );
     }
 
     /** Returns an empty snapshot (all keys released). Used during init/pause. */

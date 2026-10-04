@@ -12,13 +12,20 @@ import java.util.Map;
 
 public class KeybindConflictDetector {
     private boolean checked;
+    private boolean unavailableReported = false;
 
     public void tick(Minecraft client) {
         if (checked || !InputBoosterConfig.isKeyConflictWarn() || client == null || client.options == null) return;
         checked = true;
         Object keys = readField(client.options, "allKeys");
         if (keys == null) keys = readField(client.options, "keyBindings");
-        if (keys == null || !keys.getClass().isArray()) return;
+        if (keys == null || !keys.getClass().isArray()) {
+            if (!unavailableReported) {
+                unavailableReported = true;
+                InputBoosterMod.LOGGER.info("[Input] Key conflict detection unavailable on this Minecraft version.");
+            }
+            return;
+        }
 
         Map<String, String> seen = new HashMap<>();
         for (int i = 0; i < Array.getLength(keys); i++) {
@@ -35,10 +42,17 @@ public class KeybindConflictDetector {
 
     private static Object readField(Object target, String name) {
         try {
-            Field field = target.getClass().getDeclaredField(name);
-            field.setAccessible(true);
-            return field.get(target);
-        } catch (Exception ignored) {
+            for (Class<?> c = target.getClass(); c != null; c = c.getSuperclass()) {
+                try {
+                    Field field = c.getDeclaredField(name);
+                    field.setAccessible(true);
+                    return field.get(target);
+                } catch (NoSuchFieldException ignored) {
+                    // Try the superclass.
+                }
+            }
+            return null;
+        } catch (Throwable ignored) {
             return null;
         }
     }

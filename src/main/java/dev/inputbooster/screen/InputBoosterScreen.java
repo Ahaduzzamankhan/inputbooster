@@ -210,6 +210,14 @@ public class InputBoosterScreen extends Screen {
 
     private void initProfilesTab(int cx, int top, int bw, int bh, int gap) {
         ProfileManager pm = InputBoosterMod.profileManager;
+        if (pm == null) {
+            // Mod initialisation failed (or is still running): the screen used
+            // to throw a NullPointerException here.
+            addRenderableWidget(Button.builder(
+                    Component.literal("§cProfiles unavailable — mod not initialised"), b -> {})
+                .bounds(cx - 110, top, 220, 20).build());
+            return;
+        }
         List<ProfileManager.Profile> profiles = pm.getProfiles();
 
         for (int i = 0; i < profiles.size(); i++) {

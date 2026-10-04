@@ -34,7 +34,13 @@ public final class InputBoosterMod {
     public static volatile boolean gameReady = false;
     public static volatile boolean gamePaused = false;
     public static volatile boolean active = true;
+    /** Set once the client starts closing; blocks re-initialisation and polling. */
+    public static volatile boolean shuttingDown = false;
     public static volatile KeySnapshot keySnapshot = null;
+    /** Player key bindings, republished by the game thread for the poller. */
+    public static volatile dev.inputbooster.input.KeyBindingSet keyBindings = null;
+    /** Raw platform key state; captured once on the game thread. */
+    public static volatile dev.inputbooster.input.RawKeyState rawKeyState = null;
     public static final AtomicLong totalHits = new AtomicLong(0);
     public static final AtomicLong recoveredInputs = new AtomicLong(0);
     public static final AtomicBoolean initialized = new AtomicBoolean(false);
@@ -68,6 +74,7 @@ public final class InputBoosterMod {
     private static double smoothedFps = 60.0D;
     private static int stableFpsTicks = 0;
     private static int unstableFpsTicks = 0;
+    private static boolean hadPlayer = false;
 
     private InputBoosterMod() {}
 
@@ -99,10 +106,11 @@ public final class InputBoosterMod {
     }
 
     public static void initialize() {
-        if (initialized.get()) return;
+        if (initialized.get() || shuttingDown) return;
         LOGGER.info("[{}] Starting v{}", MOD_NAME, MOD_VERSION);
         try {
             createKeyMappings();
+            verifyClientHooks();
             InputBoosterConfig.load();
             // Initialise managers
             sprintManager = new SprintManager();
@@ -125,6 +133,12 @@ public final class InputBoosterMod {
             configTools = new ConfigTools();
 
             int initialHz = InputBoosterConfig.isPollRateAutoMode() ? 200 : InputBoosterConfig.getPollRateHz();
+            Minecraft client = Minecraft.getInstance();
+            // Capture the window once, on the game thread, so the polling
+            // thread never touches a Minecraft object.
+            rawKeyState = dev.inputbooster.input.RawKeyState.of(
+                client != null && client.getWindow() != null ? client.getWindow() : null);
+            publishKeyBindings(client);
             pollingThread = new InputPollingThread(initialHz);
             pollingThread.start();
             currentPollHz = initialHz;
@@ -143,16 +157,28 @@ public final class InputBoosterMod {
 
     /** Called from the client tick event of the active loader. */
     public static void onClientTick() {
+        if (shuttingDown) return;
         initialize();
         Minecraft client = Minecraft.getInstance();
+        if (client == null) return;
         handleKeybinds(client);
         if (!active || !initialized.get()) return;
         try {
             lastTickTime = System.nanoTime();
             gameReady = client.player != null;
             gamePaused = client.isPaused();
+            if (!gameReady && hadPlayer) {
+                // Leaving a world (disconnect / world unload): drop transient
+                // input state so nothing carries into the next session.
+                InputActionQueue.clear();
+                if (cpsLimiter != null) cpsLimiter.reset();
+                if (replayRecorder != null) replayRecorder.stopPlayback();
+                LatencyProfiler.reset();
+            }
+            hadPlayer = gameReady;
             if (client.options != null) {
                 keySnapshot = new KeySnapshot(client.options);
+                publishKeyBindings(client);
             }
             if (client.player == null) return;
             currentFps = McCompat.getFps(client);
@@ -170,6 +196,7 @@ public final class InputBoosterMod {
             if (moduleManager.enabled("anti_idle")) antiIdle.tick(client);
             if (moduleManager.enabled("combat")) cpsLimiter.tick(client);
             if (InputBoosterConfig.isBurstModeEnabled()) burstMode.tick(client);
+            if (safeMode != null) safeMode.tick();
             sessionStats.tick(currentFps, cpsLimiter.getCps());
         } catch (Exception e) {
             LOGGER.warn("[{}] Tick error", MOD_NAME, e);
@@ -285,17 +312,87 @@ public final class InputBoosterMod {
     }
 
     public static void shutdown() {
+        if (shuttingDown) return;
+        shuttingDown = true;
         LOGGER.info("[{}] Shutting down...", MOD_NAME);
         try {
             if (pollingThread != null) {
-                pollingThread.stopPolling();
+                // Wait for the poller to actually finish: Minecraft keeps
+                // running ticks (and may still dispatch events) while close()
+                // unwinds, and a surviving poller would touch the window.
+                if (!pollingThread.stopPollingAndAwait(2_000L)) {
+                    LOGGER.warn("[{}] Polling thread did not stop within 2s", MOD_NAME);
+                }
                 pollingThread = null;
             }
+            InputActionQueue.clear();
+            keySnapshot = null;
+            rawKeyState = null;
             InputBoosterConfig.save();
             active = false;
             initialized.set(false);
-        } catch (Exception e) {
-            LOGGER.error("[{}] Shutdown error", MOD_NAME, e);
+        } catch (Throwable t) {
+            LOGGER.error("[{}] Shutdown error", MOD_NAME, t);
+        }
+    }
+
+    /**
+     * Republishes the key bindings the polling thread samples. Only allocates a
+     * new immutable set when a binding actually changed.
+     */
+    private static void publishKeyBindings(Minecraft client) {
+        if (client == null || client.options == null) return;
+        var options = client.options;
+        var defaults = dev.inputbooster.input.KeyBindingSet.defaultCodes(
+            mouseCode(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT),
+            mouseCode(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT),
+            mouseCode(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_MIDDLE));
+        var map = dev.inputbooster.input.KeyBindingSet.map(
+            options.keyAttack, options.keyUse, options.keySprint, options.keyShift,
+            options.keyJump, options.keyUp, options.keyDown, options.keyLeft,
+            options.keyRight, options.keyDrop, options.keySwapOffhand, options.keyPickItem);
+        var next = dev.inputbooster.input.KeyBindingSet.of(map, defaults);
+        var current = keyBindings;
+        if (current == null || !java.util.Arrays.equals(current.codes, next.codes)) {
+            keyBindings = next;
+            if (!next.complete) {
+                LOGGER.warn("[Input] Could not read every key binding; using vanilla defaults for the rest.");
+            }
+        }
+    }
+
+    private static int mouseCode(int button) {
+        var key = com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(button);
+        return key == null ? -1 : key.getValue();
+    }
+
+    /**
+     * Verifies that the vanilla methods the mixins attach to still exist.
+     *
+     * The mixins use {@code require = 0} so an API change degrades instead of
+     * crashing the game, which means a silent failure would otherwise disable
+     * input handling with no explanation. This check logs exactly what is
+     * missing instead.
+     */
+    private static void verifyClientHooks() {
+        String[] required = {"tick", "startAttack", "startUseItem", "close"};
+        java.util.List<String> missing = new java.util.ArrayList<>();
+        for (String name : required) {
+            try {
+                boolean found = false;
+                for (var m : Minecraft.class.getDeclaredMethods()) {
+                    if (m.getName().equals(name)) { found = true; break; }
+                }
+                if (!found) missing.add(name);
+            } catch (Throwable t) {
+                missing.add(name);
+            }
+        }
+        if (missing.isEmpty()) {
+            LOGGER.info("[Mixin] All client hooks present.");
+        } else {
+            LOGGER.error("[Mixin] Missing vanilla method(s): {} — input handling is degraded. "
+                + "The mod may need an update for this Minecraft version.", String.join(", ", missing));
         }
     }
 }

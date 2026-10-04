@@ -43,8 +43,11 @@ public class SessionStats {
     private long lastBucketNs         = System.nanoTime();
     private int currentBucketCount    = 0;
 
-    // FPS history for missed-input estimation (last 60 ticks = ~3s)
-    private final Deque<Integer> fpsHistory = new ArrayDeque<>();
+    // FPS history for missed-input estimation (last 60 ticks = ~3s). A primitive
+    // ring buffer avoids boxing an Integer on every client tick.
+    private final int[] fpsHistory = new int[FPS_HISTORY_SIZE];
+    private int fpsHistoryHead = 0;
+    private int fpsHistorySize = 0;
     private static final int FPS_HISTORY_SIZE = 60;
 
     // Cumulative estimates
@@ -72,8 +75,9 @@ public class SessionStats {
         hitsAtLastTick = hits;
 
         // FPS history for missed-input estimation
-        fpsHistory.addLast(currentFps);
-        if (fpsHistory.size() > FPS_HISTORY_SIZE) fpsHistory.pollFirst();
+        fpsHistory[fpsHistoryHead] = currentFps;
+        fpsHistoryHead = (fpsHistoryHead + 1) % FPS_HISTORY_SIZE;
+        if (fpsHistorySize < FPS_HISTORY_SIZE) fpsHistorySize++;
 
         // Estimate missed inputs: at low FPS, each frame that takes longer than
         // 1/pollRate seconds would miss a polling cycle in vanilla.
@@ -82,8 +86,12 @@ public class SessionStats {
         long delta = recovered - inputsRecoveredAtLastTick;
         if (delta > 0 && currentFps > 0) {
             int pollHz = InputBoosterMod.currentPollHz;
-            double missRate = Math.max(0.0, 1.0 - (double) currentFps / pollHz);
-            estimatedMissedInputs += Math.round(delta * missRate);
+            // Guard against a zero/negative poll rate: dividing by it produced
+            // Infinity and poisoned the estimate for the rest of the session.
+            if (pollHz > 0) {
+                double missRate = Math.min(1.0, Math.max(0.0, 1.0 - (double) currentFps / pollHz));
+                estimatedMissedInputs += Math.round(delta * missRate);
+            }
         }
         inputsRecoveredAtLastTick = recovered;
     }

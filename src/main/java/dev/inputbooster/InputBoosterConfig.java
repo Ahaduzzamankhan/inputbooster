@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.*;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 /**
@@ -28,48 +29,59 @@ public class InputBoosterConfig {
      * game; the {@code inputbooster.configDir} system property overrides the parent
      * directory so the automated tests can use a throwaway location.
      */
-    private static final Path CONFIG_PATH = Paths.get(
-        System.getProperty("inputbooster.configDir", "config"), "inputbooster.properties");
+    private static final Path CONFIG_PATH = configDir().resolve("inputbooster.properties");
+
+    /**
+     * Directory holding every InputBooster file (config, profiles, server
+     * bindings). The {@code inputbooster.configDir} system property overrides
+     * the default {@code config} directory next to the game, which is what the
+     * automated tests use.
+     */
+    public static Path configDir() {
+        return Paths.get(System.getProperty("inputbooster.configDir", "config"));
+    }
 
     // ── Poll Rate ────────────────────────────────────────────────────────────
-    private static int     pollRateHz        = 200;
-    private static boolean pollRateAutoMode  = true;
+    // Fields are volatile: the polling thread reads several of them while the
+    // game/UI thread writes them.
+    private static volatile int     pollRateHz        = 200;
+    private static volatile boolean pollRateAutoMode  = true;
 
     // ── Features ─────────────────────────────────────────────────────────────
-    private static boolean sprintFixEnabled  = true;
-    private static boolean autoSprintEnabled = true;
-    private static boolean wTapAssistEnabled = true;
-    private static boolean antiIdleEnabled   = true;
-    private static boolean autoStrafeEnabled = true;
-    private static boolean cpsLimiterEnabled = true;
+    private static volatile boolean sprintFixEnabled  = true;
+    private static volatile boolean autoSprintEnabled = true;
+    private static volatile boolean wTapAssistEnabled = true;
+    private static volatile boolean antiIdleEnabled   = true;
+    private static volatile boolean autoStrafeEnabled = true;
+    private static volatile boolean cpsLimiterEnabled = true;
 
     // ── New v3.0.0 features ──────────────────────────────────────────────────
-    private static boolean burstModeEnabled  = true;   // Feature 1
-    private static int     maxCps            = 20;     // Feature 3 (1–20)
-    private static boolean comboKeysEnabled  = true;   // Feature 4
-    private static String  cpsMode           = "FIXED";
-    private static boolean replayEnabled     = true;
-    private static boolean safeModeEnabled   = true;
-    private static boolean eventLogEnabled   = true;
-    private static boolean keyConflictWarn   = true;
-    private static boolean perServerProfiles = true;
-    private static boolean clickSoundsEnabled = false;
-    private static float   clickSoundPitch   = 1.35f;
-    private static float   clickSoundVolume  = 0.35f;
-    private static int     configVersion     = 303;
+    private static volatile boolean burstModeEnabled  = true;   // Feature 1
+    private static volatile int     maxCps            = 20;     // Feature 3 (1–20)
+    private static volatile boolean comboKeysEnabled  = true;   // Feature 4
+    private static volatile String  cpsMode           = "FIXED";
+    private static volatile boolean replayEnabled     = true;
+    private static volatile boolean safeModeEnabled   = true;
+    private static volatile boolean eventLogEnabled   = true;
+    private static volatile boolean keyConflictWarn   = true;
+    private static volatile boolean perServerProfiles = true;
+    private static volatile boolean clickSoundsEnabled = false;
+    private static volatile float   clickSoundPitch   = 1.35f;
+    private static volatile float   clickSoundVolume  = 0.35f;
+    private static volatile int     configVersion     = 303;
 
     // ── UI ───────────────────────────────────────────────────────────────────
-    private static boolean showF3Info        = true;
-    private static boolean showKeystrokes    = true;
-    private static boolean showActionBar     = true;
+    private static volatile boolean showF3Info        = true;
+    private static volatile boolean showKeystrokes    = true;
+    private static volatile boolean showActionBar     = true;
     // 0=Top-Left 1=Top-Right 2=Bottom-Left 3=Bottom-Right
-    private static int     overlayPosition   = 0;
-    private static float   overlayOpacity   = 0.8f;
-    private static float   overlayScale      = 1.0f;
+    private static volatile int     overlayPosition   = 0;
+    private static volatile float   overlayOpacity   = 0.8f;
+    private static volatile float   overlayScale      = 1.0f;
 
     // ── Advanced ─────────────────────────────────────────────────────────────
-    private static int     fpsCheckInterval  = 20;
-    private static boolean debugMode         = false;
+    private static volatile int     fpsCheckInterval  = 20;
+    private static volatile boolean debugMode         = false;
 
     // ── Poll Rate Presets ────────────────────────────────────────────────────
 
@@ -154,8 +166,13 @@ public class InputBoosterConfig {
     // ── Save ─────────────────────────────────────────────────────────────────
 
     public static void save() {
+        // Synchronised + written through a temp file: the UI thread, the game
+        // thread and shutdown can all save, and a truncated file used to wipe
+        // the user's settings.
+        synchronized (InputBoosterConfig.class) {
         try {
-            Files.createDirectories(CONFIG_PATH.getParent());
+            Path parent = CONFIG_PATH.getParent();
+            if (parent != null) Files.createDirectories(parent);
             Properties props = new Properties();
             props.setProperty("poll_rate_hz",        String.valueOf(pollRateHz));
             props.setProperty("poll_rate_auto",      String.valueOf(pollRateAutoMode));
@@ -186,12 +203,21 @@ public class InputBoosterConfig {
             props.setProperty("show_action_bar",     String.valueOf(showActionBar));
             props.setProperty("fps_check_interval",  String.valueOf(fpsCheckInterval));
             props.setProperty("debug_mode",          String.valueOf(debugMode));
-            try (OutputStream out = Files.newOutputStream(CONFIG_PATH)) {
-                props.store(out, "InputBooster v3.0.3nf-beta01 Configuration - by Ahaduzzaman Khan");
+            Path temp = Files.createTempFile(parent, "inputbooster", ".tmp");
+            try (OutputStream out = Files.newOutputStream(temp)) {
+                props.store(out, "InputBooster " + dev.inputbooster.InputBoosterMod.MOD_VERSION
+                    + " configuration - by Ahaduzzaman Khan");
+            }
+            try {
+                Files.move(temp, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(temp, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING);
             }
             LOGGER.info("✓ Config saved to {}", CONFIG_PATH);
         } catch (Exception e) {
             LOGGER.error("Failed to save config", e);
+        }
         }
     }
 

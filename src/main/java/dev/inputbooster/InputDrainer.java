@@ -24,8 +24,18 @@ public class InputDrainer {
      */
     public static volatile boolean useHandledThisTick = false;
 
+    private static volatile boolean PICK_BLOCK_MIXIN_WARNED = false;
+
     public static void drainAll(Minecraft mc) {
-        if (mc == null || mc.player == null || mc.gameMode == null) return;
+        if (mc == null || mc.player == null || mc.gameMode == null) {
+            // Drop anything still queued and make sure no stale suppression flag
+            // survives into the next session (it would otherwise cancel one
+            // vanilla action after reconnecting).
+            attackHandledThisTick = false;
+            useHandledThisTick = false;
+            InputActionQueue.clear();
+            return;
+        }
         if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()) {
             attackHandledThisTick = false;
             useHandledThisTick = false;
@@ -152,7 +162,15 @@ public class InputDrainer {
                     // 26.x exposes KeyMapping.click() as a static helper that takes
                     // an InputConstants.Key; the vanilla action is still the
                     // authoritative implementation, so invoke it directly.
-                    ((MinecraftClientAccessor) mc).invokeDoItemPick();
+                    // Guard the cast: if the accessor mixin did not apply this
+                    // would otherwise be a ClassCastException on a key press.
+                    if (mc instanceof MinecraftClientAccessor accessor) {
+                        accessor.invokeDoItemPick();
+                    } else if (!PICK_BLOCK_MIXIN_WARNED) {
+                        PICK_BLOCK_MIXIN_WARNED = true;
+                        InputBoosterMod.LOGGER.warn(
+                            "[Mixin] pick-block hook unavailable; pick-block input is disabled.");
+                    }
                 }
             }
 

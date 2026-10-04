@@ -1,25 +1,26 @@
 package dev.inputbooster;
 
+import dev.inputbooster.input.KeyBindingSet;
+import dev.inputbooster.input.RawKeyState;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * InputPollingThread — High-frequency polling thread. Runs at up to 1000 Hz.
+ * InputPollingThread — high-frequency input observer. Runs at up to 1000 Hz.
  *
- * FIX: poll() now reads keySnapshot exactly once per cycle into a local
- * variable. Previously the volatile reference could be replaced mid-poll
- * by the game tick thread, causing some keys to be read from the old snapshot
- * and others from the new one — a torn read that could manufacture phantom
- * transitions (key appears pressed→released in the same cycle with no real
- * change). Capturing once makes every cycle operate on a single consistent
- * snapshot.
+ * Architecture: the polling thread samples the platform key state itself
+ * (through {@link RawKeyState}) rather than re-reading a snapshot that only
+ * changes once per Minecraft tick. That is what makes short taps observable:
+ * a key pressed and released inside a single tick still produces a
+ * pressed/released pair here. The tick-rate snapshot published by the game
+ * thread stays available as a fallback if raw sampling is unavailable.
  *
- * v3.0.0 additions:
- *  - Adaptive Burst Mode (Feature 1): when FPS drops >20% in one second,
- *    automatically spikes poll rate to 1000 Hz for 3 seconds, then returns
- *    to normal. Controlled by BurstModeManager.
+ * Threading: the polling thread is an observer and event producer only. It
+ * never touches Minecraft objects — it reads the immutable
+ * {@link KeyBindingSet} and the key state window that were captured on the
+ * game thread, and it only writes to the bounded {@link InputActionQueue}.
  *
- * Version: 3.0.0
  * Author: Ahaduzzaman Khan
  */
 public class InputPollingThread extends Thread {
@@ -32,9 +33,16 @@ public class InputPollingThread extends Thread {
     private boolean prevDrop, prevSwap, prevPickBlock;
 
     public InputPollingThread(int initialHz) {
-        setName("InputBooster-PollerThread");
+        super("InputBooster-PollerThread");
         setDaemon(true);
-        setPriority(Thread.MAX_PRIORITY - 1);
+        try {
+            // Requesting near-max priority is best effort only; some systems
+            // refuse it, and a SecurityException here would previously abort
+            // mod initialisation entirely.
+            setPriority(Thread.MAX_PRIORITY - 1);
+        } catch (SecurityException ignored) {
+            // Default priority is fine.
+        }
         this.pollRateHz.set(clampHz(initialHz));
     }
 
@@ -42,22 +50,26 @@ public class InputPollingThread extends Thread {
         this.pollRateHz.set(clampHz(hz));
     }
 
-    private int clampHz(int hz) {
+    private static int clampHz(int hz) {
         return Math.max(60, Math.min(1000, hz));
     }
 
     @Override
     public void run() {
-        InputBoosterMod.LOGGER.info("[InputBooster] Polling thread started at {} Hz.",
-            pollRateHz.get());
+        InputBoosterMod.LOGGER.info("[Input] Polling thread started at {} Hz.", pollRateHz.get());
 
+        long errors = 0;
         while (running.get() && !Thread.currentThread().isInterrupted()) {
             long loopStart = System.nanoTime();
 
             try {
                 poll();
-            } catch (Exception e) {
-                InputBoosterMod.LOGGER.warn("[InputBooster] Polling error", e);
+            } catch (Throwable t) {
+                // A failure here must never kill the thread: a dead poller
+                // silently disables the whole mod.
+                if (++errors <= 5) {
+                    InputBoosterMod.LOGGER.warn("[Input] Polling error", t);
+                }
             }
 
             // Burst mode may override the configured poll rate
@@ -82,22 +94,17 @@ public class InputPollingThread extends Thread {
             }
         }
 
-        InputBoosterMod.LOGGER.info("[InputBooster] Polling thread stopped.");
+        InputBoosterMod.LOGGER.info("[Input] Polling thread stopped.");
     }
 
     private void poll() {
         if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()
-            || !InputBoosterMod.gameReady || InputBoosterMod.gamePaused) {
+            || InputBoosterMod.shuttingDown || !InputBoosterMod.gameReady || InputBoosterMod.gamePaused) {
             resetPreviousStates();
             return;
         }
 
-        // FIX: Capture the snapshot reference exactly once per poll cycle.
-        // The game tick thread may replace InputBoosterMod.keySnapshot at any
-        // moment. Reading the volatile field once and working from the local
-        // variable guarantees all key reads in this cycle come from the same
-        // consistent snapshot, eliminating torn reads and phantom transitions.
-        KeySnapshot snap = InputBoosterMod.keySnapshot;
+        KeySnapshot snap = sample();
         if (snap == null) return;
 
         // Attack
@@ -167,6 +174,24 @@ public class InputPollingThread extends Thread {
         prevPickBlock = pickBlock;
     }
 
+    /**
+     * Samples the current key state. Raw platform state is preferred; the
+     * tick-rate snapshot is the fallback so the mod still works if the raw
+     * path is unavailable.
+     */
+    private KeySnapshot sample() {
+        RawKeyState raw = InputBoosterMod.rawKeyState;
+        KeyBindingSet bindings = InputBoosterMod.keyBindings;
+        if (raw != null && raw.isAvailable() && bindings != null) {
+            try {
+                return KeySnapshot.fromRaw(raw, bindings);
+            } catch (Throwable ignored) {
+                // Fall through to the tick-rate snapshot.
+            }
+        }
+        return InputBoosterMod.keySnapshot;
+    }
+
     private void queue(InputAction action) {
         if (InputActionQueue.queue(action)) {
             InputBoosterMod.recoveredInputs.incrementAndGet();
@@ -174,6 +199,9 @@ public class InputPollingThread extends Thread {
             if (InputBoosterMod.eventLog != null && action == InputAction.ATTACK_PRESSED) {
                 InputBoosterMod.eventLog.add("Attack queued");
             }
+        } else if (InputBoosterMod.eventLog != null && action == InputAction.ATTACK_PRESSED) {
+            // Record the failure instead of dropping the click silently.
+            InputBoosterMod.eventLog.add("Attack dropped: input queue full");
         }
     }
 
@@ -186,5 +214,23 @@ public class InputPollingThread extends Thread {
     public void stopPolling() {
         running.set(false);
         this.interrupt();
+    }
+
+    /**
+     * Stops the thread and waits for it to actually terminate so no background
+     * thread survives the client shutdown.
+     *
+     * @return true if the thread finished within the timeout
+     */
+    public boolean stopPollingAndAwait(long timeoutMillis) {
+        stopPolling();
+        if (Thread.currentThread() == this) return true;
+        try {
+            join(timeoutMillis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        return !isAlive();
     }
 }

@@ -28,6 +28,9 @@ public class LatencyProfiler {
 
     private static final AtomicLong peakNs = new AtomicLong(0);
 
+    /** Guards the ring buffer: recordDrain runs on the game thread, readers may not. */
+    private static final Object LOCK = new Object();
+
     /**
      * Called by InputDrainer each time a stamped action is drained.
      *
@@ -37,30 +40,28 @@ public class LatencyProfiler {
         long latencyNs = System.nanoTime() - capturedAtNs;
         if (latencyNs < 0) return; // clock skew guard
 
-        // Update peak
-        long currentPeak = peakNs.get();
-        if (latencyNs > currentPeak) {
-            peakNs.compareAndSet(currentPeak, latencyNs);
-        }
+        peakNs.accumulateAndGet(latencyNs, Math::max);
 
-        // Store in ring buffer (not thread-safe for reads, but reads are approximate display)
-        samples[head] = latencyNs;
-        head = (head + 1) % WINDOW;
-        if (count < WINDOW) count++;
+        synchronized (LOCK) {
+            samples[head] = latencyNs;
+            head = (head + 1) % WINDOW;
+            if (count < WINDOW) count++;
+        }
     }
 
     /** Rolling average latency in milliseconds. */
     public static double getAverageMs() {
-        if (count == 0) return 0.0;
-        // FIX (average included stale samples): the ring buffer was read as
-        // samples[0..count-1], which is only correct until it wraps. Once the
-        // buffer had rolled over, indices 0..count-1 mixed fresh samples with
-        // the oldest ones in the window and the reported average drifted.
-        // Read the live window in chronological order instead.
-        int oldest = (count < WINDOW) ? 0 : head;
+        int n;
+        int oldest;
         long sum = 0;
-        for (int i = 0; i < count; i++) sum += samples[(oldest + i) % WINDOW];
-        return (sum / (double) count) / 1_000_000.0;
+        synchronized (LOCK) {
+            n = count;
+            if (n == 0) return 0.0;
+            // Read the live window in chronological order — the buffer wraps.
+            oldest = (n < WINDOW) ? 0 : head;
+            for (int i = 0; i < n; i++) sum += samples[(oldest + i) % WINDOW];
+        }
+        return (sum / (double) n) / 1_000_000.0;
     }
 
     /** Peak latency in milliseconds (session-wide). */
@@ -75,8 +76,10 @@ public class LatencyProfiler {
 
     /** Reset all samples. */
     public static void reset() {
-        head = 0;
-        count = 0;
+        synchronized (LOCK) {
+            head = 0;
+            count = 0;
+        }
         peakNs.set(0);
     }
 

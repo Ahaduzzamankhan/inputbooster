@@ -4,48 +4,50 @@ import dev.inputbooster.InputBoosterConfig;
 import net.minecraft.client.Minecraft;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * CpsLimiter — Smart CPS Limiter with Real-Time Feedback (Feature 3).
+ * Smart CPS limiter.
  *
- * v3.0.0 upgrade: now an actual limiter.
- *  - Configurable max CPS (1–20, default 20).
- *  - allowClick() is called by InputDrainer before processing ATTACK_PRESSED.
- *    Returns false (drop the click) when the cap is exceeded.
- *  - recordClick() records clicks that passed the cap gate for CPS display.
- *  - getCps() returns the current 1-second rolling CPS for the HUD bar.
+ * Caps accepted attacks to a rolling one second window. The effective cap is
+ * computed once per window rather than once per click: recomputing it on every
+ * call produced a different limit for each click inside the same second, which
+ * made HUMANIZED mode inconsistent (and effectively raised the cap, because the
+ * randomised value was subtracted per click but re-rolled each time).
  *
- * Author: Ahaduzzaman Khan
+ * Timing uses {@link System#nanoTime()} so a wall clock change cannot corrupt
+ * the rolling window.
  */
 public class CpsLimiter {
 
-    // All accepted clicks in the last 1 second (for CPS display)
+    private static final long WINDOW_NANOS = 1_000_000_000L;
+
+    /** Accepted clicks in the last second (display). */
     private final ConcurrentLinkedDeque<Long> accepted = new ConcurrentLinkedDeque<>();
-    // All attempted clicks in the last 1 second (for cap enforcement)
+    /** Attempted clicks in the last second (cap enforcement). */
     private final ConcurrentLinkedDeque<Long> attempted = new ConcurrentLinkedDeque<>();
     private volatile long lastAcceptedAt;
 
+    private volatile long windowStartNanos = System.nanoTime();
+    private volatile int windowLimit = -1;
+
     /**
      * Call before processing an ATTACK_PRESSED event.
-     * Returns true if the click should be allowed, false if it should be dropped.
+     *
+     * @return true if the click should be allowed, false if it must be dropped
      */
     public boolean allowClick() {
         if (!InputBoosterConfig.isCpsLimiterEnabled()) return true;
-        int maxCps = effectiveMaxCps();
-        long now = System.currentTimeMillis();
 
-        // Prune stale attempts
-        while (!attempted.isEmpty() && now - attempted.peekFirst() > 1000) {
-            attempted.pollFirst();
-        }
+        long now = System.nanoTime();
+        int maxCps = effectiveMaxCps(now);
+        pruneAttempted(now);
 
         if (attempted.size() >= maxCps) {
             return false; // over cap — drop
         }
         if ("COOLDOWN".equals(InputBoosterConfig.getCpsMode()) && lastAcceptedAt > 0) {
-            long minGapMs = Math.max(35L, 1000L / Math.max(1, maxCps));
-            if (now - lastAcceptedAt < minGapMs) return false;
+            long minGapNs = Math.max(35L, WINDOW_NANOS / Math.max(1, maxCps)) * 1_000_000L;
+            if (now - lastAcceptedAt < minGapNs) return false;
         }
         attempted.addLast(now);
         lastAcceptedAt = now;
@@ -54,41 +56,81 @@ public class CpsLimiter {
 
     /** Record a click that was accepted (for CPS display). */
     public void recordClick() {
-        long now = System.currentTimeMillis();
+        long now = System.nanoTime();
         accepted.addLast(now);
-        while (!accepted.isEmpty() && now - accepted.peekFirst() > 1000) {
-            accepted.pollFirst();
-        }
+        pruneAccepted(now);
     }
 
-    /** Current CPS (accepted clicks in last 1 second). */
+    /** Current CPS (accepted clicks in the last second). */
     public int getCps() {
-        long now = System.currentTimeMillis();
-        while (!accepted.isEmpty() && now - accepted.peekFirst() > 1000) {
-            accepted.pollFirst();
-        }
+        long now = System.nanoTime();
+        pruneAccepted(now);
         return accepted.size();
     }
 
     /** Max CPS from config (for HUD bar max scale). */
     public int getMaxCps() {
-        return effectiveMaxCps();
+        return effectiveMaxCps(System.nanoTime());
     }
 
     /** Called every game tick — prune stale entries. */
     public void tick(Minecraft client) {
-        long now = System.currentTimeMillis();
-        while (!accepted.isEmpty() && now - accepted.peekFirst() > 1000) accepted.pollFirst();
-        while (!attempted.isEmpty() && now - attempted.peekFirst() > 1000) attempted.pollFirst();
+        long now = System.nanoTime();
+        pruneAccepted(now);
+        pruneAttempted(now);
+        rollWindow(now);
     }
 
-    private int effectiveMaxCps() {
+    /** Drops all recorded state, e.g. on world change or shutdown. */
+    public void reset() {
+        accepted.clear();
+        attempted.clear();
+        lastAcceptedAt = 0L;
+        windowStartNanos = System.nanoTime();
+        windowLimit = -1;
+    }
+
+    /**
+     * Effective cap for the current window. The value is recomputed once per
+     * second and then reused, so every click in a window sees the same limit.
+     */
+    public int effectiveMaxCps(long nowNanos) {
+        rollWindow(nowNanos);
+        int cached = windowLimit;
+        if (cached > 0) return cached;
+
         int max = InputBoosterConfig.getMaxCps();
-        return switch (InputBoosterConfig.getCpsMode()) {
-            case "HUMANIZED" -> Math.max(1, max - ThreadLocalRandom.current().nextInt(0, 3));
+        long windowIndex = nowNanos / WINDOW_NANOS;
+        // Deterministic jitter per window instead of a fresh random number per
+        // click: the cap still varies naturally but stays consistent within
+        // the second it applies to.
+        int jitter = (int) Math.floorMod((windowIndex * 0x9E3779B97F4A7C15L) >>> 33, 3L);
+        int limit = switch (InputBoosterConfig.getCpsMode()) {
+            case "HUMANIZED" -> Math.max(1, max - jitter);
             case "WEAPON_AWARE" -> Math.min(max, 16);
             case "COOLDOWN" -> Math.min(max, 18);
             default -> max;
         };
+        windowLimit = Math.max(1, limit);
+        return windowLimit;
     }
-}
+
+    private void rollWindow(long nowNanos) {
+        if (nowNanos - windowStartNanos < WINDOW_NANOS) return;
+        windowStartNanos += WINDOW_NANOS;
+        windowLimit = -1; // recompute once for the new window
+    }
+
+    private void pruneAccepted(long nowNanos) {
+        while (!accepted.isEmpty() && nowNanos - accepted.peekFirst() > WINDOW_NANOS) {
+            accepted.pollFirst();
+        }
+    }
+
+    private void pruneAttempted(long nowNanos) {
+        while (!attempted.isEmpty() && nowNanos - attempted.peekFirst() > WINDOW_NANOS) {
+            attempted.pollFirst();
+        }
+    }
+
+    }
