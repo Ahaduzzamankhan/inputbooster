@@ -96,6 +96,9 @@ test {
     useJUnitPlatform()
     // Keep the config tests off the developer's real config directory.
     systemProperty 'inputbooster.configDir', layout.buildDirectory.dir('test-config').get().asFile.absolutePath
+    // The resolved target version (honours -Pminecraft_version overrides).
+    systemProperty 'inputbooster.minecraftVersion', project.minecraft_version
+    inputs.property 'minecraftVersion', project.minecraft_version
     testLogging {
         events 'passed', 'failed', 'skipped'
         showStandardStreams = false

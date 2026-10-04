@@ -1,5 +1,42 @@
 # Changelog
 
+## 3.1.3 - Loader compatibility fix (Fabric 26.2 + 26.3)
+
+Every 3.1.2 Fabric jar crashed on launch with
+`requires version [26.2,26.3) of 'Minecraft', but only the wrong version is present: 26.2!`
+even though the game really was 26.2.
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-3.1.3-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-3.1.3-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-3.1.3-fabric-mc263.jar` |
+
+### Fixed
+
+- **Fabric Minecraft dependency range rejected the game version it was built for.**
+  The mod metadata declared `"minecraft": "[26.2,26.3)"`. Fabric Loader 0.19.5
+  parses a two-component version against that bracket range as `[26.2.0, 26.3.0)`
+  and then fails the comparison, so the loader evaluated the predicate to `false`
+  for `26.2`, `26.2.1` and `26.3` alike. The declared range is now the
+  space-separated comparator form the loader evaluates correctly:
+  `">=26.2 <26.3"` and `">=26.3 <26.4"`. Same semantics, accepted versions.
+
+### Added
+
+- **Regression test `FabricDependencyRangeTest`** that parses the generated
+  `fabric.mod.json` and evaluates its `minecraft` predicate with the real Fabric
+  loader classes, asserting that the target version is accepted, unrelated
+  versions are rejected, and that no bracket-range form is ever emitted again.
+- **CI metadata check.** The release workflow now unzips each produced jar and
+  fails if its `fabric.mod.json` does not declare the comparator-style
+  `"minecraft": ">=..."` range, so a broken dependency cannot ship again.
+
+### Note
+
+NeoForge's `[26.2,26.3)` range syntax is parsed by its own loader and is
+unaffected by this bug; it is unchanged.
+
 ## 3.1.2 - Minecraft 26.2 (NeoForge) / 26.2 + 26.3 (Fabric)
 
 Addresses the 15-point code review: duplicate-click suppression, CPS limiting,
