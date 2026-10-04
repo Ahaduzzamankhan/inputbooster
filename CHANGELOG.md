@@ -1,5 +1,82 @@
 # Changelog
 
+## 3.1.1 - Minecraft 26.2 (NeoForge) / 26.2 + 26.3 (Fabric)
+
+Full audit of the input pipeline, threading, profiles, configuration and mixins.
+The mod core is loader-neutral; this release contains no new features, only
+correctness, stability and performance fixes.
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-3.1.1-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-3.1.1-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-3.1.1-fabric-mc263.jar` |
+
+### Fixed
+
+- **CRITICAL — real sub-tick input**: the polling thread re-read a snapshot that
+  was only rebuilt once per Minecraft tick, so a tap that started and ended
+  inside one tick (exactly the low-FPS case the mod targets) was never observed,
+  while the loop still ran up to 1000 times per second. The poller now samples the
+  platform key state itself using the key codes the player actually bound, and
+  never touches a Minecraft object. The tick snapshot remains as a fallback if
+  raw sampling is unavailable.
+- **CRITICAL — dead key bindings**: key mappings were created during client setup,
+  i.e. after the registration event, so `R` / `K` were missing from the controls
+  screen and could dereference a null field.
+- **Replay no longer skips events silently**: playback advanced its index even
+  when the bounded queue rejected the event. It now waits, then drops one event at
+  a time, counts drops and reports them.
+- **CPS limiter cap is stable per window**: `HUMANIZED` re-rolled the effective
+  limit on every click, so the cap was inconsistent within a single second. All
+  windows now use a monotonic clock, and the humanized value is derived once per
+  second.
+- **Profile system rebuilt on Gson** (already shipped with Minecraft): a profile
+  name containing `}` or `\"` used to corrupt the file, and the regex parser
+  matched nested values. Writes are atomic, values are re-clamped on apply, and an
+  unreadable file is moved to `inputbooster_profiles.json.corrupt` instead of
+  breaking startup.
+- **Active profile index on delete**: deleting an earlier profile left `activeIndex`
+  pointing at the wrong profile; deleting the active one left a phantom index.
+- **Server profile detection**: a hard-coded vanilla call could throw
+  `NoSuchMethodError` (not caught by `catch (Exception)`) and crash the client
+  tick. All reflection is isolated and degrades to a stable identifier, runs once
+  per second instead of per tick, and normalises `Example.com`,
+  `example.com:25565` and `tcp://example.com:25565/…` to the same profile.
+- **Safe Mode isolates failures**: five errors anywhere disabled the entire mod
+  permanently. It now disables only the failing module and re-enables it after a
+  quiet window.
+- **Shutdown race**: a tick after `close()` re-initialised the mod and started a
+  second polling thread. Shutdown now blocks re-initialisation, waits for the
+  poller to actually terminate and releases the queue, snapshot and window handle.
+- **Mixin targets updated for 26.x**: `doAttack` / `doItemUse` no longer exist and
+  `Gui.extractRenderState` changed signature, so duplicate-attack suppression and
+  the F3 overlay were silently disabled. They now attach to `startAttack`,
+  `startUseItem` and `extractRenderState(DeltaTracker, boolean, boolean)`, and a
+  startup check logs any vanilla method that is missing instead of degrading
+  quietly.
+- **Input queue bound**: `clear()` reset the counter while the polling thread could
+  be mid-enqueue, which could grow the queue past its documented limit.
+- **Config integrity**: saves are synchronised and atomic, a reload starts from the
+  documented defaults instead of leaking previous values, and `True` / `yes` / `1`
+  / `on` are accepted as booleans.
+- **Latency profiler**: the rolling average mixed expired and live samples after the
+  ring buffer wrapped; the ring is now read chronologically under a lock.
+- **CPS sparkline**: froze after any gap longer than a second; it now uses a
+  monotonic clock and closes every elapsed second.
+- **Crash paths**: a null-profile-manager NPE in the settings screen, a
+  `NullPointerException` when exporting a config to a path without a parent, an
+  unguarded pick-block cast that could throw `ClassCastException`, and a
+  `SecurityException` from `Thread.setPriority` that aborted mod initialisation.
+
+### Changed
+
+- The HUD overlay is rendered through the 26.x deferred `GuiRenderState`, and its
+  visibility check no longer hides the overlay exactly when F3 is open.
+- Input state is cleared on disconnect/world unload so nothing carries between
+  sessions.
+- Regression suite grown from 24 to 46 tests, run by CI on every build.
+
 ## 3.1.0 - Minecraft 26.2 (NeoForge) / 26.2 + 26.3 (Fabric)
 
 The mod core is now loader-neutral: one implementation under `src/main/java`, with a
