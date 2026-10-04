@@ -43,9 +43,7 @@ public class DebugOverlayManager {
         if (mc.getDebugOverlay() == null || !mc.getDebugOverlay().showDebugScreen()) return;
 
         Gui gui = mc.gui;
-        if (gui == null || !(gui instanceof GuiAccessor accessor)) return;
-
-        GuiRenderState renderState = accessor.inputbooster$renderState();
+        GuiRenderState renderState = GuiAccessor.renderState(gui);
         if (renderState == null) return;
 
         Font font = mc.font;

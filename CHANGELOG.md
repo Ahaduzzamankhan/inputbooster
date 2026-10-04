@@ -1,5 +1,46 @@
 # Changelog
 
+## 3.1.4 - Mixin declaration fix (launch crash)
+
+The 3.1.3 jars could not start the client at all:
+
+```
+InvalidMixinException: @Mixin target type mismatch:
+net.minecraft.client.KeyMapping is not an interface
+  in [inputbooster.mixins.json:KeyMappingAccessor]
+```
+
+Mixin ran during class loading of another mod (Sodium) and aborted the game.
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-3.1.4-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-3.1.4-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-3.1.4-fabric-mc263.jar` |
+
+### Fixed
+
+- **CRITICAL — the client crashed on startup.** `KeyMappingAccessor`,
+  `GuiAccessor` and `MinecraftClientAccessor` were declared as `interface`
+  mixins, but their targets (`KeyMapping`, `Gui`, `Minecraft`) are classes.
+  Mixin only accepts an interface-form mixin for an interface target, so mixin
+  preparation failed and killed the game before the window opened. All three are
+  now `abstract class` mixins, which is the correct form for a class target.
+- **Casts moved into the mixins.** A class-form mixin is not a compile-time
+  supertype of its target, so `input instanceof Accessor` no longer compiles.
+  Each accessor now exposes a static helper (`boundCode`, `renderState`,
+  `pickBlockOrEntity`) that performs the cast through `Object` and returns a
+  fallback (`-1`, `null`, `false`) when the mixin is not applied, so a missing
+  hook degrades instead of throwing `ClassCastException` on a key press.
+
+### Added
+
+- **Regression test `MixinDeclarationTest`** (4 tests): every mixin registered
+  in `inputbooster.mixins.json` is loaded and asserted to be a class, the
+  accessor/invoker members are asserted to be public and abstract, the three
+  accessors the mod needs are asserted to be registered, and `defaultRequire`
+  is asserted to stay at 1. Verified to fail on the previous interface form.
+
 ## 3.1.3 - Loader compatibility fix (Fabric 26.2 + 26.3)
 
 Every 3.1.2 Fabric jar crashed on launch with

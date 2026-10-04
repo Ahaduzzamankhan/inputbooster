@@ -208,8 +208,8 @@ public class InputDrainer {
                     // authoritative implementation, so invoke it directly.
                     // Guard the cast: if the accessor mixin did not apply this
                     // would otherwise be a ClassCastException on a key press.
-                    if (mc instanceof MinecraftClientAccessor accessor) {
-                        accessor.invokeDoItemPick();
+                    if (MinecraftClientAccessor.pickBlockOrEntity(mc)) {
+                        // vanilla pick-block ran
                     } else if (!PICK_BLOCK_MIXIN_WARNED) {
                         PICK_BLOCK_MIXIN_WARNED = true;
                         InputBoosterMod.LOGGER.warn(
