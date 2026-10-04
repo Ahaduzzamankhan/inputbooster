@@ -5,6 +5,7 @@ import dev.inputbooster.input.RawKeyState;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * InputPollingThread — high-frequency input observer. Runs at up to 1000 Hz.
@@ -35,14 +36,9 @@ public class InputPollingThread extends Thread {
     public InputPollingThread(int initialHz) {
         super("InputBooster-PollerThread");
         setDaemon(true);
-        try {
-            // Requesting near-max priority is best effort only; some systems
-            // refuse it, and a SecurityException here would previously abort
-            // mod initialisation entirely.
-            setPriority(Thread.MAX_PRIORITY - 1);
-        } catch (SecurityException ignored) {
-            // Default priority is fine.
-        }
+        // Default priority on purpose: an aggressively prioritised poller starves
+        // the render/game thread on low-end CPUs and can make the client feel
+        // stuttery — the exact situation the mod exists to avoid.
         this.pollRateHz.set(clampHz(initialHz));
     }
 
@@ -81,16 +77,16 @@ public class InputPollingThread extends Thread {
             long elapsed  = System.nanoTime() - loopStart;
             long sleepNs  = targetNs - elapsed;
 
-            if (sleepNs > 0) {
-                try {
-                    long sleepMs = sleepNs / 1_000_000L;
-                    int  nanos   = (int)(sleepNs % 1_000_000L);
-                    if (sleepMs > 0) Thread.sleep(sleepMs, nanos);
-                    else if (nanos > 0) Thread.sleep(0, nanos);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+            // parkNanos keeps sub-millisecond resolution (Thread.sleep is
+            // millisecond-quantised on many platforms and drifts badly at high
+            // rates); drift is absorbed by never sleeping when already behind.
+            while (sleepNs > 0 && running.get() && !Thread.currentThread().isInterrupted()) {
+                LockSupport.parkNanos(sleepNs);
+                sleepNs = targetNs - (System.nanoTime() - loopStart);
+            }
+            if (Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
+                break;
             }
         }
 
@@ -193,7 +189,7 @@ public class InputPollingThread extends Thread {
     }
 
     private void queue(InputAction action) {
-        if (InputActionQueue.queue(action)) {
+        if (InputActionQueue.queue(action, InputAction.Origin.INPUT)) {
             InputBoosterMod.recoveredInputs.incrementAndGet();
             if (InputBoosterMod.replayRecorder != null) InputBoosterMod.replayRecorder.onQueued(action);
             if (InputBoosterMod.eventLog != null && action == InputAction.ATTACK_PRESSED) {

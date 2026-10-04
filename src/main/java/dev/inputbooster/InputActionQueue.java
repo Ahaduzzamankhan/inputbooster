@@ -27,11 +27,27 @@ public class InputActionQueue {
 
     /** Returns true if the action was queued (false if queue is full). */
     public static boolean queue(InputAction action) {
+        return queue(action, InputAction.Origin.INPUT);
+    }
+
+    /** Returns true if the action was queued (false if queue is full). */
+    public static boolean queue(InputAction action, InputAction.Origin origin) {
         synchronized (LOCK) {
             if (COUNT.get() >= MAX_QUEUED) return false;
-            QUEUE.offer(InputAction.Stamped.of(action));
+            QUEUE.offer(InputAction.Stamped.of(action, origin));
             COUNT.incrementAndGet();
             return true;
+        }
+    }
+
+    /** Number of queued events that came from real input. */
+    public static int pendingPhysical() {
+        synchronized (LOCK) {
+            int physical = 0;
+            for (InputAction.Stamped stamped : QUEUE) {
+                if (!stamped.isReplay()) physical++;
+            }
+            return physical;
         }
     }
 

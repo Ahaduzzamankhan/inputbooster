@@ -123,6 +123,7 @@ public class InputBoosterConfig {
                 try (InputStream in = Files.newInputStream(CONFIG_PATH)) {
                     props.load(in);
                 }
+                migrate(props);
                 pollRateHz        = Math.max(60, Math.min(1000, parseInt(props, "poll_rate_hz",       200)));
                 pollRateAutoMode  = parseBool(props, "poll_rate_auto",        true);
                 sprintFixEnabled  = parseBool(props, "sprint_fix",            true);
@@ -152,7 +153,8 @@ public class InputBoosterConfig {
                 showActionBar     = parseBool(props, "show_action_bar",       true);
                 fpsCheckInterval  = Math.max(1, Math.min(100, parseInt(props, "fps_check_interval", 20)));
                 debugMode         = parseBool(props, "debug_mode",            false);
-                LOGGER.info("✓ Config loaded successfully");
+                warnAboutDefaults(props);
+                LOGGER.info("✓ Config loaded successfully (config version {})", configVersion);
             } else {
                 LOGGER.info("No config found, creating defaults...");
                 save();
@@ -222,6 +224,85 @@ public class InputBoosterConfig {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // ── Schema migration ───────────────────────────────────────────────────────
+
+    /** Current on-disk schema version. */
+    public static final int CONFIG_VERSION = 304;
+
+    /**
+     * Migrates older config files to the current schema in place.
+     *
+     * v1–v303 used the same key names but stored {@code config_version} without
+     * any upgrade path, and some early files carried unbounded values. Anything
+     * unreadable falls back to its default and is reported once, so a partially
+     * broken file produces a clean, explained reset instead of a mix of
+     * silently-defaulted fields.
+     */
+    private static void migrate(Properties props) {
+        int version = Math.max(1, parseInt(props, "config_version", 1));
+        if (version < CONFIG_VERSION) {
+            LOGGER.info("Migrating config from version {} to {}", version, CONFIG_VERSION);
+            // Legacy aliases kept by very old builds.
+            rename(props, "auto_sprint_key", "auto_sprint");
+            rename(props, "watap", "wtap_assist");
+            rename(props, "pollrate", "poll_rate_hz");
+            version = CONFIG_VERSION;
+        }
+        configVersion = version;
+        props.setProperty("config_version", String.valueOf(version));
+    }
+
+    private static void rename(Properties props, String from, String to) {
+        String value = props.getProperty(from);
+        if (value != null && props.getProperty(to) == null) {
+            props.setProperty(to, value);
+        }
+        props.remove(from);
+    }
+
+    /** Reports every key whose stored value could not be used. */
+    private static void warnAboutDefaults(Properties props) {
+        List<String> bad = new ArrayList<>();
+        checkBool(props, bad, "poll_rate_auto");
+        checkBool(props, bad, "sprint_fix");
+        checkBool(props, bad, "auto_sprint");
+        checkBool(props, bad, "wtap_assist");
+        checkBool(props, bad, "anti_idle");
+        checkBool(props, bad, "auto_strafe");
+        checkBool(props, bad, "cps_limiter");
+        checkBool(props, bad, "burst_mode");
+        checkBool(props, bad, "combo_keys");
+        checkInt(props, bad, "poll_rate_hz", 60, 1000);
+        checkInt(props, bad, "max_cps", 1, 20);
+        checkInt(props, bad, "overlay_position", 0, 3);
+        checkInt(props, bad, "fps_check_interval", 1, 100);
+        if (!bad.isEmpty()) {
+            LOGGER.warn("Config entries reset to defaults (invalid or unparsable): {}", String.join(", ", bad));
+        }
+    }
+
+    private static void checkBool(Properties props, List<String> bad, String key) {
+        String raw = props.getProperty(key);
+        if (raw == null) return;
+        String v = raw.trim();
+        boolean ok = v.equalsIgnoreCase("true") || v.equalsIgnoreCase("false")
+            || v.equalsIgnoreCase("yes") || v.equalsIgnoreCase("no")
+            || v.equals("1") || v.equals("0")
+            || v.equalsIgnoreCase("on") || v.equalsIgnoreCase("off");
+        if (!ok) bad.add(key);
+    }
+
+    private static void checkInt(Properties props, List<String> bad, String key, int min, int max) {
+        String raw = props.getProperty(key);
+        if (raw == null) return;
+        try {
+            int value = Integer.parseInt(raw.trim());
+            if (value < min || value > max) bad.add(key + "=" + raw.trim());
+        } catch (NumberFormatException e) {
+            bad.add(key + "=" + raw.trim());
+        }
+    }
 
     private static float parseFloat(java.util.Properties p, String k, float def) {
         try { return Float.parseFloat(p.getProperty(k, String.valueOf(def))); }

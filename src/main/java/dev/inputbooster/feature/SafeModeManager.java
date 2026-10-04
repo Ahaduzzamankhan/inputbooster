@@ -56,7 +56,9 @@ public class SafeModeManager {
     private void disableModule(String key, Throwable error) {
         disabled.put(key, Boolean.TRUE);
         errors.computeIfAbsent(key, k -> new AtomicInteger()).set(0);
-        if (InputBoosterMod.moduleManager != null) {
+        // Only real modules can be toggled in the module manager; arbitrary
+        // error sources (e.g. "client tick") must not grow its key set.
+        if (InputBoosterMod.moduleManager != null && isKnownModule(key)) {
             InputBoosterMod.moduleManager.setRuntime(key, false);
         }
         if (InputBoosterMod.eventLog != null) {

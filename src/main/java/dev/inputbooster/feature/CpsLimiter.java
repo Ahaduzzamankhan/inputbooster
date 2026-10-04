@@ -8,24 +8,31 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 /**
  * Smart CPS limiter.
  *
- * Caps accepted attacks to a rolling one second window. The effective cap is
- * computed once per window rather than once per click: recomputing it on every
- * call produced a different limit for each click inside the same second, which
- * made HUMANIZED mode inconsistent (and effectively raised the cap, because the
- * randomised value was subtracted per click but re-rolled each time).
+ * The cap is enforced with a token bucket rather than a hard rolling-window
+ * counter: a rolling window rejected bursty but legitimate input (e.g. a fast
+ * 8-click burst followed by a pause) because every attempt inside the same
+ * second counted against the cap regardless of when the previous ones happened.
+ * The bucket refills at {@code maxCps} tokens per second and holds at most
+ * {@code maxCps}, so the long-run average is still capped while short bursts are
+ * allowed through.
  *
- * Timing uses {@link System#nanoTime()} so a wall clock change cannot corrupt
- * the rolling window.
+ * The effective cap is computed once per second and reused for that window, so
+ * HUMANIZED mode cannot give two clicks in the same second different limits.
+ * All timing uses {@link System#nanoTime()}, so a wall-clock change cannot
+ * corrupt the limiter.
  */
 public class CpsLimiter {
 
     private static final long WINDOW_NANOS = 1_000_000_000L;
 
-    /** Accepted clicks in the last second (display). */
+    /** Accepted clicks in the last second (display only). */
     private final ConcurrentLinkedDeque<Long> accepted = new ConcurrentLinkedDeque<>();
-    /** Attempted clicks in the last second (cap enforcement). */
-    private final ConcurrentLinkedDeque<Long> attempted = new ConcurrentLinkedDeque<>();
     private volatile long lastAcceptedAt;
+
+    private final Object bucketLock = new Object();
+    private double tokens;
+    private long lastRefillNanos;
+    private boolean primed;
 
     private volatile long windowStartNanos = System.nanoTime();
     private volatile int windowLimit = -1;
@@ -40,25 +47,58 @@ public class CpsLimiter {
 
         long now = System.nanoTime();
         int maxCps = effectiveMaxCps(now);
-        pruneAttempted(now);
 
-        if (attempted.size() >= maxCps) {
-            return false; // over cap — drop
+        synchronized (bucketLock) {
+            refill(now, maxCps);
+            if ("COOLDOWN".equals(InputBoosterConfig.getCpsMode())) {
+                long minGapNs = Math.max(35L, WINDOW_NANOS / Math.max(1, maxCps)) * 1_000_000L;
+                if (lastAcceptedAt > 0 && now - lastAcceptedAt < minGapNs) return false;
+            }
+            if (tokens < 1.0d) {
+                return false; // over the long-run cap — drop
+            }
+            tokens -= 1.0d;
+            lastAcceptedAt = now;
+            accepted.addLast(now);
+            pruneAccepted(now);
+            return true;
         }
-        if ("COOLDOWN".equals(InputBoosterConfig.getCpsMode()) && lastAcceptedAt > 0) {
-            long minGapNs = Math.max(35L, WINDOW_NANOS / Math.max(1, maxCps)) * 1_000_000L;
-            if (now - lastAcceptedAt < minGapNs) return false;
-        }
-        attempted.addLast(now);
-        lastAcceptedAt = now;
-        return true;
     }
 
-    /** Record a click that was accepted (for CPS display). */
+    /** Fills the bucket for elapsed time since the last refill. */
+    private void refill(long nowNanos, int maxCps) {
+        if (!primed) {
+            // First use starts with a full bucket, so the first burst after
+            // joining a world is not swallowed by the limiter.
+            primed = true;
+            lastRefillNanos = nowNanos;
+            tokens = maxCps;
+            return;
+        }
+        long elapsed = nowNanos - lastRefillNanos;
+        if (elapsed <= 0) return;
+        lastRefillNanos = nowNanos;
+        double refillRate = maxCps / (double) WINDOW_NANOS;
+        tokens = Math.min(maxCps, tokens + elapsed * refillRate);
+    }
+
+    /** Tokens currently available — exposed for tests and the HUD. */
+    public double availableTokens() {
+        synchronized (bucketLock) {
+            refill(System.nanoTime(), effectiveMaxCps(System.nanoTime()));
+            return tokens;
+        }
+    }
+
+    /**
+     * Record a click that was accepted.
+     *
+     * Accepted clicks are already counted by {@link #allowClick()}, so this
+     * only prunes the display window; it is kept so existing call sites keep
+     * working without double counting.
+     */
     public void recordClick() {
-        long now = System.nanoTime();
-        accepted.addLast(now);
-        pruneAccepted(now);
+        pruneAccepted(System.nanoTime());
     }
 
     /** Current CPS (accepted clicks in the last second). */
@@ -77,22 +117,25 @@ public class CpsLimiter {
     public void tick(Minecraft client) {
         long now = System.nanoTime();
         pruneAccepted(now);
-        pruneAttempted(now);
         rollWindow(now);
     }
 
     /** Drops all recorded state, e.g. on world change or shutdown. */
     public void reset() {
-        accepted.clear();
-        attempted.clear();
-        lastAcceptedAt = 0L;
+        synchronized (bucketLock) {
+            accepted.clear();
+            lastAcceptedAt = 0L;
+            lastRefillNanos = 0L;
+            tokens = 0d;
+            primed = false;
+        }
         windowStartNanos = System.nanoTime();
         windowLimit = -1;
     }
 
     /**
-     * Effective cap for the current window. The value is recomputed once per
-     * second and then reused, so every click in a window sees the same limit.
+     * Effective cap for the current window, computed once per second and then
+     * reused so every click in a window sees the same limit.
      */
     public int effectiveMaxCps(long nowNanos) {
         rollWindow(nowNanos);
@@ -101,9 +144,9 @@ public class CpsLimiter {
 
         int max = InputBoosterConfig.getMaxCps();
         long windowIndex = nowNanos / WINDOW_NANOS;
-        // Deterministic jitter per window instead of a fresh random number per
-        // click: the cap still varies naturally but stays consistent within
-        // the second it applies to.
+        // Deterministic jitter per window rather than a fresh random number per
+        // click: the cap still varies naturally but stays consistent within the
+        // second it applies to.
         int jitter = (int) Math.floorMod((windowIndex * 0x9E3779B97F4A7C15L) >>> 33, 3L);
         int limit = switch (InputBoosterConfig.getCpsMode()) {
             case "HUMANIZED" -> Math.max(1, max - jitter);
@@ -126,11 +169,4 @@ public class CpsLimiter {
             accepted.pollFirst();
         }
     }
-
-    private void pruneAttempted(long nowNanos) {
-        while (!attempted.isEmpty() && nowNanos - attempted.peekFirst() > WINDOW_NANOS) {
-            attempted.pollFirst();
-        }
-    }
-
-    }
+}

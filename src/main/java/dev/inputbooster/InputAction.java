@@ -8,7 +8,7 @@ package dev.inputbooster;
  * thread captures the key state change. InputDrainer records drain time and
  * LatencyProfiler computes the delta.
  *
- * Version: 3.0.0
+ * Version: 3.1.2
  * Author: Ahaduzzaman Khan
  */
 public enum InputAction {
@@ -25,15 +25,37 @@ public enum InputAction {
     SWAP_PRESSED,
     PICK_BLOCK_PRESSED;
 
+    /**
+     * Where a queued event came from.
+     *
+     * Physical input and replayed input share one queue (so ordering and the
+     * bound stay simple), but they are tagged: playback can yield to live
+     * input, and statistics can tell them apart instead of blending them.
+     */
+    public enum Origin {
+        /** Detected by the polling thread from real key state. */
+        INPUT,
+        /** Re-injected by the replay recorder. */
+        REPLAY
+    }
+
     // ── Timestamp stamping ────────────────────────────────────────────────────
 
     /**
-     * Wraps an InputAction with a capture timestamp (nanos).
+     * Wraps an InputAction with a capture timestamp (nanos) and its origin.
      * Used by LatencyProfiler — see feature/LatencyProfiler.java.
      */
-    public record Stamped(InputAction action, long capturedAt) {
+    public record Stamped(InputAction action, long capturedAt, Origin origin) {
         public static Stamped of(InputAction action) {
-            return new Stamped(action, System.nanoTime());
+            return new Stamped(action, System.nanoTime(), Origin.INPUT);
+        }
+
+        public static Stamped of(InputAction action, Origin origin) {
+            return new Stamped(action, System.nanoTime(), origin);
+        }
+
+        public boolean isReplay() {
+            return origin == Origin.REPLAY;
         }
     }
 }

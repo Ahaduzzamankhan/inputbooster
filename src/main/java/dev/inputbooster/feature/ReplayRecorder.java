@@ -17,13 +17,18 @@ import java.util.concurrent.atomic.AtomicLong;
  * rejected), so a replay reproduces exactly what the mod itself would have
  * executed.
  *
+ * Replayed events are tagged {@link InputAction.Origin#REPLAY} so they can be
+ * told apart from live input: playback yields while the player is actually
+ * pressing keys, so a replay can never double up on a real click.
+ *
  * Playback only advances when the event actually made it into the queue. A full
  * queue pauses playback instead of silently skipping events, and the number of
  * dropped events is tracked and reported.
  */
 public class ReplayRecorder {
-    private static final int MAX_EVENTS = 400;
-    /** Consecutive full-queue ticks before playback gives up. */
+    /** Raised from 400 — long recordings no longer truncate silently. */
+    static final int MAX_EVENTS = 4000;
+    /** Consecutive full-queue ticks before playback gives up on an event. */
     private static final int MAX_STALLED_TICKS = 20; // ~1 second
 
     private final List<Frame> frames = new ArrayList<>();
@@ -33,6 +38,8 @@ public class ReplayRecorder {
     private volatile long playStart;
     private volatile int playIndex;
     private final AtomicLong droppedEvents = new AtomicLong(0);
+    private final AtomicLong truncatedEvents = new AtomicLong(0);
+    private volatile int stalledTicks;
 
     public void startRecording() {
         if (!InputBoosterConfig.isReplayEnabled()) return;
@@ -40,12 +47,18 @@ public class ReplayRecorder {
             frames.clear();
         }
         droppedEvents.set(0);
+        truncatedEvents.set(0);
+        stalledTicks = 0;
         recording = true;
         playing = false;
         recordStart = System.nanoTime();
     }
 
     public void stopRecording() {
+        if (recording && truncatedEvents.get() > 0 && InputBoosterMod.LOGGER != null) {
+            InputBoosterMod.LOGGER.warn("[Replay] Recording stopped early: buffer full, {} event(s) not stored.",
+                truncatedEvents.get());
+        }
         recording = false;
     }
 
@@ -77,29 +90,36 @@ public class ReplayRecorder {
     public void onQueued(InputAction action) {
         if (!recording || playing || action == null) return;
         synchronized (frames) {
-            if (frames.size() >= MAX_EVENTS) return;
+            if (frames.size() >= MAX_EVENTS) {
+                truncatedEvents.incrementAndGet();
+                return;
+            }
             frames.add(new Frame(action, System.nanoTime() - recordStart));
         }
     }
-
-    private int stalledTicks;
 
     public void tick() {
         if (!playing) return;
         long elapsed = System.nanoTime() - playStart;
         synchronized (frames) {
+            // Never fight the player: while real input is flowing, hold the
+            // replay back so a recording cannot be injected on top of a live
+            // click (which is how replay used to double up attacks).
+            if (InputActionQueue.pendingPhysical() > 0) {
+                playStart += elapsed / 100; // rewind slightly to stay in sync
+                return;
+            }
             while (playIndex < frames.size() && frames.get(playIndex).offsetNanos <= elapsed) {
-                if (!InputActionQueue.queue(frames.get(playIndex).action)) {
+                if (!InputActionQueue.queue(frames.get(playIndex).action, InputAction.Origin.REPLAY)) {
                     // The queue is full. Do NOT advance the index: the event is
                     // retried next tick instead of being silently skipped.
                     if (++stalledTicks >= MAX_STALLED_TICKS) {
-                        long dropped = droppedEvents.incrementAndGet();
+                        droppedEvents.incrementAndGet();
                         playIndex++;
                         stalledTicks = 0;
                         if (InputBoosterMod.LOGGER != null) {
                             InputBoosterMod.LOGGER.warn(
-                                "[Replay] Input queue stayed full; dropped {} event(s) from playback.",
-                                dropped);
+                                "[Replay] Input queue stayed full; dropped an event from playback.");
                         }
                     }
                     return;
@@ -127,6 +147,11 @@ public class ReplayRecorder {
         return droppedEvents.get();
     }
 
+    /** Events lost because the recording buffer filled up. */
+    public long getTruncatedEvents() {
+        return truncatedEvents.get();
+    }
+
     public boolean isRecording() {
         return recording;
     }
@@ -143,7 +168,9 @@ public class ReplayRecorder {
 
     public String statusLine() {
         int size = getRecordedCount();
-        return "Replay: " + (recording ? "REC " : playing ? "PLAY " : "IDLE ") + size;
+        String state = recording ? "REC " : playing ? "PLAY " : "IDLE ";
+        long truncated = truncatedEvents.get();
+        return "Replay: " + state + size + (truncated > 0 ? " (+" + truncated + " dropped)" : "");
     }
 
     private record Frame(InputAction action, long offsetNanos) {}

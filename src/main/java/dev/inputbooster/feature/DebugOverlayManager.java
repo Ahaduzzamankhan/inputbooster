@@ -1,5 +1,6 @@
 package dev.inputbooster.feature;
 
+import dev.inputbooster.InputActionQueue;
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
 import dev.inputbooster.mixin.GuiAccessor;
@@ -35,6 +36,9 @@ public class DebugOverlayManager {
      */
     public static void extractRenderState(Minecraft mc) {
         if (!InputBoosterConfig.isShowF3Info()) return;
+        // Opacity 0 must mean "do not draw at all" — rendering a fully
+        // transparent panel still costs extraction work every frame.
+        if (InputBoosterConfig.getOverlayOpacity() <= 0.001f) return;
         if (mc == null || mc.player == null) return;
         if (mc.getDebugOverlay() == null || !mc.getDebugOverlay().showDebugScreen()) return;
 
@@ -85,7 +89,38 @@ public class DebugOverlayManager {
         ));
     }
 
+    /**
+     * Nothing to register: the overlay is driven by the Gui render-state
+     * mixin. Kept as an explicit no-op call site so the initialisation
+     * sequence documents that there is no separate registration step.
+     */
     public static void register() {}
-    public static List<String> getDebugLines() { return new ArrayList<>(); }
-    public static boolean isInitialized() { return true; }
+
+    /** Human-readable status lines for the settings screen and debug output. */
+    public static List<String> getDebugLines() {
+        List<String> lines = new ArrayList<>(4);
+        boolean burst = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
+        lines.add("Poll rate: " + (burst ? 1000 : InputBoosterMod.currentPollHz) + " Hz" + (burst ? " (burst)" : ""));
+        lines.add("Input queue: " + InputActionQueue.size() + "/" + InputActionQueue.capacity());
+        lines.add("Poller: " + (InputBoosterMod.pollingThread != null && InputBoosterMod.pollingThread.isAlive()
+            ? "running" : "stopped"));
+        lines.add("Overlay: " + (InputBoosterConfig.isShowF3Info() ? "enabled" : "disabled")
+            + " @ " + positionName());
+        return lines;
+    }
+
+    private static String positionName() {
+        return switch (InputBoosterConfig.getOverlayPosition()) {
+            case 1 -> "top-right";
+            case 2 -> "bottom-left";
+            case 3 -> "bottom-right";
+            default -> "top-left";
+        };
+    }
+
+    /** True when the overlay can actually draw (mixin + settings permitting). */
+    public static boolean isInitialized() {
+        return InputBoosterConfig.isShowF3Info()
+            && InputBoosterConfig.getOverlayOpacity() > 0.001f;
+    }
 }

@@ -7,9 +7,12 @@
     "GameTickMixin",
     "DebugHudMixin",
     "InGameHudMixin",
-    "OptionsScreenMixin"
+    "OptionsScreenMixin",
+    "GuiAccessor",
+    "KeyMappingAccessor",
+    "MinecraftClientAccessor"
   ],
   "injectors": {
-    "defaultRequire": 0
+    "defaultRequire": 1
   }
 }

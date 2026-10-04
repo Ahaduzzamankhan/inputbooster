@@ -9,43 +9,87 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.HitResult;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class InputDrainer {
 
     /**
-     * FIX: Track whether the mod handled an ATTACK_PRESSED this tick.
-     * GameTickMixin reads this flag to suppress vanilla's own attack handling,
-     * preventing the double-hit bug where one click triggers two attacks.
+     * Duplicate-attack suppression is tick-scoped.
+     *
+     * Previously two plain booleans were set by the drainer and cleared inside
+     * the injected vanilla methods. That is fragile: if vanilla stops calling
+     * the method (changed input order, a click handled elsewhere, a paused
+     * game) the stale flag survived and silently cancelled a legitimate attack
+     * on a later tick. Each token now carries the tick id it was issued in and
+     * is discarded automatically when that tick ends, so suppression can never
+     * leak across ticks.
      */
-    public static volatile boolean attackHandledThisTick = false;
-
-    /**
-     * FIX: Track whether the mod handled a USE_PRESSED this tick.
-     * Same suppression pattern applied to right-click / use actions.
-     */
-    public static volatile boolean useHandledThisTick = false;
+    private static final AtomicInteger TICK = new AtomicInteger(1);
+    private static volatile int attackHandledTick = -1;
+    private static volatile int useHandledTick = -1;
 
     private static volatile boolean PICK_BLOCK_MIXIN_WARNED = false;
 
+    /** Called once per client tick, before draining. */
+    public static void beginTick() {
+        int tick = TICK.incrementAndGet();
+        // Expire tokens from earlier ticks: vanilla never gets to consume them.
+        if (attackHandledTick != tick) attackHandledTick = -1;
+        if (useHandledTick != tick) useHandledTick = -1;
+    }
+
+    /** Records that the mod executed an attack for the current tick. */
+    public static void markAttackHandled() {
+        attackHandledTick = TICK.get();
+    }
+
+    /** Records that the mod executed a use action for the current tick. */
+    public static void markUseHandled() {
+        useHandledTick = TICK.get();
+    }
+
+    /**
+     * @return true (once) if vanilla's own attack must be suppressed for this tick
+     */
+    public static boolean consumeAttackSuppression() {
+        if (attackHandledTick == TICK.get()) {
+            attackHandledTick = -1;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @return true (once) if vanilla's own use action must be suppressed
+     */
+    public static boolean consumeUseSuppression() {
+        if (useHandledTick == TICK.get()) {
+            useHandledTick = -1;
+            return true;
+        }
+        return false;
+    }
+
+    /** Test/diagnostic helper: current tick id. */
+    public static int currentTickId() {
+        return TICK.get();
+    }
+
     public static void drainAll(Minecraft mc) {
         if (mc == null || mc.player == null || mc.gameMode == null) {
-            // Drop anything still queued and make sure no stale suppression flag
-            // survives into the next session (it would otherwise cancel one
-            // vanilla action after reconnecting).
-            attackHandledThisTick = false;
-            useHandledThisTick = false;
+            // Drop anything still queued and expire suppression tokens so they
+            // can never cancel a vanilla action in a later session.
+            beginTick();
             InputActionQueue.clear();
             return;
         }
         if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()) {
-            attackHandledThisTick = false;
-            useHandledThisTick = false;
+            beginTick();
             InputActionQueue.clear();
             return;
         }
 
-        // Reset per-tick flags before draining
-        attackHandledThisTick = false;
-        useHandledThisTick    = false;
+        beginTick();
 
         InputAction.Stamped stamped;
         while ((stamped = InputActionQueue.poll()) != null) {
@@ -55,7 +99,7 @@ public class InputDrainer {
                 if (InputBoosterMod.cpsLimiter != null &&
                     !InputBoosterMod.cpsLimiter.allowClick()) {
                     if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Attack blocked by CPS mode");
-                    attackHandledThisTick = true; // CRITICAL: Suppress vanilla attack for this blocked click!
+                    markAttackHandled(); // suppress vanilla's attack for this blocked click
                     continue;
                 }
             }
@@ -91,8 +135,8 @@ public class InputDrainer {
                                 // hand on 26.2; the compat shim hides the difference.
                                 McVersion.swingArm(player);
                                 if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Entity attack fired");
-                                // Signal vanilla's doAttack() to back off — we already fired.
-                                attackHandledThisTick = true;
+                                // Signal vanilla's attack handling to back off — we already fired.
+                                markAttackHandled();
                             }
                         }
                         case BLOCK -> {
@@ -112,7 +156,7 @@ public class InputDrainer {
 
             case USE_PRESSED -> {
                 mc.gameMode.useItem(player, InteractionHand.MAIN_HAND);
-                useHandledThisTick = true;
+                markUseHandled();
             }
 
             case SPRINT_PRESSED  -> player.setSprinting(true);

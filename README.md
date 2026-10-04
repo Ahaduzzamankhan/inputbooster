@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Minecraft-1.21.11-62b47a?style=for-the-badge&logo=minecraft&logoColor=white" alt="Minecraft 1.21.11">
   <img src="https://img.shields.io/badge/Fabric-Client--Side-DBD0B5?style=for-the-badge" alt="Fabric">
   <img src="https://img.shields.io/badge/Java-21%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21+">
-  <img src="https://img.shields.io/badge/Version-3.1.1-8B5CF6?style=for-the-badge" alt="Version 3.1.1">
+  <img src="https://img.shields.io/badge/Version-3.1.2-8B5CF6?style=for-the-badge" alt="Version 3.1.2">
 </p>
 
 <p align="center">
@@ -21,7 +21,7 @@
 
 > **InputBooster** is a client-side mod (NeoForge and Fabric) focused on making keyboard and mouse input feel more consistent during PvP, survival, and low-FPS gameplay.
 >
-> Current release: `3.1.1` — NeoForge for Minecraft 26.2, Fabric for Minecraft 26.2 and 26.3.
+> Current release: `3.1.2` — NeoForge for Minecraft 26.2, Fabric for Minecraft 26.2 and 26.3.
 
 ---
 

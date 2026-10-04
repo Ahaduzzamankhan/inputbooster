@@ -1,6 +1,81 @@
 # Changelog
 
+## 3.1.2 - Minecraft 26.2 (NeoForge) / 26.2 + 26.3 (Fabric)
+
+Addresses the 15-point code review: duplicate-click suppression, CPS limiting,
+replay/input separation, safe mode, the HUD overlay, mixin strictness and
+configuration migration. Supersedes 3.1.1 (withdrawn).
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-3.1.2-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-3.1.2-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-3.1.2-fabric-mc263.jar` |
+
+### Fixed
+
+- **#1 Duplicate-click handling made tick-scoped (was the most serious issue).**
+  `attackHandledThisTick` / `useHandledThisTick` were plain booleans cleared
+  *inside* the injected vanilla methods. If vanilla stopped calling that method
+  (changed input order, a click handled elsewhere, a paused game) the flag
+  survived and cancelled a legitimate attack on a later tick. Each suppression is
+  now a single-use token tagged with the tick id that issued it, and is expired
+  automatically when that tick ends, so it can never leak across ticks.
+- **#2 CPS limiter no longer rejects bursty but valid input.** The hard rolling
+  window counted every attempt in the same second, so a fast 8-click burst
+  followed by a pause still cost 8 tokens. The cap is now a token bucket that
+  refills at `maxCps`/s and holds `maxCps`: the long-run average is still capped
+  while short bursts pass. Cooldown mode keeps its minimum gap.
+- **#3 `HUMANIZED` mode is no longer random per click** (already fixed in 3.1.1,
+  kept): one cap per one-second window, derived deterministically from the window
+  index so it varies naturally but stays consistent within the second.
+- **#4 Replay is separated from physical input.** Queued events now carry an
+  `InputAction.Origin` (`INPUT` / `REPLAY`). Playback waits while real input is
+  pending in the queue, so a recording can no longer be injected on top of a live
+  click and double an attack.
+- **#5 Recording truncation is reported, not silent.** The buffer grew from 400
+  to 4000 events; overflow is counted, logged when recording stops, and shown in
+  the replay status line.
+- **#6 Safe Mode is thread-safe.** Error counts, window starts and the disabled
+  set moved to `ConcurrentHashMap` + `AtomicInteger` (already fixed in 3.1.1,
+  kept), and safe mode never touches the mod-level `active` flag.
+- **#7 Safe Mode disables only the failing module**, and only when the failing
+  source maps to a real module, so its module set cannot grow with arbitrary
+  error strings. The polling thread checks `active`/`initialized` and stops
+  cleanly; disabled modules are simply not ticked.
+- **#8 HUD overlay placeholders implemented.** `register()` documents that there
+  is no separate registration step, `getDebugLines()` now returns real status
+  lines (poll rate, queue depth, poller state, overlay position) and
+  `isInitialized()` reports whether the overlay can actually draw.
+- **#9 Overlay opacity 0 now skips rendering entirely** instead of queueing a
+  fully transparent text state every frame.
+- **#10 Options button uses a translation key** (`options.inputbooster.button`)
+  instead of hard-coded `§b`, so the styling lives in the language file.
+- **#11 Mixins are strict by default.** `defaultRequire` moved from `0` to `1`,
+  so a mapping change fails loudly instead of silently disabling the feature.
+  Critical injections (`tick`, `startAttack`, `startUseItem`, `close`) are
+  `require = 1`; the two convenience hooks (HUD render state, options button)
+  keep an explicit `require = 0` so they cannot stop the game from starting. A
+  startup check still logs any vanilla method that is missing.
+- **#12 Partially corrupt config files are reported.** Every key that had to fall
+  back to its default is collected and logged in one warning instead of being
+  silently reset field by field.
+- **#13 Config migration implemented.** `config_version` is now `304` and
+  `load()` runs a real migration step (legacy aliases `pollrate`, `watap`,
+  `auto_sprint_key` are rewritten) before applying values.
+- **#14 Polling thread runs at normal priority.** Removing `MAX_PRIORITY - 1`
+  stops the poller from starving the render thread on low-end CPUs.
+- **#15 Precise high-rate pacing.** `Thread.sleep` (millisecond-quantised and
+  drift-prone) is replaced with `LockSupport.parkNanos` plus drift correction, so
+  the configured poll rate is actually approached instead of being approximated.
+
+### Changed
+
+- Regression suite grown from 46 to 57 tests, run by CI on every build.
+
 ## 3.1.1 - Minecraft 26.2 (NeoForge) / 26.2 + 26.3 (Fabric)
+
+> **Withdrawn** — superseded by 3.1.2 after the 15-point review. Kept for history.
 
 Full audit of the input pipeline, threading, profiles, configuration and mixins.
 The mod core is loader-neutral; this release contains no new features, only

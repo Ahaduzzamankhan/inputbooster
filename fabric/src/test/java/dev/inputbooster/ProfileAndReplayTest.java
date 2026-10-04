@@ -209,9 +209,12 @@ class ProfileAndReplayTest {
     void recordingIsBounded() {
         ReplayRecorder replay = new ReplayRecorder();
         replay.startRecording();
-        for (int i = 0; i < 2000; i++) replay.onQueued(InputAction.ATTACK_PRESSED);
-        assertTrue(replay.getRecordedCount() <= 400,
+        for (int i = 0; i < 5000; i++) replay.onQueued(InputAction.ATTACK_PRESSED);
+        assertTrue(replay.getRecordedCount() <= 4000,
             "replay buffer must stay bounded, was " + replay.getRecordedCount());
+        assertTrue(replay.getTruncatedEvents() > 0,
+            "overflow must be reported instead of silently ignored");
+        assertTrue(replay.statusLine().contains("dropped"), "status line must surface truncation");
     }
 
     @Test
