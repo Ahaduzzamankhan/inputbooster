@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build-fabric:
-    name: Build Fabric jar (MC ${{ steps.target.outputs.minecraft }})
+    name: Build Fabric jar
     runs-on: ubuntu-latest
     outputs:
       minecraft: ${{ steps.target.outputs.minecraft }}
