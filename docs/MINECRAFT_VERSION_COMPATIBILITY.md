@@ -115,3 +115,37 @@ Consequences that are enforced by
 - Sodium, Iris, VulkanMod and every other renderer remain **optional**: none of
   them is a dependency in `fabric.mod.json`, and the mod's mixins do not touch
   the classes they replace.
+
+## Optional mod integrations
+
+Other mods that replace the options screen are supported the same way:
+reflectively, and never as a dependency.
+
+| Mod | What InputBooster does |
+| --- | ------------------------ |
+| Sodium | Adds itself to Sodium's options **sidebar** next to the entries other mods register there, and opens the same settings screen. |
+
+`dev.inputbooster.integration.SodiumOptionsBridge` is the whole integration:
+
+- Sodium is detected with `FabricLoader.isModLoaded("sodium")`; without it the
+  method returns immediately.
+- Every Sodium type is reached by name through reflection, and the
+  `ConfigEntryPoint` interface is implemented with a `java.lang.reflect.Proxy`,
+  so nothing Sodium-specific is on the compile-time classpath. The mod cannot
+  fail to load on a vanilla install.
+- Registration goes through Sodium's own
+  `ConfigManager#registerConfigEntryPoint`, the same call its
+  `ConfigLoaderFabric` makes for mods that declare the `sodium:config_api_user`
+  entrypoint. A mod cannot declare that entrypoint itself, because Fabric would
+  try to load the class on a vanilla install and fail.
+- The page is built in `registerConfigLate`, not `registerConfigEarly`: the
+  early phase runs from Sodium's own entrypoint, which may already have happened
+  by the time this mod starts, whereas the late phase runs from a `Minecraft`
+  mixin during game load — after every client entrypoint.
+- The sidebar entry is an *external* page, which just opens InputBooster's own
+  screen, so the settings keep their real widgets rather than being
+  re-expressed through Sodium's option model.
+- Every failure is caught and logged once. A Sodium version that moves its API
+  costs the sidebar entry and nothing else.
+
+Enforced by `fabric/src/test/java/dev/inputbooster/SodiumIntegrationTest.java`.

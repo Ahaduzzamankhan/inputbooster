@@ -8,6 +8,9 @@ import dev.inputbooster.feature.ProfileManager;
 import dev.inputbooster.feature.SessionStats;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.layouts.GridLayout;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+import net.minecraft.client.gui.layouts.LayoutElement;
 import net.minecraft.client.gui.layouts.LayoutSettings;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -23,6 +26,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.Function;
@@ -550,13 +554,66 @@ public class InputBoosterScreen extends OptionsSubScreen {
     }
 
     /**
-     * Anchors the InputBooster entry to the bottom of the options content area.
+     * Finds the vanilla options grid inside a screen's header/contents/footer
+     * layout.
      *
-     * <p>Public and static so {@code OptionsScreenMixin} can hand it to
-     * {@code HeaderAndFooterLayout#addToContents}. A lambda there would compile
-     * to a static synthetic method inside the mixin, which Mixin refuses to
-     * merge into its target ("contains non-private static method"), while a
-     * method reference to this method generates no synthetic member at all.
+     * <p>Public and static so {@code OptionsScreenMixin} can reach it: a lambda
+     * there would compile to a <em>static</em> synthetic method inside the
+     * mixin, which Mixin refuses to merge into its target ("contains non-private
+     * static method"), while a method reference to this method generates no
+     * synthetic member at all.
+     *
+     * @return the grid, or {@code null} when the screen does not use one
+     */
+    public static GridLayout findOptionsGrid(HeaderAndFooterLayout screenLayout) {
+        GridLayout[] found = new GridLayout[1];
+        screenLayout.visitChildren(element -> {
+            if (element instanceof GridLayout grid) found[0] = grid;
+        });
+        return found[0];
+    }
+
+    /**
+     * Adds {@code entry} to the options grid as its next free cell.
+     *
+     * <p>Being a real grid cell is what keeps the entry from colliding with the
+     * vanilla buttons: the grid grows by one row and re-centres itself, so
+     * there is nothing left underneath for the new button to overlap. Anchoring
+     * it to the bottom of the content area instead drew it straight over the
+     * last vanilla row on short windows.
+     *
+     * <p>The cell is derived from the grid's own contents rather than hard
+     * coded: the entries sit in equally wide columns, so the number of distinct
+     * left edges is the column count and the next free cell follows from the
+     * entry count. That keeps working when a Minecraft version adds or removes
+     * an options button.
+     *
+     * @return {@code false} when the grid has no children to measure, so the
+     *         caller can fall back to a plain layout child
+     */
+    public static boolean addToOptionsGrid(GridLayout grid, AbstractWidget entry) {
+        List<LayoutElement> existing = new ArrayList<>();
+        grid.visitChildren(existing::add);
+        if (existing.isEmpty()) return false;
+
+        TreeSet<Integer> leftEdges = new TreeSet<>();
+        for (LayoutElement element : existing) {
+            leftEdges.add(element.getX());
+        }
+        int columns = leftEdges.size();
+        int row = existing.size() / columns;
+        int column = existing.size() % columns;
+
+        grid.addChild(entry, row, column, grid.defaultCellSetting());
+        return true;
+    }
+
+    /**
+     * Fallback placement for the options entry, used only when the screen has
+     * no options grid to join.
+     *
+     * <p>See {@link #addToOptionsGrid} for why the entry belongs in the grid
+     * rather than at a fixed offset.
      */
     public static void anchorEntryToContentBottom(LayoutSettings settings) {
         settings.alignHorizontallyCenter().alignVerticallyBottom().paddingBottom(4);

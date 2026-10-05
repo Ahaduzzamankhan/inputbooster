@@ -153,17 +153,37 @@ class OptionsNavigationTest {
     }
 
     @Test
-    void theEntryIsAnchoredClearOfTheGridAndTheFooter() throws Exception {
+    void theEntryJoinsTheOptionsGridInsteadOfOverlappingIt() throws Exception {
         String screen = source(SCREEN);
+        assertTrue(screen.contains("findOptionsGrid"),
+            "the GUI locates the options grid so the entry can be one of its cells");
+        assertTrue(screen.contains("addToOptionsGrid"),
+            "the entry must be added as a real grid cell; the grid then grows by a row and re-centres");
+        assertTrue(screen.contains("grid.addChild(entry, row, column"),
+            "the cell is placed with the grid's own addChild so it cannot collide with a vanilla button");
         assertTrue(screen.contains("anchorEntryToContentBottom"),
-            "the GUI declares how its Options entry is placed");
-        assertTrue(screen.contains("alignHorizontallyCenter")
-                && screen.contains("alignVerticallyBottom"),
-            "the entry is centred at the bottom of the content area: the options grid is centred "
-                + "there and is shorter, so the entry never overlaps it, and it stays clear of the "
-                + "Done button in the footer");
-        assertFalse(Pattern.compile("alignHorizontallyRight|alignVerticallyTop").matcher(screen).find(),
-            "anchoring to a top corner would put the entry back on top of the options header");
+            "a fallback placement is kept for a future options screen without a grid");
+
+        String mixin = source(OPTIONS_MIXIN);
+        assertTrue(mixin.contains("InputBoosterScreen.findOptionsGrid")
+                && mixin.contains("InputBoosterScreen.addToOptionsGrid"),
+            "the mixin wires the entry into that grid");
+    }
+
+@Test
+    void theEntryIsNeverPositionedByAConstantOffset() throws Exception {
+        // 4.0.0-alpha first anchored the entry at the bottom of the content
+        // area. On a short window that drew it straight over the last vanilla
+        // row, which is what the player reported. The cell is now derived from
+        // the grid's own contents, so it also survives a Minecraft version that
+        // adds or removes an options button.
+        String screen = source(SCREEN);
+        assertTrue(screen.contains("leftEdges.add(element.getX())")
+                && screen.contains("existing.size() / columns"),
+            "the grid cell must be measured from the grid, not hard-coded to a row/column");
+        assertFalse(Pattern.compile("addChild\\(entry, \\d+, \\d+").matcher(screen).find(),
+            "a literal row/column would be wrong as soon as vanilla changes the number of "
+                + "options buttons");
     }
 
     @Test
