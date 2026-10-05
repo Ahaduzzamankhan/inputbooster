@@ -3,495 +3,675 @@ package dev.inputbooster.screen;
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
 import dev.inputbooster.feature.LatencyProfiler;
+import dev.inputbooster.feature.OverlayLayout;
 import dev.inputbooster.feature.ProfileManager;
 import dev.inputbooster.feature.SessionStats;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.layouts.LayoutSettings;
 import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Checkbox;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.MultiLineTextWidget;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
+import java.util.function.Function;
 
-public class InputBoosterScreen extends Screen {
+/**
+ * The InputBooster settings screen.
+ *
+ * <h2>Navigation</h2>
+ * Vanilla {@code Options} → <em>InputBooster</em> button → this screen. The
+ * button is added by {@code OptionsScreenMixin}, which places it inside the
+ * options layout so it reads as one more entry rather than a floating overlay.
+ *
+ * <h2>Why it is built on {@link OptionsSubScreen}</h2>
+ * This is the base class every vanilla options page uses (Video Settings,
+ * Controls, Sounds, Chat, Accessibility, …). Inheriting it means the screen
+ * automatically gets the vanilla title header, the "Done" footer, the
+ * scrollable {@link net.minecraft.client.gui.components.OptionsList} that
+ * reflows with the window, keyboard navigation and narration. Nothing here
+ * computes pixel rectangles by hand, so the layout keeps working when the
+ * vanilla metrics change.
+ *
+ * <h2>Renderer independence</h2>
+ * Everything is drawn through {@link GuiGraphicsExtractor}, Minecraft's
+ * deferred GUI submission API. That is renderer agnostic: it records draw
+ * commands into a render state that the backend (OpenGL <em>or</em> Vulkan)
+ * replays, so the screen behaves identically on the Vulkan renderer and needs
+ * no Sodium, Iris or other rendering mod. See
+ * {@link dev.inputbooster.feature.OverlayLayout} for the same guarantee on the
+ * in-game HUD badge.
+ */
+public class InputBoosterScreen extends OptionsSubScreen {
 
-    private final Screen parent;
-    private boolean hasChanges = false;
-    private int currentTab = 0;
-    private static final String[] TAB_LABELS = {"Poll", "Features", "Advanced", "Stats", "Profiles"};
-    private static final int TAB_COUNT = 5;
-    private static final int PANEL_COLOR = 0xB0101420;
-    private static final int PANEL_BORDER = 0xFF45D6E8;
-    private static final int PANEL_BORDER_DARK = 0x66355F70;
-    private static final int TEXT_MUTED = 0xFF9BA8B5;
+    /** One-click poll rate presets, matching the values the HUD badge can show. */
+    private static final int[] POLL_PRESETS = {100, 200, 350, 500, 750, 1000};
 
-    private Button modeButton;
-    private PollRateSlider pollSlider;
-    private Button[] presetButtons;
+    /** CPS limiter shapes offered by {@code CpsLimiter}. */
+    private static final String[] CPS_MODES = {"FIXED", "HUMANIZED", "WEAPON_AWARE", "COOLDOWN"};
+
+    /** Display names for {@link #CPS_MODES}, in the same order. */
+    private static final String[] CPS_MODE_KEYS = {
+        "inputbooster.value.cps_mode.fixed",
+        "inputbooster.value.cps_mode.humanized",
+        "inputbooster.value.cps_mode.weapon_aware",
+        "inputbooster.value.cps_mode.cooldown"
+    };
+
+    /** Display names for the four overlay corners, indexed by their config value. */
+    private static final String[] CORNER_KEYS = {
+        "inputbooster.value.corner.0",
+        "inputbooster.value.corner.1",
+        "inputbooster.value.corner.2",
+        "inputbooster.value.corner.3"
+    };
+
+    /** Names offered by the quick-save profile row. */
+    private static final String[] QUICK_PROFILES = {"PvP", "Mining", "Idle", "Hybrid", "Custom"};
+
+    /** Ticks between two refreshes of the live statistics block. */
+    private static final int STATS_REFRESH_TICKS = 20;
+
+    /** Widgets that only make sense while the poll rate is pinned manually. */
+    private final List<AbstractWidget> manualPollWidgets = new ArrayList<>();
+
+    private MultiLineTextWidget statsText;
+    private CpsSparklineWidget sparkline;
+    private SettingSlider pollRateSlider;
+    private int statsTextLines;
+    private int ticksSinceStatsRefresh;
 
     public InputBoosterScreen(Screen parent) {
-        super(Component.literal("§b§lInputBooster§r §8v" + InputBoosterMod.MOD_VERSION));
-        this.parent = parent;
+        super(parent, Minecraft.getInstance().options,
+            Component.translatable("inputbooster.options.title"));
     }
+
+    // ── Content ─────────────────────────────────────────────────────────────
 
     @Override
-    protected void init() {
-        int cx = this.width / 2, bw = Math.min(220, this.width - 48), bh = 20, gap = 24, top = 64;
-
-        int panelW = panelWidth();
-        int tabW  = Math.max(54, Math.min(82, (panelW - 28) / TAB_COUNT));
-        int tabsW = tabW * TAB_COUNT + (TAB_COUNT - 1) * 4;
-        int tabX0 = cx - tabsW / 2;
-
-        for (int t = 0; t < TAB_COUNT; t++) {
-            final int tab = t;
-            int tx = tabX0 + t * (tabW + 4);
-            Button btn = Button.builder(tabLabel(t), b -> {
-                currentTab = tab;
-                rebuildWidgets();
-            }).bounds(tx, 34, tabW, 18).build();
-            btn.active = (t != currentTab);
-            addRenderableWidget(btn);
-        }
-
-        switch (currentTab) {
-            case 0 -> initPollRateTab(cx, top, bw, bh, gap);
-            case 1 -> initFeaturesTab(cx, top, bw, bh, gap);
-            case 2 -> initAdvancedTab(cx, top, bw, bh, gap);
-            case 3 -> initStatsTab(cx, top, bw, bh, gap);
-            case 4 -> initProfilesTab(cx, top, bw, bh, gap);
-        }
-
-        addRenderableWidget(Button.builder(Component.literal("§a✓ Save & Close"), btn -> {
-            InputBoosterConfig.save();
-            onClose();
-        }).bounds(cx - bw / 2, this.height - 30, bw, bh).build());
+    protected void addOptions() {
+        manualPollWidgets.clear();
+        addPollingSection();
+        addMovementSection();
+        addClickSection();
+        addOverlaySection();
+        addDiagnosticsSection();
+        addStatsSection();
+        addProfilesSection();
+        updateManualPollAvailability();
     }
 
-    private void initPollRateTab(int cx, int top, int bw, int bh, int gap) {
-        modeButton = Button.builder(modeLabel(), btn -> {
-            InputBoosterConfig.setPollRateAutoMode(!InputBoosterConfig.isPollRateAutoMode());
-            btn.setMessage(modeLabel());
-            updateSliderActive();
-            applyPollRate();
-            hasChanges = true;
-        }).bounds(cx - bw / 2, top, bw, bh).build();
-        addRenderableWidget(modeButton);
+    private void addPollingSection() {
+        section("inputbooster.section.polling");
 
-        pollSlider = new PollRateSlider(cx - bw / 2, top + gap, bw, bh, InputBoosterConfig.getPollRateHz());
-        addRenderableWidget(pollSlider);
-
-        addRenderableWidget(toggleButton(cx, top + gap * 2, "Burst Mode", InputBoosterConfig.isBurstModeEnabled(), btn -> {
-            InputBoosterConfig.setBurstModeEnabled(!InputBoosterConfig.isBurstModeEnabled());
-            btn.setMessage(toggleLabel("Burst Mode", InputBoosterConfig.isBurstModeEnabled()));
-            hasChanges = true;
-        }));
-
-        addRenderableWidget(toggleButton(cx, top + gap * 3, "Combo Keys (Ctrl+1-5)", InputBoosterConfig.isComboKeysEnabled(), btn -> {
-            InputBoosterConfig.setComboKeysEnabled(!InputBoosterConfig.isComboKeysEnabled());
-            btn.setMessage(toggleLabel("Combo Keys", InputBoosterConfig.isComboKeysEnabled()));
-            hasChanges = true;
-        }));
-
-        int[] presets = {100, 200, 350, 500, 750, 1000};
-        String[] names = {"100","200","350","500","750","1000"};
-        int pbw = 46; presetButtons = new Button[6];
-        for (int i = 0; i < 6; i++) {
-            final int hz = presets[i];
-            int col = i % 3, row = i / 3;
-            int px = cx - (pbw * 3 + 8) / 2 + col * (pbw + 4);
-            int py = top + gap * 4 + row * (bh + 2);
-            presetButtons[i] = Button.builder(Component.literal(names[i] + "Hz"), btn -> {
-                InputBoosterConfig.setPollRateHz(hz);
-                pollSlider.updateValue(hz);
-                applyPollRate();
-                hasChanges = true;
-            }).bounds(px, py, pbw, bh).build();
-            addRenderableWidget(presetButtons[i]);
-        }
-        updateSliderActive();
-    }
-
-    private void initFeaturesTab(int cx, int top, int bw, int bh, int gap) {
-        record Toggle(String label, boolean state, java.util.function.Consumer<Boolean> setter) {}
-        Toggle[] toggles = {
-            new Toggle("Sprint Fix",   InputBoosterConfig.isSprintFixEnabled(),  InputBoosterConfig::setSprintFixEnabled),
-            new Toggle("Auto-Sprint",  InputBoosterConfig.isAutoSprintEnabled(), InputBoosterConfig::setAutoSprintEnabled),
-            new Toggle("W-Tap Assist", InputBoosterConfig.isWTapAssistEnabled(), InputBoosterConfig::setWTapAssistEnabled),
-            new Toggle("Anti-Idle",    InputBoosterConfig.isAntiIdleEnabled(),   InputBoosterConfig::setAntiIdleEnabled),
-            new Toggle("Auto-Strafe",  InputBoosterConfig.isAutoStrafeEnabled(), InputBoosterConfig::setAutoStrafeEnabled),
-            new Toggle("CPS Limiter",  InputBoosterConfig.isCpsLimiterEnabled(), InputBoosterConfig::setCpsLimiterEnabled),
-            new Toggle("Key Click Sounds", InputBoosterConfig.isClickSoundsEnabled(), InputBoosterConfig::setClickSoundsEnabled),
-        };
-        int colW = this.width >= 430 ? 196 : bw;
-        int leftCx = this.width >= 430 ? cx - 104 : cx;
-        int rightCx = this.width >= 430 ? cx + 104 : cx;
-        for (int i = 0; i < toggles.length; i++) {
-            Toggle t = toggles[i];
-            int row = this.width >= 430 ? i / 2 : i;
-            int colCx = this.width >= 430 && i % 2 == 1 ? rightCx : leftCx;
-            addRenderableWidget(toggleButton(colCx, top + gap * row, colW, t.label(), t.state(), btn -> {
-                boolean newVal = !btn.getMessage().getString().contains("ON");
-                t.setter().accept(newVal);
-                btn.setMessage(toggleLabel(t.label(), newVal));
-                hasChanges = true;
+        big(cycle(
+            Component.translatable("inputbooster.option.poll_mode"),
+            value -> Component.translatable(value
+                ? "inputbooster.value.poll_mode.auto"
+                : "inputbooster.value.poll_mode.manual"),
+            InputBoosterConfig::isPollRateAutoMode,
+            List.of(Boolean.TRUE, Boolean.FALSE),
+            (button, value) -> {
+                InputBoosterConfig.setPollRateAutoMode(value);
+                updateManualPollAvailability();
+                applyManualPollRate();
             }));
+
+        SettingSlider pollRate = slider(
+            "inputbooster.option.poll_rate", "inputbooster.tip.poll_rate",
+            60.0, 1000.0, 10.0,
+            v -> Component.translatable("inputbooster.value.hz", (int) Math.round(v)),
+            InputBoosterConfig.getPollRateHz(), v -> InputBoosterConfig.setPollRateHz((int) Math.round(v)),
+            this::applyManualPollRate);
+        pollRateSlider = pollRate;
+        manualPollWidgets.add(pollRate);
+        big(pollRate);
+
+        for (int i = 0; i + 1 < POLL_PRESETS.length; i += 2) {
+            Button first = presetButton(POLL_PRESETS[i]);
+            Button second = presetButton(POLL_PRESETS[i + 1]);
+            manualPollWidgets.add(first);
+            manualPollWidgets.add(second);
+            small(first, second);
         }
-        int sliderY = top + gap * (this.width >= 430 ? 4 : toggles.length) + 4;
-        addRenderableWidget(new MaxCpsSlider(cx - bw / 2, sliderY, bw, bh, InputBoosterConfig.getMaxCps()));
-        addRenderableWidget(new ClickPitchSlider(cx - bw / 2, sliderY + gap, bw, bh, InputBoosterConfig.getClickSoundPitch()));
-        addRenderableWidget(new ClickVolumeSlider(cx - bw / 2, sliderY + gap * 2, bw, bh, InputBoosterConfig.getClickSoundVolume()));
+
+        small(
+            checkbox("inputbooster.option.burst_mode", "inputbooster.tip.burst_mode",
+                InputBoosterConfig.isBurstModeEnabled(), InputBoosterConfig::setBurstModeEnabled),
+            checkbox("inputbooster.option.combo_keys", "inputbooster.tip.combo_keys",
+                InputBoosterConfig.isComboKeysEnabled(), InputBoosterConfig::setComboKeysEnabled));
     }
 
-    private void initAdvancedTab(int cx, int top, int bw, int bh, int gap) {
-        int leftCx = this.width >= 420 ? cx - 105 : cx;
-        int rightCx = this.width >= 420 ? cx + 105 : cx;
-        int colW = this.width >= 420 ? 190 : bw;
-        addRenderableWidget(toggleButton(leftCx, top, colW, "HUD Overlay", InputBoosterConfig.isShowF3Info(), btn -> {
-            InputBoosterConfig.setShowF3Info(!InputBoosterConfig.isShowF3Info());
-            btn.setMessage(toggleLabel("HUD Overlay", InputBoosterConfig.isShowF3Info()));
-            hasChanges = true;
-        }));
-        addRenderableWidget(toggleButton(leftCx, top + gap, colW, "Keystrokes Overlay", InputBoosterConfig.isShowKeystrokes(), btn -> {
-            InputBoosterConfig.setShowKeystrokes(!InputBoosterConfig.isShowKeystrokes());
-            btn.setMessage(toggleLabel("Keystrokes Overlay", InputBoosterConfig.isShowKeystrokes()));
-            hasChanges = true;
-        }));
-        addRenderableWidget(Button.builder(overlayPosLabel(), btn -> {
-            InputBoosterConfig.setOverlayPosition((InputBoosterConfig.getOverlayPosition() + 1) % 4);
-            btn.setMessage(overlayPosLabel());
-            hasChanges = true;
-        }).bounds(leftCx - colW / 2, top + gap * 2, colW, bh).build());
-        addRenderableWidget(new OverlayScaleSlider(leftCx - colW / 2, top + gap * 3, colW, bh, InputBoosterConfig.getOverlayScale()));
-        addRenderableWidget(new OverlayOpacitySlider(leftCx - colW / 2, top + gap * 4, colW, bh, InputBoosterConfig.getOverlayOpacity()));
-        addRenderableWidget(toggleButton(leftCx, top + gap * 5, colW, "Action Bar Messages", InputBoosterConfig.isShowActionBar(), btn -> {
-            InputBoosterConfig.setShowActionBar(!InputBoosterConfig.isShowActionBar());
-            btn.setMessage(toggleLabel("Action Bar Messages", InputBoosterConfig.isShowActionBar()));
-            hasChanges = true;
-        }));
-        addRenderableWidget(toggleButton(rightCx, top, colW, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
-            InputBoosterConfig.setDebugMode(!InputBoosterConfig.isDebugMode());
-            btn.setMessage(toggleLabel("Debug Mode", InputBoosterConfig.isDebugMode()));
-            hasChanges = true;
-        }));
-        addRenderableWidget(toggleButton(rightCx, top + gap, colW, "Replay Recorder", InputBoosterConfig.isReplayEnabled(), btn -> {
-            InputBoosterConfig.setReplayEnabled(!InputBoosterConfig.isReplayEnabled());
-            btn.setMessage(toggleLabel("Replay Recorder", InputBoosterConfig.isReplayEnabled()));
-            hasChanges = true;
-        }));
-        addRenderableWidget(toggleButton(rightCx, top + gap * 2, colW, "Safe Mode", InputBoosterConfig.isSafeModeEnabled(), btn -> {
-            InputBoosterConfig.setSafeModeEnabled(!InputBoosterConfig.isSafeModeEnabled());
-            btn.setMessage(toggleLabel("Safe Mode", InputBoosterConfig.isSafeModeEnabled()));
-            hasChanges = true;
-        }));
-        addRenderableWidget(toggleButton(rightCx, top + gap * 3, colW, "Event Log", InputBoosterConfig.isEventLogEnabled(), btn -> {
-            InputBoosterConfig.setEventLogEnabled(!InputBoosterConfig.isEventLogEnabled());
-            btn.setMessage(toggleLabel("Event Log", InputBoosterConfig.isEventLogEnabled()));
-            hasChanges = true;
-        }));
-        addRenderableWidget(toggleButton(rightCx, top + gap * 4, colW, "Key Conflict Warn", InputBoosterConfig.isKeyConflictWarn(), btn -> {
-            InputBoosterConfig.setKeyConflictWarn(!InputBoosterConfig.isKeyConflictWarn());
-            btn.setMessage(toggleLabel("Key Conflict Warn", InputBoosterConfig.isKeyConflictWarn()));
-            hasChanges = true;
-        }));
-        addRenderableWidget(toggleButton(rightCx, top + gap * 5, colW, "Per-Server Profiles", InputBoosterConfig.isPerServerProfiles(), btn -> {
-            InputBoosterConfig.setPerServerProfiles(!InputBoosterConfig.isPerServerProfiles());
-            btn.setMessage(toggleLabel("Per-Server Profiles", InputBoosterConfig.isPerServerProfiles()));
-            hasChanges = true;
-        }));
-        addRenderableWidget(new FpsCheckSlider(cx - bw / 2, top + gap * 7 + 4, bw, bh, InputBoosterConfig.getFpsCheckInterval()));
+    private void addMovementSection() {
+        section("inputbooster.section.movement");
+
+        small(
+            checkbox("inputbooster.option.sprint_fix", "inputbooster.tip.sprint_fix",
+                InputBoosterConfig.isSprintFixEnabled(), InputBoosterConfig::setSprintFixEnabled),
+            checkbox("inputbooster.option.auto_sprint", "inputbooster.tip.auto_sprint",
+                InputBoosterConfig.isAutoSprintEnabled(), InputBoosterConfig::setAutoSprintEnabled));
+
+        small(
+            checkbox("inputbooster.option.wtap_assist", "inputbooster.tip.wtap_assist",
+                InputBoosterConfig.isWTapAssistEnabled(), InputBoosterConfig::setWTapAssistEnabled),
+            checkbox("inputbooster.option.anti_idle", "inputbooster.tip.anti_idle",
+                InputBoosterConfig.isAntiIdleEnabled(), InputBoosterConfig::setAntiIdleEnabled));
+
+        small(
+            checkbox("inputbooster.option.auto_strafe", "inputbooster.tip.auto_strafe",
+                InputBoosterConfig.isAutoStrafeEnabled(), InputBoosterConfig::setAutoStrafeEnabled));
     }
 
-    private void initStatsTab(int cx, int top, int bw, int bh, int gap) {
-        addRenderableWidget(Button.builder(Component.literal("§cReset Peak Latency"), btn ->
-            LatencyProfiler.resetPeak()
-        ).bounds(cx - bw / 2, top + gap * 8, bw, bh).build());
+    private void addClickSection() {
+        section("inputbooster.section.click");
+
+        small(
+            checkbox("inputbooster.option.cps_limiter", "inputbooster.tip.cps_limiter",
+                InputBoosterConfig.isCpsLimiterEnabled(), InputBoosterConfig::setCpsLimiterEnabled),
+            checkbox("inputbooster.option.click_sounds", "inputbooster.tip.click_sounds",
+                InputBoosterConfig.isClickSoundsEnabled(), InputBoosterConfig::setClickSoundsEnabled));
+
+        big(cycle(
+            Component.translatable("inputbooster.option.cps_mode"),
+            index -> Component.translatable(CPS_MODE_KEYS[index]),
+            InputBoosterScreen::cpsModeIndex,
+            List.of(0, 1, 2, 3),
+            (button, index) -> InputBoosterConfig.setCpsMode(CPS_MODES[index])));
+
+        big(slider(
+            "inputbooster.option.max_cps", "inputbooster.tip.max_cps",
+            1.0, 20.0, 1.0,
+            v -> Component.translatable("inputbooster.value.cps", (int) Math.round(v)),
+            InputBoosterConfig.getMaxCps(), v -> InputBoosterConfig.setMaxCps((int) Math.round(v))));
+
+        big(slider(
+            "inputbooster.option.click_pitch", "inputbooster.tip.click_pitch",
+            0.5, 2.0, 0.05,
+            v -> Component.translatable("inputbooster.value.multiplier", round(v, 2)),
+            InputBoosterConfig.getClickSoundPitch(), v -> InputBoosterConfig.setClickSoundPitch((float) v)));
+
+        big(slider(
+            "inputbooster.option.click_volume", "inputbooster.tip.click_volume",
+            0.0, 1.0, 0.05,
+            v -> Component.translatable("inputbooster.value.percent", (int) Math.round(v * 100)),
+            InputBoosterConfig.getClickSoundVolume(), v -> InputBoosterConfig.setClickSoundVolume((float) v)));
     }
 
-    private void initProfilesTab(int cx, int top, int bw, int bh, int gap) {
-        ProfileManager pm = InputBoosterMod.profileManager;
-        if (pm == null) {
-            // Mod initialisation failed (or is still running): the screen used
-            // to throw a NullPointerException here.
-            addRenderableWidget(Button.builder(
-                    Component.literal("§cProfiles unavailable — mod not initialised"), b -> {})
-                .bounds(cx - 110, top, 220, 20).build());
+    private void addOverlaySection() {
+        section("inputbooster.section.overlay");
+
+        small(
+            checkbox("inputbooster.option.hud_overlay", "inputbooster.tip.hud_overlay",
+                InputBoosterConfig.isShowF3Info(), InputBoosterConfig::setShowF3Info),
+            checkbox("inputbooster.option.keystrokes", "inputbooster.tip.keystrokes",
+                InputBoosterConfig.isShowKeystrokes(), InputBoosterConfig::setShowKeystrokes));
+
+        small(
+            checkbox("inputbooster.option.action_bar", "inputbooster.tip.action_bar",
+                InputBoosterConfig.isShowActionBar(), InputBoosterConfig::setShowActionBar));
+
+        big(cycle(
+            Component.translatable("inputbooster.option.overlay_position"),
+            corner -> Component.translatable(CORNER_KEYS[corner]),
+            InputBoosterConfig::getOverlayPosition,
+            List.of(OverlayLayout.TOP_LEFT, OverlayLayout.TOP_RIGHT,
+                OverlayLayout.BOTTOM_LEFT, OverlayLayout.BOTTOM_RIGHT),
+            (button, corner) -> InputBoosterConfig.setOverlayPosition(corner)));
+
+        big(slider(
+            "inputbooster.option.overlay_scale", "inputbooster.tip.overlay_scale",
+            0.5, 3.0, 0.1,
+            v -> Component.translatable("inputbooster.value.multiplier", round(v, 1)),
+            InputBoosterConfig.getOverlayScale(), v -> InputBoosterConfig.setOverlayScale((float) v)));
+
+        big(slider(
+            "inputbooster.option.overlay_opacity", "inputbooster.tip.overlay_opacity",
+            0.0, 1.0, 0.05,
+            v -> Component.translatable("inputbooster.value.percent", (int) Math.round(v * 100)),
+            InputBoosterConfig.getOverlayOpacity(), v -> InputBoosterConfig.setOverlayOpacity((float) v)));
+    }
+
+    private void addDiagnosticsSection() {
+        section("inputbooster.section.diagnostics");
+
+        small(
+            checkbox("inputbooster.option.safe_mode", "inputbooster.tip.safe_mode",
+                InputBoosterConfig.isSafeModeEnabled(), InputBoosterConfig::setSafeModeEnabled),
+            checkbox("inputbooster.option.debug_mode", "inputbooster.tip.debug_mode",
+                InputBoosterConfig.isDebugMode(), InputBoosterConfig::setDebugMode));
+
+        small(
+            checkbox("inputbooster.option.event_log", "inputbooster.tip.event_log",
+                InputBoosterConfig.isEventLogEnabled(), InputBoosterConfig::setEventLogEnabled),
+            checkbox("inputbooster.option.key_conflict", "inputbooster.tip.key_conflict",
+                InputBoosterConfig.isKeyConflictWarn(), InputBoosterConfig::setKeyConflictWarn));
+
+        small(
+            checkbox("inputbooster.option.replay", "inputbooster.tip.replay",
+                InputBoosterConfig.isReplayEnabled(), InputBoosterConfig::setReplayEnabled),
+            checkbox("inputbooster.option.per_server_profiles", "inputbooster.tip.per_server_profiles",
+                InputBoosterConfig.isPerServerProfiles(), InputBoosterConfig::setPerServerProfiles));
+
+        big(slider(
+            "inputbooster.option.fps_check", "inputbooster.tip.fps_check",
+            1.0, 100.0, 1.0,
+            v -> Component.translatable("inputbooster.value.ticks", (int) Math.round(v)),
+            (double) InputBoosterConfig.getFpsCheckInterval(), v -> InputBoosterConfig.setFpsCheckInterval((int) Math.round(v))));
+    }
+
+    private void addStatsSection() {
+        section("inputbooster.section.stats");
+
+        statsText = new MultiLineTextWidget(statsMessage(), font);
+        statsTextLines = lineCount(statsText.getMessage());
+        statsText.setMaxRows(8);
+        big(statsText);
+
+        sparkline = new CpsSparklineWidget(
+            Component.translatable("inputbooster.option.cps_graph"), InputBoosterMod.sessionStats);
+        big(sparkline);
+
+        big(Button.builder(
+            Component.translatable("inputbooster.button.reset_peak"),
+            button -> {
+                LatencyProfiler.resetPeak();
+                refreshStats();
+            })
+            .width(Button.BIG_WIDTH)
+            .tooltip(Tooltip.create(Component.translatable("inputbooster.tip.reset_peak")))
+            .build());
+    }
+
+    private void addProfilesSection() {
+        section("inputbooster.section.profiles");
+
+        ProfileManager manager = InputBoosterMod.profileManager;
+        if (manager == null) {
+            // Mod initialisation has not finished (or failed); the old screen
+            // threw a NullPointerException here.
+            big(Button.builder(
+                Component.translatable("inputbooster.profiles.unavailable"), button -> { })
+                .width(Button.BIG_WIDTH)
+                .build());
             return;
         }
-        List<ProfileManager.Profile> profiles = pm.getProfiles();
 
+        List<ProfileManager.Profile> profiles = manager.getProfiles();
+        if (profiles.isEmpty()) {
+            big(new MultiLineTextWidget(
+                Component.translatable("inputbooster.profiles.empty"), font));
+        }
         for (int i = 0; i < profiles.size(); i++) {
-            ProfileManager.Profile p = profiles.get(i);
-            final int idx = i;
-            int rowY = top + gap * i;
-            addRenderableWidget(Button.builder(Component.literal("§a▶ " + p.name()), btn ->
-                pm.loadProfile(p.name(), this.minecraft)
-            ).bounds(cx - 110, rowY, 100, bh).build());
-            addRenderableWidget(Button.builder(Component.literal("§c✕"), btn -> {
-                pm.deleteProfile(idx);
-                rebuildWidgets();
-            }).bounds(cx + 5, rowY, 30, bh).build());
+            ProfileManager.Profile profile = profiles.get(i);
+            int index = i;
+            boolean active = manager.getActiveIndex() == i;
+            small(
+                Button.builder(
+                    Component.translatable(active
+                        ? "inputbooster.button.load_active_profile"
+                        : "inputbooster.button.load_profile", profile.name()),
+                    button -> {
+                        manager.loadProfile(profile.name(), this.minecraft);
+                        rebuildWidgets();
+                    })
+                    .width(Button.SMALL_WIDTH)
+                    .tooltip(Tooltip.create(Component.translatable("inputbooster.tip.load_profile")))
+                    .build(),
+                Button.builder(
+                    Component.translatable("inputbooster.button.delete_profile"),
+                    button -> {
+                        manager.deleteProfile(index);
+                        rebuildWidgets();
+                    })
+                    .width(Button.SMALL_WIDTH)
+                    .tooltip(Tooltip.create(Component.translatable("inputbooster.tip.delete_profile")))
+                    .build());
         }
 
-        int saveY = top + gap * ProfileManager.MAX_PROFILES + 10;
         if (profiles.size() < ProfileManager.MAX_PROFILES) {
-            String[] quickNames = {"PvP", "Mining", "Idle", "Hybrid", "Custom"};
-            int qbw = 38;
-            for (int i = 0; i < quickNames.length; i++) {
-                String qn = quickNames[i];
-                addRenderableWidget(Button.builder(Component.literal(qn), btn -> {
-                    pm.saveProfile(qn);
-                    rebuildWidgets();
-                }).bounds(cx - 100 + i * (qbw + 2), saveY, qbw, bh).build());
+            for (int i = 0; i < QUICK_PROFILES.length; i += 2) {
+                List<AbstractWidget> row = new ArrayList<>(2);
+                for (int j = i; j < Math.min(i + 2, QUICK_PROFILES.length); j++) {
+                    String name = QUICK_PROFILES[j];
+                    row.add(Button.builder(
+                        Component.translatable("inputbooster.button.quick_save", name),
+                        button -> {
+                            manager.saveProfile(name);
+                            rebuildWidgets();
+                        })
+                        .width(Button.SMALL_WIDTH)
+                        .tooltip(Tooltip.create(Component.translatable("inputbooster.tip.quick_save")))
+                        .build());
+                }
+                list.addSmall(row);
             }
         }
     }
 
-    @Override
-    public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta) {
-        // Do NOT call renderBackground() here — MC 26.1 already calls it
-        // via Screen.extractRenderState() before delegating to us, and calling it twice
-        // triggers 'Can only blur once per frame'.
-        int panelX = (this.width - panelWidth()) / 2;
-        int panelY = 24;
-        int panelH = Math.max(120, this.height - 62);
-        drawPanel(ctx, panelX, panelY, panelWidth(), panelH);
-        ctx.centeredText(this.font, this.title.getString(), this.width / 2, 10, 0xFFFFFF);
-
-        String tabLabel = switch (currentTab) {
-            case 0 -> "Adaptive polling and manual presets";
-            case 1 -> "Movement, combat, and click feedback";
-            case 2 -> "Overlay, safety, logs, and profiles";
-            case 3 -> "Session statistics";
-            case 4 -> "Config profiles";
-            default -> "";
-        };
-        ctx.centeredText(this.font, tabLabel, this.width / 2, 55, TEXT_MUTED);
-
-        if (currentTab == 3) renderStatsContent(ctx);
-
-        if (hasChanges) {
-            ctx.centeredText(this.font,
-                "§e⚠ Unsaved changes", this.width / 2, this.height - 56, 0xFFFF55);
-        }
-
-        super.extractRenderState(ctx, mouseX, mouseY, delta);
-    }
-
-    private int panelWidth() {
-        return Math.min(456, Math.max(280, this.width - 24));
-    }
-
-    private void drawPanel(GuiGraphicsExtractor ctx, int x, int y, int w, int h) {
-        ctx.fill(x, y, x + w, y + h, PANEL_COLOR);
-        ctx.fill(x, y, x + w, y + 1, PANEL_BORDER);
-        ctx.fill(x, y + h - 1, x + w, y + h, PANEL_BORDER_DARK);
-        ctx.fill(x, y, x + 1, y + h, PANEL_BORDER_DARK);
-        ctx.fill(x + w - 1, y, x + w, y + h, PANEL_BORDER_DARK);
-        ctx.fill(x + 8, y + 26, x + w - 8, y + 27, 0x3335D7E8);
-    }
-
-    private void renderStatsContent(GuiGraphicsExtractor ctx) {
-        SessionStats ss = InputBoosterMod.sessionStats;
-        if (ss == null) return;
-        int cx = this.width / 2, y = 50, lh = 11;
-        String[] lines = {
-            "§7Session: §e" + ss.getSessionStartTime() + " §7(up §e" + ss.getUptimeFormatted() + "§7)",
-            "§7Inputs recovered: §a" + ss.getTotalRecovered(),
-            "§7Est. missed without mod: §c" + ss.getEstimatedMissedInputs(),
-            "§7" + LatencyProfiler.formatForOverlay(),
-            "§7Poll thread: §" + (ss.isPollingThreadAlive() ? "aRUNNING" : "cSTOPPED"),
-            "§7Poll rate: §e" + InputBoosterMod.currentPollHz + " Hz",
-            "",
-            "§7CPS sparkline (60s):",
-        };
-        for (String line : lines) {
-            ctx.text(this.font, line, cx - 110, y, 0xFFFFFF);
-            y += lh;
-        }
-        renderSparkline(ctx, cx - 110, y, 220, 20, ss.getCpsHistory());
-    }
-
-    private void renderSparkline(GuiGraphicsExtractor ctx, int x, int y, int w, int h, int[] data) {
-        if (data.length == 0) return;
-        int max = 1;
-        for (int v : data) if (v > max) max = v;
-        int barW = Math.max(1, w / data.length);
-        for (int i = 0; i < data.length; i++) {
-            int barH = (int)((double) data[i] / max * h);
-            double ratio = (double) data[i] / Math.max(1, InputBoosterConfig.getMaxCps());
-            int color = ratio < 0.6 ? 0xFF55FF55 : ratio < 0.85 ? 0xFFFFFF55 : 0xFFFF5555;
-            ctx.fill(x + i * barW, y + h - barH, x + i * barW + barW - 1, y + h, color);
-        }
-        ctx.horizontalLine(x, x + w - 1, y, 0xFF888888);
-        ctx.horizontalLine(x, x + w - 1, y + h - 1, 0xFF888888);
-        ctx.verticalLine(x, y, y + h - 1, 0xFF888888);
-        ctx.verticalLine(x + w - 1, y, y + h - 1, 0xFF888888);
-    }
+    // ── Live updates ────────────────────────────────────────────────────────
 
     @Override
-    public void onClose() {
-        if (this.minecraft != null) this.minecraft.setScreenAndShow(parent);
+    public void tick() {
+        super.tick();
+        if (++ticksSinceStatsRefresh < STATS_REFRESH_TICKS) return;
+        ticksSinceStatsRefresh = 0;
+        refreshStats();
     }
 
-    private void applyPollRate() {
-        if (!InputBoosterConfig.isPollRateAutoMode()) {
-            int hz = InputBoosterConfig.getPollRateHz();
-            InputBoosterMod.currentPollHz = hz;
-            if (InputBoosterMod.pollingThread != null) InputBoosterMod.pollingThread.setPollRateHz(hz);
+    private void refreshStats() {
+        if (statsText == null) return;
+        if (sparkline != null) sparkline.stats = InputBoosterMod.sessionStats;
+
+        Component summary = statsMessage();
+        if (lineCount(summary) != statsTextLines) {
+            // The options list measures each row once, so a block that grows or
+            // shrinks by a line has to be laid out again or the rows below it
+            // would overlap it.
+            rebuildWidgets();
+            return;
+        }
+        statsText.setMessage(summary);
+    }
+
+    private static int lineCount(Component component) {
+        return component.getString().split("\n", -1).length;
+    }
+
+    private Component statsMessage() {
+        SessionStats stats = InputBoosterMod.sessionStats;
+        if (stats == null) {
+            return Component.translatable("inputbooster.stats.unavailable");
+        }
+        boolean bursting = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
+        return Component.translatable("inputbooster.stats.summary",
+            stats.getSessionStartTime(),
+            stats.getUptimeFormatted(),
+            stats.getTotalRecovered(),
+            stats.getEstimatedMissedInputs(),
+            LatencyProfiler.formatForOverlay(),
+            Component.translatable(stats.isPollingThreadAlive()
+                ? "inputbooster.value.running"
+                : "inputbooster.value.stopped"),
+            bursting ? 1000 : InputBoosterMod.currentPollHz);
+    }
+
+    // ── Persistence ─────────────────────────────────────────────────────────
+
+    /**
+     * {@code removed()} runs on every path that leaves this screen — the Done
+     * button, Escape, or another screen replacing it — so it is the one place
+     * the configuration has to be flushed to disk. {@code super.removed()} is
+     * still called first so vanilla keeps saving its own options.
+     */
+    @Override
+    public void removed() {
+        InputBoosterConfig.save();
+        super.removed();
+    }
+
+    // ── Widget helpers ──────────────────────────────────────────────────────
+
+    private void section(String key) {
+        list.addHeader(Component.translatable(key));
+    }
+
+    private void big(AbstractWidget widget) {
+        list.addBig(widget);
+    }
+
+    private void small(AbstractWidget... widgets) {
+        list.addSmall(List.of(widgets));
+    }
+
+    private Checkbox checkbox(String labelKey, String tipKey, boolean value, Consumer<Boolean> setter) {
+        return Checkbox.builder(Component.translatable(labelKey), font)
+            .pos(0, 0)
+            .maxWidth(Button.DEFAULT_WIDTH)
+            .selected(value)
+            .tooltip(Tooltip.create(Component.translatable(tipKey)))
+            .onValueChange((box, selected) -> setter.accept(selected))
+            .build();
+    }
+
+    private <T> CycleButton<T> cycle(
+        Component label,
+        Function<T, Component> valueName,
+        java.util.function.Supplier<T> current,
+        List<T> values,
+        CycleButton.OnValueChange<T> onChange) {
+        return CycleButton.<T>builder(valueName, current)
+            .withValues(values)
+            .create(0, 0, Button.BIG_WIDTH, Button.DEFAULT_HEIGHT, label, onChange);
+    }
+
+    private SettingSlider slider(
+        String labelKey,
+        String tipKey,
+        double min,
+        double max,
+        double step,
+        Function<Double, Component> format,
+        double current,
+        DoubleConsumer apply) {
+        return slider(labelKey, tipKey, min, max, step, format, current, apply, null);
+    }
+
+    private SettingSlider slider(
+        String labelKey,
+        String tipKey,
+        double min,
+        double max,
+        double step,
+        Function<Double, Component> format,
+        double current,
+        DoubleConsumer apply,
+        Runnable afterChange) {
+        return new SettingSlider(
+            Component.translatable(labelKey),
+            Tooltip.create(Component.translatable(tipKey)),
+            min, max, step, format, current, apply, afterChange);
+    }
+
+    private Button presetButton(int hz) {
+        return Button.builder(
+            Component.translatable("inputbooster.button.preset", hz),
+            button -> {
+                InputBoosterConfig.setPollRateHz(hz);
+                applyManualPollRate();
+                // Update the slider in place; rebuilding the whole screen would
+                // throw away the player's scroll position in the options list.
+                if (pollRateSlider != null) pollRateSlider.setCurrentValue(hz);
+            })
+            .width(Button.SMALL_WIDTH)
+            .tooltip(Tooltip.create(Component.translatable("inputbooster.tip.preset")))
+            .build();
+    }
+
+    private void updateManualPollAvailability() {
+        boolean manual = !InputBoosterConfig.isPollRateAutoMode();
+        for (AbstractWidget widget : manualPollWidgets) {
+            widget.active = manual;
         }
     }
 
-    private void updateSliderActive() {
-        if (pollSlider != null) {
-            boolean manual = !InputBoosterConfig.isPollRateAutoMode();
-            pollSlider.active = manual;
-            if (presetButtons != null) for (Button pb : presetButtons) pb.active = manual;
+    private void applyManualPollRate() {
+        if (InputBoosterConfig.isPollRateAutoMode()) return;
+        int hz = InputBoosterConfig.getPollRateHz();
+        InputBoosterMod.currentPollHz = hz;
+        if (InputBoosterMod.pollingThread != null) {
+            InputBoosterMod.pollingThread.setPollRateHz(hz);
         }
     }
 
-    private Component overlayPosLabel() {
-        String[] names = {"Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right"};
-        return Component.literal("Overlay Position: §e" + names[InputBoosterConfig.getOverlayPosition()]);
+    private static double round(double value, int decimals) {
+        double factor = Math.pow(10, decimals);
+        return Math.round(value * factor) / factor;
     }
 
-    private Component modeLabel() {
-        return InputBoosterConfig.isPollRateAutoMode()
-            ? Component.literal("§aMode: AUTO §r§7(FPS-adaptive)")
-            : Component.literal("§eMode: MANUAL §r§7(fixed Hz)");
-    }
-
-    private Component tabLabel(int tab) {
-        String color = tab == currentTab ? "§b§l" : "§7";
-        return Component.literal(color + TAB_LABELS[tab]);
-    }
-
-    private Button toggleButton(int cx, int y, String label, boolean initial, Button.OnPress action) {
-        return toggleButton(cx, y, 200, label, initial, action);
-    }
-
-    private Button toggleButton(int cx, int y, int width, String label, boolean initial, Button.OnPress action) {
-        return Button.builder(toggleLabel(label, initial), action)
-            .bounds(cx - width / 2, y, width, 20).build();
-    }
-
-    private Component toggleLabel(String label, boolean on) {
-        return Component.literal(label + ": " + (on ? "§a✓ ON" : "§c✗ OFF"));
-    }
-
-    private static class PollRateSlider extends AbstractSliderButton {
-        private int hz;
-        PollRateSlider(int x, int y, int w, int h, int currentHz) {
-            super(x, y, w, h, Component.literal("Poll Rate: " + currentHz + " Hz"), (currentHz - 60) / 940.0);
-            this.hz = currentHz;
+    /** Index of the configured CPS limiter shape, defaulting to {@code FIXED}. */
+    private static int cpsModeIndex() {
+        String configured = InputBoosterConfig.getCpsMode();
+        for (int i = 0; i < CPS_MODES.length; i++) {
+            if (CPS_MODES[i].equals(configured)) return i;
         }
-        void updateValue(int newHz) {
-            this.hz = newHz;
-            this.value = (newHz - 60) / 940.0;
+        return 0;
+    }
+
+    /**
+     * Anchors the InputBooster entry to the bottom of the options content area.
+     *
+     * <p>Public and static so {@code OptionsScreenMixin} can hand it to
+     * {@code HeaderAndFooterLayout#addToContents}. A lambda there would compile
+     * to a static synthetic method inside the mixin, which Mixin refuses to
+     * merge into its target ("contains non-private static method"), while a
+     * method reference to this method generates no synthetic member at all.
+     */
+    public static void anchorEntryToContentBottom(LayoutSettings settings) {
+        settings.alignHorizontallyCenter().alignVerticallyBottom().paddingBottom(4);
+    }
+
+    // ── Custom widgets ──────────────────────────────────────────────────────
+
+    /**
+     * A single generic slider for every numeric setting.
+     *
+     * <p>The range is expressed in real units rather than a raw 0..1 fraction,
+     * and the value is quantised to {@code step} on every change so dragging
+     * can never write a value the configuration setter would have to clamp.
+     */
+    private static final class SettingSlider extends AbstractSliderButton {
+
+        private final Component label;
+        private final double min;
+        private final double max;
+        private final double step;
+        private final Function<Double, Component> format;
+        private final DoubleConsumer apply;
+        private final Runnable afterChange;
+        private double current;
+
+        SettingSlider(
+            Component label,
+            Tooltip tooltip,
+            double min,
+            double max,
+            double step,
+            Function<Double, Component> format,
+            double current,
+            DoubleConsumer apply,
+            Runnable afterChange) {
+            super(0, 0, Button.BIG_WIDTH, Button.DEFAULT_HEIGHT, label, 0.0);
+            this.label = label;
+            this.min = min;
+            this.max = max;
+            this.step = step;
+            this.format = format;
+            this.apply = apply;
+            this.afterChange = afterChange;
+            this.current = clampToStep(current);
+            this.value = toFraction(this.current);
+            setTooltip(tooltip);
+            // The superclass constructor does not call updateMessage(), so the
+            // label has to be rendered once here or the slider shows its raw
+            // default until the player first drags it.
             updateMessage();
         }
-        @Override protected void updateMessage() { setMessage(Component.literal("Poll Rate: §e" + hz + " Hz")); }
-        @Override protected void applyValue() {
-            hz = 60 + (int)(value * 940);
-            hz = (hz / 10) * 10;
-            hz = Math.max(60, Math.min(1000, hz));
-            InputBoosterConfig.setPollRateHz(hz);
+
+        @Override
+        protected void updateMessage() {
+            setMessage(Component.translatable("inputbooster.value.combined", label, format.apply(current)));
+        }
+
+        @Override
+        protected void applyValue() {
+            double raw = min + (max - min) * value;
+            double next = clampToStep(raw);
+            if (next == current) return;
+            current = next;
+            apply.accept(next);
+            if (afterChange != null) afterChange.run();
             updateMessage();
+        }
+
+        /**
+         * Moves the handle and the label without writing to the configuration.
+         * Used by the preset buttons, which own the value themselves.
+         */
+        void setCurrentValue(double newValue) {
+            this.current = clampToStep(newValue);
+            this.value = toFraction(this.current);
+            updateMessage();
+        }
+
+        private double clampToStep(double raw) {
+            double stepped = Math.round((raw - min) / step) * step + min;
+            stepped = Math.max(min, Math.min(max, stepped));
+            // Kill the binary-floating-point dust introduced by the stepping so
+            // the stored value stays stable across repeated drags.
+            return Math.round(stepped * 1_000_000.0) / 1_000_000.0;
+        }
+
+        private double toFraction(double raw) {
+            if (max <= min) return 0.0;
+            return Math.max(0.0, Math.min(1.0, (raw - min) / (max - min)));
         }
     }
 
-    private static class MaxCpsSlider extends AbstractSliderButton {
-        private int cps;
-        MaxCpsSlider(int x, int y, int w, int h, int currentCps) {
-            super(x, y, w, h, Component.literal("Max CPS: " + currentCps), (currentCps - 1) / 19.0);
-            this.cps = currentCps;
-        }
-        @Override protected void updateMessage() { setMessage(Component.literal("Max CPS: §e" + cps)); }
-        @Override protected void applyValue() {
-            cps = 1 + (int)(value * 19);
-            InputBoosterConfig.setMaxCps(cps);
-            updateMessage();
-        }
-    }
+    /**
+     * The 60-second CPS sparkline.
+     *
+     * <p>Draws with {@link GuiGraphicsExtractor#fill} so it goes through
+     * Minecraft's deferred GUI render state and is therefore identical on the
+     * OpenGL and Vulkan backends. The bar colour maths lives in
+     * {@link OverlayLayout#cpsBarColor} so it can be unit tested without a
+     * running game.
+     */
+    private static final class CpsSparklineWidget extends AbstractWidget {
 
-    private static class ClickPitchSlider extends AbstractSliderButton {
-        private float pitch;
-        ClickPitchSlider(int x, int y, int w, int h, float currentPitch) {
-            super(x, y, w, h, Component.literal("Click Pitch: " + currentPitch + "x"), (currentPitch - 0.5f) / 1.5f);
-            this.pitch = currentPitch;
-        }
-        @Override protected void updateMessage() {
-            setMessage(Component.literal(String.format("Click Pitch: §e%.2fx", pitch)));
-        }
-        @Override protected void applyValue() {
-            pitch = 0.5f + (float)(value * 1.5f);
-            pitch = Math.round(pitch * 20) / 20.0f;
-            InputBoosterConfig.setClickSoundPitch(pitch);
-            updateMessage();
-        }
-    }
+        private static final int[] NO_HISTORY = new int[0];
 
-    private static class ClickVolumeSlider extends AbstractSliderButton {
-        private float volume;
-        ClickVolumeSlider(int x, int y, int w, int h, float currentVolume) {
-            super(x, y, w, h, Component.literal("Click Volume: " + (int)(currentVolume * 100) + "%"), currentVolume);
-            this.volume = currentVolume;
-        }
-        @Override protected void updateMessage() {
-            setMessage(Component.literal(String.format("Click Volume: §e%d%%", Math.round(volume * 100))));
-        }
-        @Override protected void applyValue() {
-            volume = Math.round(value * 100) / 100.0f;
-            InputBoosterConfig.setClickSoundVolume(volume);
-            updateMessage();
-        }
-    }
+        private SessionStats stats;
 
-    private static class OverlayScaleSlider extends AbstractSliderButton {
-        private float scale;
-        OverlayScaleSlider(int x, int y, int w, int h, float currentScale) {
-            super(x, y, w, h, Component.literal("Overlay Scale: " + currentScale + "x"), (currentScale - 0.5f) / 2.5f);
-            this.scale = currentScale;
+        CpsSparklineWidget(Component label, SessionStats stats) {
+            super(0, 0, Button.BIG_WIDTH, 34, label);
+            this.stats = stats;
+            setTooltip(Tooltip.create(Component.translatable("inputbooster.tip.cps_graph")));
         }
-        @Override protected void updateMessage() {
-            setMessage(Component.literal(String.format("Overlay Scale: §e%.1fx", scale)));
-        }
-        @Override protected void applyValue() {
-            scale = 0.5f + (float)(value * 2.5f);
-            // Round to nearest 0.1
-            scale = Math.round(scale * 10) / 10.0f;
-            InputBoosterConfig.setOverlayScale(scale);
-            updateMessage();
-        }
-    }
 
-    private static class OverlayOpacitySlider extends AbstractSliderButton {
-        private float opacity;
-        OverlayOpacitySlider(int x, int y, int w, int h, float currentOpacity) {
-            super(x, y, w, h, Component.literal("Overlay Opacity: " + (int)(currentOpacity * 100) + "%"), currentOpacity);
-            this.opacity = currentOpacity;
-        }
-        @Override protected void updateMessage() {
-            setMessage(Component.literal(String.format("Overlay Opacity: §e%d%%", Math.round(opacity * 100))));
-        }
-        @Override protected void applyValue() {
-            opacity = Math.round(value * 100) / 100.0f;
-            InputBoosterConfig.setOverlayOpacity(opacity);
-            updateMessage();
-        }
-    }
+        @Override
+        protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+            int[] history = stats == null ? NO_HISTORY : stats.getCpsHistory();
+            if (history.length == 0) return;
 
-    private static class FpsCheckSlider extends AbstractSliderButton {
-        private int ticks;
-        FpsCheckSlider(int x, int y, int w, int h, int currentTicks) {
-            super(x, y, w, h, Component.literal("FPS Check: " + currentTicks + " ticks"), (currentTicks - 1) / 99.0);
-            this.ticks = currentTicks;
+            int max = 1;
+            for (int value : history) max = Math.max(max, value);
+
+            int barWidth = Math.max(1, this.width / history.length);
+            int graphHeight = this.height - 2;
+            for (int i = 0; i < history.length; i++) {
+                int barHeight = Math.round((float) history[i] / max * graphHeight);
+                if (barHeight <= 0) continue;
+                int x = this.getX() + i * barWidth;
+                graphics.fill(x, this.getY() + this.height - 1 - barHeight,
+                    x + barWidth - 1, this.getY() + this.height - 1,
+                    OverlayLayout.cpsBarColor(history[i], InputBoosterConfig.getMaxCps()));
+            }
         }
-        @Override protected void updateMessage() { setMessage(Component.literal("FPS Check: §e" + ticks + " ticks")); }
-        @Override protected void applyValue() {
-            ticks = 1 + (int)(value * 99);
-            InputBoosterConfig.setFpsCheckInterval(ticks);
-            updateMessage();
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
         }
     }
 }

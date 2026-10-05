@@ -26,6 +26,13 @@ public final class OverlayLayout {
     /** Fully opaque orange. The alpha byte must stay {@code 0xFF}. */
     public static final int COLOR_ORANGE = 0xFFFFAA00;
 
+    /** Fully opaque green, used for CPS bars comfortably under the cap. */
+    public static final int COLOR_CPS_LOW = 0xFF55FF55;
+    /** Fully opaque yellow, used for CPS bars close to the cap. */
+    public static final int COLOR_CPS_MID = 0xFFFFFF55;
+    /** Fully opaque red, used for CPS bars at or over the cap. */
+    public static final int COLOR_CPS_HIGH = 0xFFFF5555;
+
     /** Background panel opacity at {@code opacity = 1}. */
     private static final int MAX_BACKGROUND_ALPHA = 0xB0;
 
@@ -80,6 +87,21 @@ public final class OverlayLayout {
     /** True when {@code pos} selects a bottom corner. */
     public static boolean isBottom(int pos) {
         return pos == BOTTOM_LEFT || pos == BOTTOM_RIGHT;
+    }
+
+    /**
+     * Colour of one bar of the CPS sparkline in the settings screen.
+     *
+     * <p>Green under 60% of the configured cap, yellow up to 85%, red above
+     * that, so the graph answers "am I close to the limiter" at a glance.
+     * Kept here, free of Minecraft types, so it can be unit tested.
+     */
+    public static int cpsBarColor(int cps, int maxCps) {
+        int cap = Math.max(1, maxCps);
+        double ratio = Math.max(0, cps) / (double) cap;
+        if (ratio < 0.6) return COLOR_CPS_LOW;
+        if (ratio < 0.85) return COLOR_CPS_MID;
+        return COLOR_CPS_HIGH;
     }
 
     /** Human-readable corner name, used by the settings screen and stats. */
