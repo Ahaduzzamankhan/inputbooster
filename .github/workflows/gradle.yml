@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag, for example v3.1.5-mc26.3. Leave empty to use gradle.properties."
+        description: "Release tag, for example v3.1.6-mc26.3. Leave empty to use gradle.properties."
         required: false
         type: string
 
@@ -179,12 +179,16 @@ jobs:
         run: |
           set -euo pipefail
           tag="${{ steps.release.outputs.tag }}"
+          # Published as a stable release: the 3.1.x line is what players are
+          # told to install, and marking it a prerelease hides it from the
+          # default releases list.
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" release-artifacts/*.jar --clobber
-            gh release edit "$tag" --notes-file release-notes.md --prerelease
+            gh release edit "$tag" --notes-file release-notes.md \
+              --prerelease=false --latest
           else
             gh release create "$tag" release-artifacts/*.jar \
               --title "InputBooster $tag" \
               --notes-file release-notes.md \
-              --prerelease
+              --prerelease=false --latest
           fi
