@@ -122,6 +122,18 @@ jobs:
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          # A semver pre-release (4.0.0-alpha-mc26.3) must be published as a
+          # GitHub prerelease and must not become "Latest": the stable 3.1.x
+          # line is what players are told to install. The "-mc<version>" suffix
+          # every tag carries is stripped first, otherwise v3.1.7-mc26.2 would
+          # look like a pre-release too.
+          base="${tag#v}"
+          base="${base%-mc*}"
+          if [[ "$base" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Download built jars
         uses: actions/download-artifact@v4
@@ -150,8 +162,10 @@ jobs:
           mc="$(grep '^minecraft_version=' fabric/gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
           # Only compare against tags for the SAME Minecraft version. Picking
           # the newest tag overall made the 26.2 release list the 26.3 changes.
+          # The optional group after [0-9.]+ is a semver pre-release suffix, so
+          # 4.0.0-alpha-mc26.2 still finds 3.1.7-mc26.2 as its predecessor.
           previous_tag="$(git tag --sort=-creatordate \
-            | grep -E "^v[0-9.]+-mc${mc//./\\.}$" \
+            | grep -E "^v[0-9.]+(-[0-9A-Za-z.]+)?-mc${mc//./\\.}$" \
             | grep -v "^${tag}$" | head -n 1 || true)"
 
           {
@@ -183,16 +197,22 @@ jobs:
         run: |
           set -euo pipefail
           tag="${{ steps.release.outputs.tag }}"
-          # Published as a stable release: the 3.1.x line is what players are
-          # told to install, and marking it a prerelease hides it from the
-          # default releases list.
+          prerelease="${{ steps.release.outputs.prerelease }}"
+          # Stable tags are published as the latest release: the 3.1.x line is
+          # what players are told to install, and marking it a prerelease hides
+          # it from the default releases list. A -alpha/-beta tag is published
+          # as a prerelease instead, so it never takes that slot.
+          latest=(--latest=false)
+          if [[ "$prerelease" == "false" ]]; then
+            latest=(--latest)
+          fi
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" release-artifacts/*.jar --clobber
             gh release edit "$tag" --notes-file release-notes.md \
-              --prerelease=false --latest
+              --prerelease="$prerelease" "${latest[@]}"
           else
             gh release create "$tag" release-artifacts/*.jar \
               --title "InputBooster $tag" \
               --notes-file release-notes.md \
-              --prerelease=false --latest
+              --prerelease="$prerelease" "${latest[@]}"
           fi
