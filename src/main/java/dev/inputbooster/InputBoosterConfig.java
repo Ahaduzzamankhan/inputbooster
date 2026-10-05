@@ -144,7 +144,9 @@ public class InputBoosterConfig {
                 clickSoundsEnabled = parseBool(props, "click_sounds",         false);
                 clickSoundPitch   = Math.max(0.5f, Math.min(2.0f, parseFloat(props, "click_sound_pitch", 1.35f)));
                 clickSoundVolume  = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "click_sound_volume", 0.35f)));
-                configVersion     = Math.max(1, parseInt(props, "config_version", 303));
+                // migrate() already normalised this; read it back rather than
+                // re-parsing the pre-migration value.
+                configVersion     = Math.max(1, parseInt(props, "config_version", CONFIG_VERSION));
                 showF3Info        = parseBool(props, "show_f3_info",          true);
                 showKeystrokes    = parseBool(props, "show_keystrokes",       true);
                 overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", 0)));
@@ -205,14 +207,18 @@ public class InputBoosterConfig {
             props.setProperty("show_action_bar",     String.valueOf(showActionBar));
             props.setProperty("fps_check_interval",  String.valueOf(fpsCheckInterval));
             props.setProperty("debug_mode",          String.valueOf(debugMode));
-            Path temp = Files.createTempFile(parent, "inputbooster", ".tmp");
+            // FIX (save could not create a temp file): createTempFile needs a
+            // real parent directory, so a config path with no parent threw.
+            Path tempDir = (parent == null) ? Paths.get(".") : parent;
+            Files.createDirectories(tempDir);
+            Path temp = Files.createTempFile(tempDir, "inputbooster", ".tmp");
             try (OutputStream out = Files.newOutputStream(temp)) {
                 props.store(out, "InputBooster " + dev.inputbooster.InputBoosterMod.MOD_VERSION
                     + " configuration - by Ahaduzzaman Khan");
             }
             try {
-                Files.move(temp, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE);
+                Files.move(temp, CONFIG_PATH.toAbsolutePath(),
+                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             } catch (AtomicMoveNotSupportedException e) {
                 Files.move(temp, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING);
             }
@@ -333,7 +339,11 @@ public class InputBoosterConfig {
         burstModeEnabled = true; maxCps = 20; comboKeysEnabled = true;
         cpsMode = "FIXED"; replayEnabled = true; safeModeEnabled = true;
         eventLogEnabled = true; keyConflictWarn = true; perServerProfiles = true;
-        clickSoundsEnabled = false; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f; configVersion = 303;
+        // FIX (migrated on every launch): this used to hardcode 303 while
+        // CONFIG_VERSION is 304, so a freshly written config reported itself as
+        // outdated and migrate() ran again on the next load.
+        clickSoundsEnabled = false; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f;
+        configVersion = CONFIG_VERSION;
         showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
         overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
     }

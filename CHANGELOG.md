@@ -1,5 +1,43 @@
 # Changelog
 
+## 3.1.6 - HUD visibility fix
+
+The corner HUD badge never appeared in-game. This release fixes that and the
+other defects found while auditing it.
+
+| Branch | Minecraft | Jar |
+| ------ | --------- | --- |
+| `fabric-26.2` | 26.2 | `inputbooster-3.1.6-fabric-mc262.jar` |
+| `fabric-26.3` | 26.3 | `inputbooster-3.1.6-fabric-mc263.jar` |
+
+### Fixed
+
+- **CRITICAL - the corner HUD was invisible.** The badge was submitted to the
+  GUI render state every frame but never drawn. Its two text colours were
+  written as RGB literals whose alpha byte was `0x00` (`0x55FFFF` aqua and
+  `0xFFAA00` orange). Minecraft treats a zero alpha as "do not draw" — its own
+  `GuiGraphicsExtractor.text` short-circuits on `ARGB.alpha(color) == 0` — so
+  the text was blended away completely. The colours now carry an explicit
+  `0xFF` alpha, and the configured opacity is applied to that alpha.
+- **The Overlay Scale slider had no effect.** The scale was applied to the
+  panel's width and height but the pose matrix was the identity, so glyphs
+  always rendered at 1x. The pose now translates to the chosen corner and
+  scales about it, so a scaled badge stays anchored to that corner.
+- **The badge drew over a hidden HUD.** `GuiRenderState.isHudHidden` (F1) was
+  ignored, so the overlay kept rendering on top of a HUD the player had
+  explicitly hidden.
+- **The HUD injection could vanish silently.** It was declared `require = 0`,
+  so a mapping change would drop the badge with no error and no log line. It is
+  now `require = 1` and fails loudly, matching the rest of the mod's critical
+  path.
+- **The config reported itself outdated on every launch.** `resetDefaults()`
+  hardcoded version 303 while the current schema is 304, so a freshly written
+  config was migrated again the next time it loaded.
+- **Saving the config could fail when the path has no parent directory.**
+  `Files.createTempFile` was called with a possibly-null parent, which throws.
+
+# Changelog
+
 ## 3.1.5 - Launch crash fix, per-version Fabric branches
 
 The 3.1.4 jars still could not start the client:
