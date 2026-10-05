@@ -24,7 +24,7 @@
 >
 > Current release: `4.0.0-alpha` — Fabric only: branch `fabric-26.2` for Minecraft 26.2 and branch `fabric-26.3` for Minecraft 26.3. NeoForge support is paused.
 >
-> 4.0.0-alpha moves the settings screen into the vanilla options layout (**Options → InputBooster → InputBooster**) and makes every rendering path work on Minecraft's Vulkan backend. Sodium and Iris are not required and not depended on.
+> 4.0.0-alpha moves the settings screen into the vanilla options layout (**Options → InputBooster → InputBooster**) and makes every rendering path work on Minecraft's Vulkan backend. It also adds an optional entry to the Sodium options sidebar. Sodium and Iris are not required and not depended on.
 
 ---
 
@@ -52,6 +52,7 @@ InputBooster adds a dedicated input layer that can poll important controls at a 
 | 📊 **Live overlay** | View FPS, CPS, poll rate, recovered inputs, latency, module count, and more. |
 | 🛡️ **Safe Mode** | Can disable active modules after repeated internal errors. |
 | 🎛️ **Modern GUI** | Vanilla options layout: *Options → InputBooster → settings*, with live statistics and profiles. |
+| 🧩 **Works with Sodium** | Optional integration: InputBooster shows up in Sodium's options sidebar too. Not a dependency. |
 | 🖥️ **OpenGL + Vulkan** | The HUD, overlay and GUI go through Minecraft's render state, so they work on either backend. |
 | 🔎 **Keybind diagnostics** | Detect and log keybind conflicts. |
 

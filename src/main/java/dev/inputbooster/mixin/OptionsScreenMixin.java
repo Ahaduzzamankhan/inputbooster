@@ -2,6 +2,7 @@ package dev.inputbooster.mixin;
 
 import dev.inputbooster.screen.InputBoosterScreen;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.layouts.GridLayout;
 import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
@@ -19,9 +20,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * <h2>Why the button is no longer free-floating</h2>
  * 3.1.x drew the button at a hard-coded {@code width - 110, 6}, which is on
  * top of the options header and reads as an overlay bolted onto the screen. The
- * entry is now handed to the screen's own {@link HeaderAndFooterLayout} and
- * laid out by it, so it is positioned, focused and re-positioned on resize
- * exactly like the vanilla entries around it.
+ * entry is now added to the options screen's own {@link GridLayout} as its next
+ * free cell, so the grid grows by one row, re-centres itself and positions,
+ * focuses and re-lays-out the entry exactly like the vanilla entries around it.
+ * Nothing can overlap it, whatever the window size.
  *
  * <p>The injection runs at the {@code RETURN} of {@code init}, after vanilla
  * has already called {@code layout.visitWidgets(this::addRenderableWidget)} and
@@ -63,18 +65,17 @@ public class OptionsScreenMixin extends Screen {
             .width(Button.DEFAULT_WIDTH)
             .build();
 
-        // Anchored to the bottom of the content area: the options grid is
-        // centred in that area and is shorter than it, so the entry always has
-        // room and never overlaps the "Done" button in the footer.
-        //
-        // The settings are applied by a method on InputBoosterScreen rather
-        // than by a lambda here: Mixin merges every member of a class-form
-        // mixin into its target and rejects what it cannot merge, and a
-        // lambda that captures nothing compiles to a *static* synthetic
-        // method, which Mixin aborts on with "contains non-private static
-        // method". A method reference to a static method on another class
-        // produces no synthetic member at all.
-        screenLayout.addToContents(entry, InputBoosterScreen::anchorEntryToContentBottom);
+        // The entry joins the options grid as its next free cell, so the grid
+        // grows by a row and re-centres itself. Anchoring the button at a fixed
+        // offset instead drew it straight over the last vanilla row on short
+        // windows, which is exactly what a hard-coded position always risks.
+        GridLayout grid = InputBoosterScreen.findOptionsGrid(screenLayout);
+        if (grid == null || !InputBoosterScreen.addToOptionsGrid(grid, entry)) {
+            // No grid to join (a future options screen may drop it): fall back
+            // to the bottom of the content area, which still cannot collide
+            // with the Done button in the footer.
+            screenLayout.addToContents(entry, InputBoosterScreen::anchorEntryToContentBottom);
+        }
 
         addRenderableWidget(entry);
         // Lays out the whole screen again so the new child gets its final

@@ -32,7 +32,8 @@ renderer-independence pass over everything the mod draws.
 - **Live session statistics** refresh once a second, with the CPS sparkline
   rendered inside the list and coloured against the configured CPS cap.
 - **Tests** covering the navigation chain, the GUI structure, the reachability
-  of every setting and the rendering rules below (99 tests in total).
+  of every setting, the rendering rules below and the optional Sodium
+  integration (107 tests in total).
 
 ### Changed
 
@@ -57,9 +58,17 @@ renderer-independence pass over everything the mod draws.
 - **The floating options button is gone.** Through 3.1.7 the `InputBooster`
   entry was drawn at a hard-coded `width - 110, 6`, on top of the options
   header, outside the screen layout, and it was never repositioned on resize.
-  It is now handed to the options screen's own `HeaderAndFooterLayout` and
-  anchored to the bottom of the content area, so it is positioned, focused and
-  re-laid-out exactly like the vanilla entries around it.
+  It is now added to the options screen's own `GridLayout` as its next free
+  cell, so the grid grows by one row and re-centres itself — the entry is
+  positioned, focused and re-laid-out exactly like the vanilla entries around
+  it, and nothing can overlap it at any window size. The cell is measured from
+  the grid's own contents rather than hard-coded, so it also survives a
+  Minecraft version that adds or removes an options button.
+- **InputBooster now appears in Sodium's options sidebar**, next to the entries
+  other mods add there, and opens the same settings screen. The integration is
+  reflective and optional: Sodium is still not a dependency, the mod loads
+  unchanged without it, and a Sodium build that moves its API only costs the
+  sidebar entry.
 - **Settings are saved on every exit.** The configuration is flushed from
   `removed()`, the one callback the Done button, Escape and any other screen
   transition all reach, instead of only from a dedicated Save button.
