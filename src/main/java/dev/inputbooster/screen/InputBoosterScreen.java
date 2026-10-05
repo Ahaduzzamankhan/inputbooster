@@ -14,7 +14,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.CycleButton;
-import net.minecraft.client.gui.components.MultiLineTextWidget;
+import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
@@ -83,13 +83,29 @@ public class InputBoosterScreen extends OptionsSubScreen {
     /** Ticks between two refreshes of the live statistics block. */
     private static final int STATS_REFRESH_TICKS = 20;
 
+    /**
+     * Usable height of one row in the vanilla options list.
+     *
+     * <p>{@code OptionsList} is constructed with a fixed row height of 25 and
+     * {@code getContentHeight()} reports 21 of it; {@code Entry#extractContent}
+     * then places every widget at the row's top-left and never looks at the
+     * widget's own height. Anything taller than this therefore draws straight
+     * over the rows below it, which is why the statistics are one single-line
+     * widget per row and the sparkline is exactly this tall.
+     */
+    private static final int ROW_CONTENT_HEIGHT = 20;
+
+    /** Number of single-line rows the session statistics block occupies. */
+    private static final int STAT_LINE_COUNT = 6;
+
     /** Widgets that only make sense while the poll rate is pinned manually. */
     private final List<AbstractWidget> manualPollWidgets = new ArrayList<>();
 
-    private MultiLineTextWidget statsText;
+    /** One single-line widget per statistics row, refreshed once a second. */
+    private final List<StringWidget> statLines = new ArrayList<>();
+
     private CpsSparklineWidget sparkline;
     private SettingSlider pollRateSlider;
-    private int statsTextLines;
     private int ticksSinceStatsRefresh;
 
     public InputBoosterScreen(Screen parent) {
@@ -273,10 +289,15 @@ public class InputBoosterScreen extends OptionsSubScreen {
     private void addStatsSection() {
         section("inputbooster.section.stats");
 
-        statsText = new MultiLineTextWidget(statsMessage(), font);
-        statsTextLines = lineCount(statsText.getMessage());
-        statsText.setMaxRows(8);
-        big(statsText);
+        // One single-line widget per row: an options row is a fixed 25px tall,
+        // so a multi-line block would be drawn over the rows underneath it.
+        statLines.clear();
+        for (int i = 0; i < STAT_LINE_COUNT; i++) {
+            StringWidget line = new StringWidget(Component.empty(), font);
+            line.setMaxWidth(Button.BIG_WIDTH);
+            statLines.add(line);
+            big(line);
+        }
 
         sparkline = new CpsSparklineWidget(
             Component.translatable("inputbooster.option.cps_graph"), InputBoosterMod.sessionStats);
@@ -291,6 +312,8 @@ public class InputBoosterScreen extends OptionsSubScreen {
             .width(Button.BIG_WIDTH)
             .tooltip(Tooltip.create(Component.translatable("inputbooster.tip.reset_peak")))
             .build());
+
+        refreshStats();
     }
 
     private void addProfilesSection() {
@@ -309,8 +332,10 @@ public class InputBoosterScreen extends OptionsSubScreen {
 
         List<ProfileManager.Profile> profiles = manager.getProfiles();
         if (profiles.isEmpty()) {
-            big(new MultiLineTextWidget(
-                Component.translatable("inputbooster.profiles.empty"), font));
+            StringWidget empty = new StringWidget(
+                Component.translatable("inputbooster.profiles.empty"), font);
+            empty.setMaxWidth(Button.BIG_WIDTH);
+            big(empty);
         }
         for (int i = 0; i < profiles.size(); i++) {
             ProfileManager.Profile profile = profiles.get(i);
@@ -370,40 +395,36 @@ public class InputBoosterScreen extends OptionsSubScreen {
     }
 
     private void refreshStats() {
-        if (statsText == null) return;
+        if (statLines.isEmpty()) return;
         if (sparkline != null) sparkline.stats = InputBoosterMod.sessionStats;
 
-        Component summary = statsMessage();
-        if (lineCount(summary) != statsTextLines) {
-            // The options list measures each row once, so a block that grows or
-            // shrinks by a line has to be laid out again or the rows below it
-            // would overlap it.
-            rebuildWidgets();
-            return;
+        List<Component> lines = statsLines();
+        for (int i = 0; i < statLines.size(); i++) {
+            statLines.get(i).setMessage(i < lines.size() ? lines.get(i) : Component.empty());
         }
-        statsText.setMessage(summary);
     }
 
-    private static int lineCount(Component component) {
-        return component.getString().split("\n", -1).length;
-    }
-
-    private Component statsMessage() {
+    /** The session statistics, one component per options-list row. */
+    private List<Component> statsLines() {
+        List<Component> lines = new ArrayList<>(STAT_LINE_COUNT);
         SessionStats stats = InputBoosterMod.sessionStats;
         if (stats == null) {
-            return Component.translatable("inputbooster.stats.unavailable");
+            lines.add(Component.translatable("inputbooster.stats.unavailable"));
+            return lines;
         }
         boolean bursting = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
-        return Component.translatable("inputbooster.stats.summary",
-            stats.getSessionStartTime(),
-            stats.getUptimeFormatted(),
-            stats.getTotalRecovered(),
-            stats.getEstimatedMissedInputs(),
-            LatencyProfiler.formatForOverlay(),
+        lines.add(Component.translatable("inputbooster.stats.started",
+            stats.getSessionStartTime(), stats.getUptimeFormatted()));
+        lines.add(Component.translatable("inputbooster.stats.recovered", stats.getTotalRecovered()));
+        lines.add(Component.translatable("inputbooster.stats.missed", stats.getEstimatedMissedInputs()));
+        lines.add(Component.literal(LatencyProfiler.formatForOverlay()));
+        lines.add(Component.translatable("inputbooster.stats.poller",
             Component.translatable(stats.isPollingThreadAlive()
                 ? "inputbooster.value.running"
-                : "inputbooster.value.stopped"),
-            bursting ? 1000 : InputBoosterMod.currentPollHz);
+                : "inputbooster.value.stopped")));
+        lines.add(Component.translatable("inputbooster.stats.poll_rate",
+            bursting ? 1000 : InputBoosterMod.currentPollHz));
+        return lines;
     }
 
     // ── Persistence ─────────────────────────────────────────────────────────
@@ -644,7 +665,7 @@ public class InputBoosterScreen extends OptionsSubScreen {
         private SessionStats stats;
 
         CpsSparklineWidget(Component label, SessionStats stats) {
-            super(0, 0, Button.BIG_WIDTH, 34, label);
+            super(0, 0, Button.BIG_WIDTH, ROW_CONTENT_HEIGHT, label);
             this.stats = stats;
             setTooltip(Tooltip.create(Component.translatable("inputbooster.tip.cps_graph")));
         }

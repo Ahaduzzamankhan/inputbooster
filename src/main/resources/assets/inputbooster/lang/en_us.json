@@ -72,7 +72,11 @@
   "inputbooster.profiles.empty": "No profiles saved yet. Use the buttons below to store the current setup.",
   "inputbooster.profiles.unavailable": "Profiles unavailable — mod not initialised",
 
-  "inputbooster.stats.summary": "Session started %s (up %s)\nInputs recovered: %s\nEstimated missed without mod: %s\n%s\nPoll thread: %s\nPoll rate: %s Hz",
+  "inputbooster.stats.started": "Session started %s (up %s)",
+  "inputbooster.stats.recovered": "Inputs recovered: %s",
+  "inputbooster.stats.missed": "Estimated missed without mod: %s",
+  "inputbooster.stats.poller": "Poll thread: %s",
+  "inputbooster.stats.poll_rate": "Poll rate: %s Hz",
   "inputbooster.stats.unavailable": "Session statistics are not available yet — the mod is still initialising.",
 
   "inputbooster.tip.poll_rate": "How often the input is sampled between game ticks. Manual mode pins this value; automatic mode adapts it to your frame rate.",
