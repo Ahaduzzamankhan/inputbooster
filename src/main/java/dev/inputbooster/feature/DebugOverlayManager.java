@@ -3,7 +3,7 @@ package dev.inputbooster.feature;
 import dev.inputbooster.InputActionQueue;
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
-import dev.inputbooster.mixin.MixinAccess;
+import dev.inputbooster.access.MixinAccess;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;

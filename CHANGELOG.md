@@ -1,5 +1,46 @@
 # Changelog
 
+## 3.1.7 - Crash fix
+
+3.1.6 could not start: it crashed on the very first render frame. This release
+fixes the crash and the degraded behaviour that was hiding it.
+
+| Branch | Minecraft | Jar |
+| ------ | --------- | --- |
+| `fabric-26.2` | 26.2 | `inputbooster-3.1.7-fabric-mc262.jar` |
+| `fabric-26.3` | 26.3 | `inputbooster-3.1.7-fabric-mc263.jar` |
+
+### Fixed
+
+- **CRITICAL - the game crashed on the first rendered frame.**
+  `IllegalClassLoadError: dev.inputbooster.mixin.MixinAccess is in a defined
+  mixin package dev.inputbooster.mixin.* owned by inputbooster.mixins.json and
+  cannot be referenced directly`. The helper that calls the accessor mixins
+  lived inside the package declared by `inputbooster.mixins.json`, and Mixin
+  refuses to load anything there that is not a mixin itself. It now lives in
+  `dev.inputbooster.access`.
+- **CRITICAL - the accessor mixins could never have been called.** They were
+  declared as abstract classes. Mixin only classifies a mixin as a loadable
+  accessor (`MixinInfo.getVariant` returning `Variant.ACCESSOR`) when the mixin
+  is an **interface** whose methods are all accessors; a class-form accessor is
+  registered as an ordinary, non-loadable mixin, so casting to it aborts the
+  client the same way. `GuiAccessor`, `KeyMappingAccessor` and
+  `MinecraftClientAccessor` are now interfaces, which is the form Fabric API
+  itself ships. Only the interface form can be referenced from running code.
+- **The same failure was being swallowed at startup.** `KeyBindingSet` wrapped
+  the call in `catch (Throwable)`, so every unreadable key binding silently
+  fell back to its vanilla default. That is what the
+  "Could not read every key binding; using vanilla defaults for the rest"
+  warning in 3.1.6 was reporting - it was the crash, already caught. The cause
+  is now logged once instead of being reduced to a fallback.
+
+### Added
+
+- Tests that enforce the rules above: every class compiled into
+  `dev.inputbooster.mixin` must be a registered mixin, the accessors that are
+  cast at runtime must be loadable interfaces, and no class outside the mixin
+  package may reference a mixin class that Mixin cannot load.
+
 ## 3.1.6 - HUD visibility fix
 
 The corner HUD badge never appeared in-game. This release fixes that and the

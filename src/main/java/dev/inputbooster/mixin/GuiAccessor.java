@@ -1,5 +1,6 @@
 package dev.inputbooster.mixin;
 
+import dev.inputbooster.access.MixinAccess;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -10,12 +11,16 @@ import org.spongepowered.asm.mixin.gen.Accessor;
  * per-frame graphics extractor, so the overlay needs access to the Gui's
  * render state to enqueue its text.
  *
- * <p>Declared as an abstract class because {@link Gui} is a class. The mixin
- * holds only the accessor; use {@link MixinAccess#renderState(Gui)} to read it.
+ * <p>Declared as an interface on purpose. {@link Gui} is a class, and Mixin
+ * classifies a mixin as a loadable accessor only when it is an interface whose
+ * methods are all accessors ({@code MixinInfo.getVariant}). A class-form
+ * accessor is registered as a non-loadable mixin, so casting to it at runtime
+ * makes Mixin throw {@code IllegalClassLoadError} and kills the client. Use
+ * {@link MixinAccess#renderState(Gui)} to read the value.
  */
 @Mixin(Gui.class)
-public abstract class GuiAccessor {
+public interface GuiAccessor {
 
     @Accessor("guiRenderState")
-    public abstract GuiRenderState inputbooster$renderState();
+    GuiRenderState inputbooster$renderState();
 }

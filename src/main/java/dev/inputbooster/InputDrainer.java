@@ -3,7 +3,7 @@ package dev.inputbooster;
 import dev.inputbooster.compat.McVersion;
 import dev.inputbooster.feature.LatencyProfiler;
 import dev.inputbooster.feature.InputClickSoundManager;
-import dev.inputbooster.mixin.MixinAccess;
+import dev.inputbooster.access.MixinAccess;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;

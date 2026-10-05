@@ -1,6 +1,9 @@
-package dev.inputbooster.mixin;
+package dev.inputbooster.access;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.inputbooster.mixin.GuiAccessor;
+import dev.inputbooster.mixin.KeyMappingAccessor;
+import dev.inputbooster.mixin.MinecraftClientAccessor;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -9,15 +12,26 @@ import net.minecraft.client.renderer.state.gui.GuiRenderState;
 /**
  * Call sites for the mod's accessor and invoker mixins.
  *
- * <p>These helpers live outside the mixin classes on purpose. Mixin copies every
- * method of a class-form mixin into its target, and it rejects any method it
- * cannot merge: a {@code public static} helper inside the mixin aborts the game
- * with "contains non-private static method ..." during the apply phase. Only
- * private statics are tolerated, and those cannot be called from outside.
+ * <p>This class lives outside {@code dev.inputbooster.mixin} on purpose, for
+ * two separate Mixin rules.
  *
- * <p>A class-form mixin is also not a compile-time supertype of its target, so
- * the casts below go through {@link Object}. Each helper degrades to a safe
- * fallback when its mixin is not applied.
+ * <ol>
+ *   <li>Mixin refuses to load any class that sits in a package declared by a
+ *       mixin config unless it is itself a loadable mixin. A plain helper in
+ *       that package crashes the client on the first render frame with
+ *       {@code IllegalClassLoadError: ... is in a defined mixin package
+ *       dev.inputbooster.mixin.* and cannot be referenced directly}.
+ *   <li>Mixin copies every member of a class-form mixin into its target and
+ *       rejects what it cannot merge: a {@code public static} helper inside a
+ *       mixin aborts the game with "contains non-private static method ..."
+ *       during the apply phase. Only private statics are tolerated, and those
+ *       cannot be called from outside.
+ * </ol>
+ *
+ * <p>A mixin is also not a compile-time supertype of its target, so the casts
+ * below go through {@link Object}. The accessor mixins themselves are declared
+ * as interfaces, which is what makes them loadable and safe to reference here.
+ * Each helper degrades to a safe fallback when its mixin is not applied.
  */
 public final class MixinAccess {
 
