@@ -148,7 +148,11 @@ jobs:
           set -euo pipefail
           tag="${{ steps.release.outputs.tag }}"
           mc="$(grep '^minecraft_version=' fabric/gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
-          previous_tag="$(git tag --sort=-creatordate | grep '^v' | grep -v "^${tag}$" | head -n 1 || true)"
+          # Only compare against tags for the SAME Minecraft version. Picking
+          # the newest tag overall made the 26.2 release list the 26.3 changes.
+          previous_tag="$(git tag --sort=-creatordate \
+            | grep -E "^v[0-9.]+-mc${mc//./\\.}$" \
+            | grep -v "^${tag}$" | head -n 1 || true)"
 
           {
             echo "## InputBooster ${tag}"
