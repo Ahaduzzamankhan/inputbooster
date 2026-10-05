@@ -51,16 +51,32 @@ one of the two source directories from `minecraft_version`.
 These caused real launch crashes and are now enforced by
 `fabric/src/test/java/dev/inputbooster/MixinDeclarationTest.java`:
 
-1. A mixin whose target is a class must be an `abstract class`, never an
-   `interface`. An interface-form mixin fails with
-   `@Mixin target type mismatch: … is not an interface`.
-2. A class-form mixin may not declare static methods. Mixin merges everything
+1. **A declared mixin package is a reserved namespace.** Mixin refuses to load
+   anything inside `dev.inputbooster.mixin` at runtime unless it is a mixin
+   itself, and aborts with
+   `IllegalClassLoadError: … is in a defined mixin package dev.inputbooster.mixin.* … cannot be referenced directly`.
+   Every class in that package must therefore be listed in
+   `inputbooster.mixins.json`. Plain helpers belong outside it, which is why the
+   call-site utility is `dev.inputbooster.access.MixinAccess`.
+2. **An accessor or invoker mixin that is called from running code must be an
+   `interface`, even when its target is a class.** `MixinInfo.getVariant`
+   returns the loadable `ACCESSOR` variant only for an interface whose methods
+   are all `@Accessor`/`@Invoker`; any other shape is an ordinary, non-loadable
+   mixin and casting to it throws the `IllegalClassLoadError` from rule 1.
+   Fabric API ships this form: `KeyMappingAccessor` and `ScreenAccessor` are
+   interfaces targeting the classes `KeyMapping` and `Screen`.
+3. **An interface mixin that carries a non-accessor method needs an interface
+   target.** Mixin then rejects a class target with
+   `@Mixin target type mismatch: … is not an interface`. So the `@Inject`
+   mixins (`GameTickMixin`, `InGameHudMixin`, `OptionsScreenMixin`) target
+   classes and must stay classes.
+4. A class-form mixin may not declare static methods. Mixin merges everything
    into the target and aborts with
-   `contains non-private static method …`. Call sites therefore use
-   `dev.inputbooster.mixin.MixinAccess`, a plain utility class, and the casts go
-   through `Object` because a class-form mixin is not a compile-time supertype
-   of its target.
-3. A mixin may not declare a non-private constructor.
-4. Fabric loader 0.19.5 cannot evaluate a bracket range such as `[26.2,26.3)`
+   `contains non-private static method …`. This is a second, independent
+   reason the call-site helper lives outside the mixin package. The casts go
+   through `Object`, because a mixin is not a compile-time supertype of its
+   target.
+5. A mixin may not declare a non-private constructor.
+6. Fabric loader 0.19.5 cannot evaluate a bracket range such as `[26.2,26.3)`
    for a two-component Minecraft version, so the declared dependency uses the
    comparator form `">=26.2 <26.3"`.
