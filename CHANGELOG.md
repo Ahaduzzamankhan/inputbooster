@@ -63,6 +63,12 @@ renderer-independence pass over everything the mod draws.
 - **Settings are saved on every exit.** The configuration is flushed from
   `removed()`, the one callback the Done button, Escape and any other screen
   transition all reach, instead of only from a dedicated Save button.
+- **Options-row overflow.** A vanilla `OptionsList` row is a fixed 25 px tall
+  with 21 px of usable height, and `Entry#extractContent` places each widget at
+  the row's top without looking at the widget's own height. Every widget the GUI
+  adds now fits that row: the session statistics are one single-line widget per
+  row rather than a multi-line block, and the CPS sparkline is exactly one row
+  tall.
 
 ### Notes
 
