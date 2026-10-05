@@ -210,6 +210,29 @@ class OptionsNavigationTest {
     }
 
     @Test
+    void noWidgetIsTallerThanAnOptionsListRow() throws Exception {
+        // OptionsList is constructed with a fixed item height of 25, and
+        // Entry#extractContent places every widget at the row's content top
+        // without ever looking at the widget's own height. Anything taller than
+        // the 21px of usable row height is therefore drawn straight over the
+        // rows below it. A multi-line text block was exactly that bug.
+        String screen = source(SCREEN);
+        assertFalse(screen.contains("MultiLineTextWidget"),
+            "a multi-line text block cannot fit a fixed 25px options row and would be drawn over "
+                + "the rows below it; use one StringWidget per row");
+
+        // The one custom widget that is not a vanilla control must be sized
+        // from the shared constant rather than a literal, so the constraint is
+        // stated in one place.
+        assertTrue(screen.contains("ROW_CONTENT_HEIGHT = 20"),
+            "the usable row height must be declared once; it is 20 of the 25px row");
+        assertTrue(screen.contains("super(0, 0, Button.BIG_WIDTH, ROW_CONTENT_HEIGHT, label)"),
+            "the sparkline is the only custom widget and must use ROW_CONTENT_HEIGHT");
+        assertFalse(Pattern.compile("super\\(0, 0, [A-Za-z.]+, \\d{2,}").matcher(screen).find(),
+            "custom widgets must not hard-code a height taller than an options row");
+    }
+
+    @Test
     void theScreenSavesTheConfigurationWhenItCloses() throws Exception {
         String screen = source(SCREEN);
         assertTrue(screen.contains("public void removed()"),
