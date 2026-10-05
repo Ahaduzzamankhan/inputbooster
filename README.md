@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Minecraft-1.21.11-62b47a?style=for-the-badge&logo=minecraft&logoColor=white" alt="Minecraft 1.21.11">
   <img src="https://img.shields.io/badge/Fabric-Client--Side-DBD0B5?style=for-the-badge" alt="Fabric">
   <img src="https://img.shields.io/badge/Java-21%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21+">
-  <img src="https://img.shields.io/badge/Version-3.1.6-8B5CF6?style=for-the-badge" alt="Version 3.1.6">
+  <img src="https://img.shields.io/badge/Version-3.1.7-8B5CF6?style=for-the-badge" alt="Version 3.1.7">
 </p>
 
 <p align="center">
@@ -21,9 +21,9 @@
 
 > **InputBooster** is a client-side mod (NeoForge and Fabric) focused on making keyboard and mouse input feel more consistent during PvP, survival, and low-FPS gameplay.
 >
-> Current release: `3.1.6` — Fabric only: branch `fabric-26.2` for Minecraft 26.2 and branch `fabric-26.3` for Minecraft 26.3. NeoForge support is paused.
+> Current release: `3.1.7` — Fabric only: branch `fabric-26.2` for Minecraft 26.2 and branch `fabric-26.3` for Minecraft 26.3. NeoForge support is paused.
 >
-> 3.1.6 fixes the corner HUD, which was being drawn but stayed invisible: its text colours had a zero alpha byte, which Minecraft treats as "do not draw". The Overlay Scale slider now takes effect too.
+> 3.1.7 is a crash fix. If you are on 3.1.6, update: it aborts on the first rendered frame. The corner HUD fix from 3.1.6 is included and now works.
 
 ---
 

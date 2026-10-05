@@ -27,6 +27,9 @@ public final class KeyBindingSet {
     public static final int ATTACK = 0, USE = 1, SPRINT = 2, SNEAK = 3, JUMP = 4,
         FORWARD = 5, BACK = 6, LEFT = 7, RIGHT = 8, DROP = 9, SWAP = 10, PICK_BLOCK = 11;
 
+    /** Logs the first unreadable binding instead of degrading silently. */
+    private static volatile boolean KEY_READ_WARNED = false;
+
     /** Immutable; the polling thread only ever reads it. */
     public final int[] codes;
     /** True when at least one slot could not be resolved. */
@@ -50,8 +53,16 @@ public final class KeyBindingSet {
             int code = -1;
             if (mapping != null) {
                 try {
-                    code = dev.inputbooster.mixin.MixinAccess.boundKeyCode(mapping);
+                    code = dev.inputbooster.access.MixinAccess.boundKeyCode(mapping);
                 } catch (Throwable t) {
+                    // A swallowed failure here silently degrades every key to
+                    // its vanilla default, which is very hard to notice in
+                    // game. Surface it once so the cause is in the log.
+                    if (!KEY_READ_WARNED) {
+                        KEY_READ_WARNED = true;
+                        dev.inputbooster.InputBoosterMod.LOGGER.warn(
+                            "[Input] Could not read a key binding ({}): {}", t, i);
+                    }
                     code = -1;
                 }
             }
