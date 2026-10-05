@@ -604,7 +604,15 @@ public class InputBoosterScreen extends OptionsSubScreen {
         int row = existing.size() / columns;
         int column = existing.size() % columns;
 
-        grid.addChild(entry, row, column, grid.defaultCellSetting());
+        // The same cell metrics OptionsScreen applies to its own entries:
+        // 4px of horizontal padding per side and 4px below every row. Without
+        // them the entry would sit flush against the button next to it and the
+        // new row would touch the one above.
+        grid.addChild(entry, row, column,
+            grid.defaultCellSetting()
+                .paddingHorizontal(4)
+                .paddingBottom(4)
+                .alignHorizontallyCenter());
         return true;
     }
 

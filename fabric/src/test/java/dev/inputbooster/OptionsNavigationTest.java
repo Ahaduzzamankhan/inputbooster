@@ -161,6 +161,9 @@ class OptionsNavigationTest {
             "the entry must be added as a real grid cell; the grid then grows by a row and re-centres");
         assertTrue(screen.contains("grid.addChild(entry, row, column"),
             "the cell is placed with the grid's own addChild so it cannot collide with a vanilla button");
+        assertTrue(screen.contains("paddingHorizontal(4)") && screen.contains("paddingBottom(4)"),
+            "the entry must use the same cell metrics as the vanilla entries; with the plain "
+                + "defaults it would sit flush against its neighbour and touch the row above");
         assertTrue(screen.contains("anchorEntryToContentBottom"),
             "a fallback placement is kept for a future options screen without a grid");
 
