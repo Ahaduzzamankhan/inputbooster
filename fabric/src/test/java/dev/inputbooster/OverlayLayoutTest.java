@@ -105,4 +105,30 @@ class OverlayLayoutTest {
         assertEquals(OverlayLayout.originY(OverlayLayout.TOP_LEFT, 600, 20),
             OverlayLayout.originY(-4, 600, 20));
     }
+
+    @Test
+    void cpsSparklineColoursTrackTheLimiterCap() {
+        int cap = 20;
+        assertEquals(OverlayLayout.COLOR_CPS_LOW, OverlayLayout.cpsBarColor(0, cap));
+        assertEquals(OverlayLayout.COLOR_CPS_LOW, OverlayLayout.cpsBarColor(11, cap), "55% is still green");
+        assertEquals(OverlayLayout.COLOR_CPS_MID, OverlayLayout.cpsBarColor(12, cap), "60% turns yellow");
+        assertEquals(OverlayLayout.COLOR_CPS_MID, OverlayLayout.cpsBarColor(16, cap), "80% is still yellow");
+        assertEquals(OverlayLayout.COLOR_CPS_HIGH, OverlayLayout.cpsBarColor(17, cap), "85% turns red");
+        assertEquals(OverlayLayout.COLOR_CPS_HIGH, OverlayLayout.cpsBarColor(40, cap), "over the cap stays red");
+    }
+
+    @Test
+    void cpsSparklineColoursAreOpaqueAndSurviveABrokenCap() {
+        // A zero or negative cap used to divide by zero; a hand-edited config
+        // can still contain one.
+        for (int cap : new int[]{0, -5, Integer.MIN_VALUE}) {
+            assertEquals(OverlayLayout.COLOR_CPS_HIGH, OverlayLayout.cpsBarColor(20, cap),
+                "a cap of " + cap + " must not divide by zero");
+        }
+        assertEquals(0xFF, alpha(OverlayLayout.COLOR_CPS_LOW));
+        assertEquals(0xFF, alpha(OverlayLayout.COLOR_CPS_MID));
+        assertEquals(0xFF, alpha(OverlayLayout.COLOR_CPS_HIGH));
+        // A negative sample (impossible, but cheap to guard) must not be green.
+        assertEquals(OverlayLayout.COLOR_CPS_LOW, OverlayLayout.cpsBarColor(-5, 20));
+    }
 }

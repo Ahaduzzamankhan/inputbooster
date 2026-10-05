@@ -1,5 +1,74 @@
 # Changelog
 
+## 4.0.0-alpha - Modern GUI and Vulkan support
+
+A rebuild of the settings screen on Minecraft's own options APIs, plus a
+renderer-independence pass over everything the mod draws.
+
+| Branch | Minecraft | Jar |
+| ------ | --------- | --- |
+| `fabric-26.2` | 26.2 | `inputbooster-4.0.0-alpha-fabric-mc262.jar` |
+| `fabric-26.3` | 26.3 | `inputbooster-4.0.0-alpha-fabric-mc263.jar` |
+
+### Added
+
+- **Navigation is now Options → InputBooster → InputBooster GUI.** The
+  `InputBooster` entry lives in the vanilla options screen next to *Video
+  Settings*, *Controls* and the rest.
+- **Modern settings GUI.** `InputBoosterScreen` now extends
+  `OptionsSubScreen`, the base class behind *Video Settings*, *Controls*,
+  *Sounds*, *Chat* and *Accessibility*. It inherits the vanilla title header,
+  the `Done` footer, keyboard navigation, narration and the scrollable options
+  list that reflows with the window, so nothing on the screen is positioned by
+  hand-computed pixel arithmetic any more.
+- **Settings are grouped into sections** - Polling, Movement, Click & Feedback,
+  HUD Overlay, Safety & Diagnostics, Session Statistics and Profiles - with a
+  native checkbox, slider or cycle control for each one.
+- **Every setting is still reachable**, plus tooltips on every control. The
+  limiter shape (`FIXED` / `HUMANIZED` / `WEAPON_AWARE` / `COOLDOWN`) is now
+  selectable from the GUI instead of only from the config file.
+- **The whole GUI is translated** through `en_us.json` instead of hard-coded
+  strings.
+- **Live session statistics** refresh once a second, with the CPS sparkline
+  rendered inside the list and coloured against the configured CPS cap.
+- **Tests** covering the navigation chain, the GUI structure, the reachability
+  of every setting and the rendering rules below (99 tests in total).
+
+### Changed
+
+- **Vulkan compatibility.** Every drawing path now goes through Minecraft's own
+  abstractions - `GuiRenderState` for the HUD badge and `GuiGraphicsExtractor`
+  for the GUI - which the OpenGL and Vulkan backends both replay. The mod
+  contains no `org.lwjgl`, `GL11`/`GL20`/`GL30`, `GlStateManager` or
+  `RenderSystem` reference, and no Sodium, Iris, VulkanMod or other renderer is
+  a dependency; the mod remains compatible when they are installed.
+- **Input processing is untouched.** Polling, queueing and draining read only
+  window and key-binding state, never render state, so input timing is identical
+  on every backend.
+- **The JOML dependency was dropped.** Minecraft already ships JOML; the mod only
+  needs `Matrix3x2f` as the pose type `GuiRenderState#addText` asks for.
+  Declaring a second copy risked a classpath clash with the one the game had
+  already loaded.
+- The `org.joml:joml` and (unused) `org.lwjgl` version pins are gone from
+  `gradle.properties`.
+
+### Fixed
+
+- **The floating options button is gone.** Through 3.1.7 the `InputBooster`
+  entry was drawn at a hard-coded `width - 110, 6`, on top of the options
+  header, outside the screen layout, and it was never repositioned on resize.
+  It is now handed to the options screen's own `HeaderAndFooterLayout` and
+  anchored to the bottom of the content area, so it is positioned, focused and
+  re-laid-out exactly like the vanilla entries around it.
+- **Settings are saved on every exit.** The configuration is flushed from
+  `removed()`, the one callback the Done button, Escape and any other screen
+  transition all reach, instead of only from a dedicated Save button.
+
+### Notes
+
+- Minecraft 26.2 and 26.3 only. NeoForge support remains paused.
+- There is still no NeoForge or Modrinth publishing step in CI.
+
 ## 3.1.7 - Crash fix
 
 3.1.6 could not start: it crashed on the very first render frame. This release

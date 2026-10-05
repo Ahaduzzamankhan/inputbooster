@@ -26,6 +26,7 @@ one of the two source directories from `minecraft_version`.
 | Prediction type | class does not exist | `net.minecraft.util.Prediction` | 26.3 shim only |
 | LocalPlayer drop helper | `LocalPlayer.drop(boolean)` exists | removed | not used |
 | Options screen ctor | `(Screen, Options, boolean)` | `(Screen, Options)` | not constructed by the mod, only `init` is injected |
+| Options screen layout field | `private final HeaderAndFooterLayout layout` | same | shadowed by `OptionsScreenMixin` |
 | Screen narration | `runNarration(boolean)`, `updateNarratorStatus(boolean)` | both take a `NarrationTrigger` | not used |
 | Backend/graphics internals | `com.mojang.blaze3d.systems.GpuSurface`, `authlib…yggdrasil` | `com.mojang.renderpearl…`, `authlib…services` | not used |
 | Tracy instrumentation | absent | `jtracy` sections in `Minecraft` / `Gui` | not used |
@@ -76,7 +77,41 @@ These caused real launch crashes and are now enforced by
    reason the call-site helper lives outside the mixin package. The casts go
    through `Object`, because a mixin is not a compile-time supertype of its
    target.
-5. A mixin may not declare a non-private constructor.
-6. Fabric loader 0.19.5 cannot evaluate a bracket range such as `[26.2,26.3)`
+5. **A lambda that captures nothing inside a class-form mixin violates rule 4.**
+   `javac` compiles it to a *static* synthetic method in the enclosing mixin
+   class, so `settings -> settings.alignHorizontallyCenter()` is enough to abort
+   the game. A lambda that captures `this` becomes an instance synthetic method
+   and is fine; so is a method reference to a static method on another class,
+   which generates no synthetic member at all. This is why
+   `OptionsScreenMixin` applies the layout settings through
+   `InputBoosterScreen::anchorEntryToContentBottom` rather than an inline lambda.
+6. A mixin may not declare a non-private constructor.
+7. Fabric loader 0.19.5 cannot evaluate a bracket range such as `[26.2,26.3)`
    for a two-component Minecraft version, so the declared dependency uses the
    comparator form `">=26.2 <26.3"`.
+
+## Renderer independence (OpenGL and Vulkan)
+
+Minecraft 26.2 and 26.3 can drive the client through OpenGL **or** Vulkan.
+Anything that reaches past Minecraft's own abstractions into LWJGL or the GL
+bindings only exists on the OpenGL backend, so every drawing path in the mod
+uses the abstractions the backend-agnostic render state exposes:
+
+| What | API used | Backend agnostic because |
+| ---- | -------- | ----------------------- |
+| HUD poll-rate badge | `GuiRenderState#addText` with a `GuiTextRenderState` | The render state records the command; the backend replays it. |
+| Settings screen and widgets | `GuiGraphicsExtractor` (`fill`, `text`, …) | Same deferred submission as every vanilla screen. |
+| Input polling and queueing | `Window` / `KeyMapping` only | Never reads render state, so timing is identical everywhere. |
+
+Consequences that are enforced by
+`fabric/src/test/java/dev/inputbooster/RenderingApiTest.java`:
+
+- No source file and no shipped class may reference `org.lwjgl`,
+  `GlStateManager`, `RenderSystem`, `GL11`/`GL20`/`GL30`.
+- `org.joml:joml` and `org.lwjgl` are not declared in `fabric/build.gradle`.
+  Minecraft ships both; a second JOML on the classpath can differ from the one
+  the game already loaded. `org.joml.Matrix3x2f` is still used, but only as the
+  pose type `GuiRenderState#addText` requires.
+- Sodium, Iris, VulkanMod and every other renderer remain **optional**: none of
+  them is a dependency in `fabric.mod.json`, and the mod's mixins do not touch
+  the classes they replace.

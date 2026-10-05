@@ -24,8 +24,13 @@ dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
-    // Used by the HUD overlay to build the text transform matrix.
-    implementation "org.joml:joml:${joml_version}"
+    // NOTE: JOML is deliberately NOT declared here. Minecraft ships it, and the
+    // HUD overlay only uses org.joml.Matrix3x2f as the pose matrix type that
+    // GuiRenderState#addText asks for. Pinning a second copy on the classpath
+    // risks a version clash with the one the game already loaded; the same goes
+    // for LWJGL, which the mod never touches so that it stays renderer
+    // independent (OpenGL and Vulkan are both driven through Minecraft's own
+    // render state abstractions). `RenderingApiTest` enforces both rules.
     // Gson ships with Minecraft and is used for the profile file.
     implementation "com.google.code.gson:gson:${gson_version}"
 
