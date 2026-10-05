@@ -120,6 +120,44 @@ class MixinDeclarationTest {
     }
 
     @Test
+    void theHudInjectionIsRegisteredAndRequired() throws Exception {
+        // The corner HUD is drawn from this single injection. It used to be
+        // declared with require = 0, so a signature change made it vanish at
+        // runtime and the badge silently stopped rendering with no error.
+        List<String> mixins = clientMixins();
+        assertTrue(mixins.contains("InGameHudMixin"),
+            "InGameHudMixin must be registered in inputbooster.mixins.json, found " + mixins);
+
+        String source = Files.readString(Path.of("..", "src", "main", "java",
+            "dev", "inputbooster", "mixin", "InGameHudMixin.java"));
+        // Match the @Inject annotation itself, not prose elsewhere in the file:
+        // searching the whole source also matches the javadoc that explains it.
+        String annotation = null;
+        for (String line : source.split("\\R")) {
+            if (line.contains("@Inject")) annotation = line;
+        }
+        assertNotNull(annotation, "InGameHudMixin must declare an @Inject");
+        assertTrue(annotation.contains("require = 1"),
+            "the HUD injection must use require = 1 so a mapping change fails loudly "
+                + "instead of silently dropping the badge; found: " + annotation.trim());
+    }
+
+    @Test
+    void noMixinTargetsAVanillaTypeItDoesNotModify() throws Exception {
+        // DebugHudMixin targeted DebugScreenOverlay and declared nothing at
+        // all: it cost an entry in the mixin config and reloaded the vanilla
+        // debug-screen class for nothing.
+        for (String name : clientMixins()) {
+            String source = Files.readString(Path.of("..", "src", "main", "java",
+                "dev", "inputbooster", "mixin", name + ".java"));
+            assertTrue(source.contains("@Inject") || source.contains("@Accessor")
+                    || source.contains("@Invoker") || source.contains("@Shadow"),
+                name + " is registered but declares no accessor, invoker or injection, "
+                    + "so it only forces an extra class load at runtime");
+        }
+    }
+
+    @Test
     void injectedMembersFailLoudlyByDefault() throws Exception {
         JsonObject injectors = config().getAsJsonObject("injectors");
         assertNotNull(injectors, "injectors block must be declared");

@@ -4,6 +4,7 @@ import dev.inputbooster.InputActionQueue;
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
 import dev.inputbooster.mixin.MixinAccess;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Gui;
@@ -16,71 +17,81 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * F3 debug-screen overlay.
+ * The corner HUD badge.
  *
  * Minecraft 26.x renders the HUD through a deferred {@link GuiRenderState}
- * rather than a graphics extractor, so the overlay enqueues a text state while
- * the GUI render state is being built.
+ * rather than a graphics extractor, so the badge is enqueued as a
+ * {@link GuiTextRenderState} while the GUI render state is being built by
+ * {@link #extractRenderState(Minecraft, DeltaTracker)}.
+ *
+ * <p>All layout and colour maths lives in {@link OverlayLayout} so it can be
+ * covered by the automated tests.
  */
 public class DebugOverlayManager {
-
-    private static final int COLOR_AQUA   = 0x55FFFF;
-    private static final int COLOR_ORANGE = 0xFFAA00;
 
     /**
      * Adds the InputBooster poll-rate badge to the HUD render state.
      *
-     * FIX: the visibility check used to be inverted — it returned early exactly
-     * when the F3 debug screen was open, which is the only situation this
-     * overlay is meant to decorate.
+     * <p>FIX (badge never visible): the text colours were RGB constants with an
+     * alpha byte of {@code 0x00} ({@code 0x55FFFF} / {@code 0xFFAA00}).
+     * Minecraft drops text whose alpha is zero — {@code GuiGraphicsExtractor}
+     * even short-circuits on {@code ARGB.alpha(color) == 0} — so the badge was
+     * submitted every frame and blended away invisibly. Colours now carry an
+     * explicit {@code 0xFF} alpha and the configured opacity is applied to it.
+     *
+     * <p>FIX (scale slider did nothing): the pose matrix was the identity, so
+     * glyphs always rendered at 1x while the panel was sized as if scaled. The
+     * pose now translates to the chosen corner and scales about that origin.
+     *
+     * <p>FIX (badge drawn over a hidden HUD): {@code GuiRenderState.isHudHidden}
+     * (F1) was ignored, so the badge kept drawing over a HUD the player had
+     * explicitly hidden.
      */
-    public static void extractRenderState(Minecraft mc) {
-        if (!InputBoosterConfig.isShowF3Info()) return;
-        // Opacity 0 must mean "do not draw at all" — rendering a fully
-        // transparent panel still costs extraction work every frame.
-        if (InputBoosterConfig.getOverlayOpacity() <= 0.001f) return;
-        if (mc == null || mc.player == null) return;
-        if (mc.getDebugOverlay() == null || !mc.getDebugOverlay().showDebugScreen()) return;
+    public static void extractRenderState(Minecraft mc, DeltaTracker deltaTracker) {
+        if (mc == null) return;
+        // Opacity 0 must mean "do not draw at all".
+        float opacity = OverlayLayout.clampOpacity(InputBoosterConfig.getOverlayOpacity());
+        if (opacity <= 0.001f) return;
 
-        Gui gui = mc.gui;
-        GuiRenderState renderState = MixinAccess.renderState(gui);
+        GuiRenderState renderState = MixinAccess.renderState(mc.gui);
         if (renderState == null) return;
+        if (renderState.isHudHidden) return;
+        if (!InputBoosterConfig.isShowF3Info()) return;
 
         Font font = mc.font;
+        if (font == null) return;
+
         boolean burst = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
         int hz = burst ? 1000 : InputBoosterMod.currentPollHz;
 
         String text = hz + " Hz" + (burst ? " ⚡" : "");
-        int color = burst ? COLOR_ORANGE : COLOR_AQUA;
+        int baseColor = burst ? OverlayLayout.COLOR_ORANGE : OverlayLayout.COLOR_AQUA;
+        int color = OverlayLayout.withOpacity(baseColor, opacity);
+
+        float scale = OverlayLayout.clampScale(InputBoosterConfig.getOverlayScale());
+        int textW = font.width(text);
+        int lineH = font.lineHeight;
+        int panelW = Math.round(textW * scale);
+        int panelH = Math.round(lineH * scale);
 
         int screenW = mc.getWindow().getGuiScaledWidth();
         int screenH = mc.getWindow().getGuiScaledHeight();
-        int textW = font.width(text);
-        float scale = InputBoosterConfig.getOverlayScale();
-        int panelW = (int) (textW * scale);
-        int panelH = (int) (9 * scale);
-
         int pos = InputBoosterConfig.getOverlayPosition();
-        int originX;
-        int originY;
-        switch (pos) {
-            case 1  -> { originX = screenW - panelW; originY = 0; }
-            case 2  -> { originX = 0;               originY = screenH - panelH; }
-            case 3  -> { originX = screenW - panelW; originY = screenH - panelH; }
-            default -> { originX = 0;               originY = 0; }
-        }
+        int originX = OverlayLayout.originX(pos, screenW, panelW);
+        int originY = OverlayLayout.originY(pos, screenH, panelH);
 
-        float opacity = InputBoosterConfig.getOverlayOpacity();
-        int backgroundColor = ((int) (0x90 * opacity) & 0xFF) << 24;
+        // Translate to the corner first, then scale about it: a scaled badge
+        // stays anchored to the corner it was positioned at.
+        Matrix3x2f pose = new Matrix3x2f().translate(originX, originY).scale(scale, scale);
 
         renderState.addText(new GuiTextRenderState(
             font,
             Component.literal(text).getVisualOrderText(),
-            new Matrix3x2f(),
-            originX,
-            originY,
+            pose,
+            0,
+            0,
             color,
-            backgroundColor,
+            OverlayLayout.backgroundColor(opacity),
             false,
             false,
             null
@@ -103,22 +114,13 @@ public class DebugOverlayManager {
         lines.add("Poller: " + (InputBoosterMod.pollingThread != null && InputBoosterMod.pollingThread.isAlive()
             ? "running" : "stopped"));
         lines.add("Overlay: " + (InputBoosterConfig.isShowF3Info() ? "enabled" : "disabled")
-            + " @ " + positionName());
+            + " @ " + OverlayLayout.positionName(InputBoosterConfig.getOverlayPosition()));
         return lines;
     }
 
-    private static String positionName() {
-        return switch (InputBoosterConfig.getOverlayPosition()) {
-            case 1 -> "top-right";
-            case 2 -> "bottom-left";
-            case 3 -> "bottom-right";
-            default -> "top-left";
-        };
-    }
-
-    /** True when the overlay can actually draw (mixin + settings permitting). */
+    /** True when the overlay is configured to draw at all. */
     public static boolean isInitialized() {
         return InputBoosterConfig.isShowF3Info()
-            && InputBoosterConfig.getOverlayOpacity() > 0.001f;
+            && OverlayLayout.clampOpacity(InputBoosterConfig.getOverlayOpacity()) > 0.001f;
     }
 }
