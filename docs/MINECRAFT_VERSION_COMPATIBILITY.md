@@ -99,22 +99,22 @@ uses the abstractions the backend-agnostic render state exposes:
 
 | What | API used | Backend agnostic because |
 | ---- | -------- | ----------------------- |
-| HUD poll-rate badge | `GuiRenderState#addText` with a `GuiTextRenderState` | The render state records the command; the backend replays it. |
-| Settings screen and widgets | `GuiGraphicsExtractor` (`fill`, `text`, …) | Same deferred submission as every vanilla screen. |
-| Input polling and queueing | `Window` / `KeyMapping` only | Never reads render state, so timing is identical everywhere. |
+| In-game rendering | none | The mod draws nothing: no HUD, no overlay, no render state, so there is no backend-specific code to get wrong. |
+| Settings screen and widgets | vanilla `Screen` / `OptionsSubScreen` only | Vanilla widgets are submitted through the same deferred path on every backend. |
+| Input | none | No input is intercepted, sampled or queued, so every key press costs exactly what it costs without the mod. |
 
 Consequences that are enforced by
-`fabric/src/test/java/dev/inputbooster/RenderingApiTest.java`:
+`fabric/src/test/java/dev/inputbooster/SilentModTest.java`:
 
 - No source file and no shipped class may reference `org.lwjgl`,
   `GlStateManager`, `RenderSystem`, `GL11`/`GL20`/`GL30`.
 - `org.joml:joml` and `org.lwjgl` are not declared in `fabric/build.gradle`.
-  Minecraft ships both; a second JOML on the classpath can differ from the one
-  the game already loaded. `org.joml.Matrix3x2f` is still used, but only as the
-  pose type `GuiRenderState#addText` requires.
 - Sodium, Iris, VulkanMod and every other renderer remain **optional**: none of
-  them is a dependency in `fabric.mod.json`, and the mod's mixins do not touch
-  the classes they replace.
+  them is a dependency in `fabric.mod.json`, and the mod's single mixin touches
+  neither rendering nor chunking.
+- `org.joml` and `org.lwjgl` are not declared in `fabric/build.gradle`.
+  Minecraft ships both, and the mod no longer needs either: it constructs no
+  pose matrix because it draws nothing.
 
 ## Optional mod integrations
 

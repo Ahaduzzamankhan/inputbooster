@@ -4,12 +4,7 @@
   "package": "dev.inputbooster.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "GameTickMixin",
-    "InGameHudMixin",
-    "OptionsScreenMixin",
-    "GuiAccessor",
-    "KeyMappingAccessor",
-    "MinecraftClientAccessor"
+    "OptionsScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

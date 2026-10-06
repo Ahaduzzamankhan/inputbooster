@@ -1,5 +1,68 @@
 # Changelog
 
+## 4.0.0-alpha-2 - Silent performance engine
+
+InputBooster is now a performance mod. It has no gameplay features, draws
+nothing, and never speaks to the player.
+
+| Branch | Minecraft | Jar |
+| ------ | --------- | --- |
+| `fabric-26.2` | 26.2 | `inputbooster-4.0.0-alpha-2-fabric-mc262.jar` |
+| `fabric-26.3` | 26.3 | `inputbooster-4.0.0-alpha-2-fabric-mc263.jar` |
+
+### Removed
+
+- **The HUD, the overlay and the debug read-out.** The corner badge, the
+  keystroke panel, the F3 block and the event log are gone. The mod submits no
+  render state at all, so there is no GPU cost to carry and nothing to hide
+  behind F1.
+- **Chat, toasts and action-bar messages.** The replay recorder announced itself
+  in the action bar and the combo keys echoed the poll rate into chat. No
+  message of any kind is produced now.
+- **The gameplay features.** CPS limiter, w-tap assist, auto-sprint, auto-strafe,
+  anti-idle, burst mode, click sounds, input replay and combo-key presets are
+  removed, along with the 200 Hz polling thread and the synthetic
+  `startAttack` / `startUseItem` mixins they needed.
+- **Per-server profiles and the settings-profile files.** Settings are global.
+- **Five of the six mixins.** Only `OptionsScreenMixin` remains, so the mod adds
+  the options entry and then stays out of the client entirely.
+
+### Added
+
+- **Modular optimisation engine** in `dev.inputbooster.perf`: `OptimizationManager`
+  with CPU, memory, GPU, disk, chunk and input modules plus an adaptive engine.
+- **Memory module.** The old tick built a key snapshot, a key-binding set and an
+  options map every tick; that is gone. `OptimizationEngineTest` measures this
+  with the JVM's own per-thread allocation counter and asserts the tick path
+  allocates **zero bytes per tick** over 200,000 ticks. Verified non-vacuous: the
+  test fails if an allocation is reintroduced.
+- **Disk module.** Settings changes no longer write the configuration
+  synchronously on the render thread. A change marks the file dirty and a single
+  daemon thread writes once after the debounce window, so dragging a slider
+  produces one write instead of one per control change. The file is still written
+  atomically through a temporary file and a move.
+- **CPU module.** Server identity is re-derived only when it actually changes,
+  rather than re-derived every second forever.
+- **Adaptive engine.** Module work runs once every N ticks (default 600, about
+  ten seconds) and the window stretches further when nothing is pending, so the
+  steady-state cost of the mod is one increment and one comparison per tick.
+- **Settings remain reachable** through Options → InputBooster and through
+  Sodium's options sidebar: one switch per module, the adaptive interval and the
+  write debounce.
+
+### Notes
+
+- **No FPS claim is made.** These changes were not benchmarked in a running
+  client; nothing here reports a frame-rate improvement. What is measured is the
+  work the mod itself no longer does.
+- **The GPU and chunk modules deliberately do nothing.** Chunk scheduling and
+  mesh upload are owned by Sodium's `VanillaChunkRenderer`, Lithium and vanilla's
+  own priority queues, and a second mod injecting into the same queues is the
+  usual source of crashes. The modules add no chunk work, unloads nothing behind
+  the player and hold no reference to a `Chunk`; they record when a dedicated
+  optimiser owns the work so the overlap is visible instead of silent.
+- Minecraft 26.2 and 26.3 only.
+
 ## 4.0.0-alpha - Modern GUI and Vulkan support
 
 A rebuild of the settings screen on Minecraft's own options APIs, plus a
