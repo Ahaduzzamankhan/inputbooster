@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class InputBoosterMod {
     public static final String MOD_ID = "inputbooster";
     public static final String MOD_NAME = "InputBooster";
-    public static final String MOD_VERSION = "4.0.0-alpha-2";
+    public static final String MOD_VERSION = "4.0.0";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -74,6 +74,13 @@ public final class InputBoosterMod {
     private static double smoothedFps = 60.0D;
     /** Client tick counter handed to the optimisation engine. */
     private static long perfTick;
+    /** Reused by the game thread to compare bindings without allocating. */
+    private static final int[] BINDING_SCRATCH = new int[dev.inputbooster.input.KeyBindingSet.SLOTS];
+    /** Vanilla fallback codes; derived once, they never change mid-session. */
+    private static volatile int[] vanillaDefaultCodes;
+    /** Measured skips of the per-tick snapshot/binding rebuilds. Game thread writes. */
+    public static volatile long keySnapshotRebuildsAvoided = 0;
+    public static volatile long bindingRebuildsAvoided = 0;
     private static int stableFpsTicks = 0;
     private static int unstableFpsTicks = 0;
     private static boolean hadPlayer = false;
@@ -185,7 +192,16 @@ public final class InputBoosterMod {
             }
             hadPlayer = gameReady;
             if (client.options != null) {
-                keySnapshot = new KeySnapshot(client.options);
+                // Rebuild both snapshots only when their contents changed. On a
+                // normal tick both are skipped, which removes roughly a dozen
+                // short-lived allocations per tick that previously ran forever,
+                // including while the player sat in the main menu.
+                KeySnapshot previous = keySnapshot;
+                if (previous == null || !previous.matches(client.options)) {
+                    keySnapshot = new KeySnapshot(client.options);
+                } else {
+                    keySnapshotRebuildsAvoided++;
+                }
                 publishKeyBindings(client);
             }
             if (client.player == null) return;
@@ -360,28 +376,72 @@ public final class InputBoosterMod {
     }
 
     /**
-     * Republishes the key bindings the polling thread samples. Only allocates a
-     * new immutable set when a binding actually changed.
+     * Republishes the key bindings the polling thread samples.
+     *
+     * <p>The bound codes are read straight into a reused scratch array and
+     * compared against the currently published set; a new {@link KeyBindingSet}
+     * is allocated only when a binding actually changed. The old path built a
+     * map, a defaults array and a fresh set every tick — all thrown away
+     * whenever the player had not touched their controls.
      */
     private static void publishKeyBindings(Minecraft client) {
         if (client == null || client.options == null) return;
         var options = client.options;
-        var defaults = dev.inputbooster.input.KeyBindingSet.defaultCodes(
-            mouseCode(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT),
-            mouseCode(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT),
-            mouseCode(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_MIDDLE));
-        var map = dev.inputbooster.input.KeyBindingSet.map(
-            options.keyAttack, options.keyUse, options.keySprint, options.keyShift,
-            options.keyJump, options.keyUp, options.keyDown, options.keyLeft,
-            options.keyRight, options.keyDrop, options.keySwapOffhand, options.keyPickItem);
-        var next = dev.inputbooster.input.KeyBindingSet.of(map, defaults);
+        int[] defaults = vanillaDefaults();
+        int[] next = BINDING_SCRATCH;
+        boolean complete = true;
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.ATTACK, options.keyAttack, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.USE, options.keyUse, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.SPRINT, options.keySprint, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.SNEAK, options.keyShift, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.JUMP, options.keyJump, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.FORWARD, options.keyUp, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.BACK, options.keyDown, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.LEFT, options.keyLeft, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.RIGHT, options.keyRight, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.DROP, options.keyDrop, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.SWAP, options.keySwapOffhand, defaults);
+        complete &= slotCode(next, dev.inputbooster.input.KeyBindingSet.PICK_BLOCK, options.keyPickItem, defaults);
+
         var current = keyBindings;
-        if (current == null || !java.util.Arrays.equals(current.codes, next.codes)) {
-            keyBindings = next;
-            if (!next.complete) {
-                LOGGER.warn("[Input] Could not read every key binding; using vanilla defaults for the rest.");
-            }
+        if (current != null && current.matches(next, complete)) {
+            bindingRebuildsAvoided++;
+            return;
         }
+        keyBindings = dev.inputbooster.input.KeyBindingSet.of(next, complete);
+        if (!complete) {
+            LOGGER.warn("[Input] Could not read every key binding; using vanilla defaults for the rest.");
+        }
+    }
+
+    /** Reads one binding into {@code out[slot]}; false when it had to fall back. */
+    private static boolean slotCode(int[] out, int slot, KeyMapping mapping, int[] defaults) {
+        int code;
+        try {
+            code = dev.inputbooster.access.MixinAccess.boundKeyCode(mapping);
+        } catch (Throwable t) {
+            // Same warn-once contract as KeyBindingSet.of: a swallowed failure
+            // silently degrades the key to its vanilla default.
+            code = -1;
+        }
+        if (code < 0) {
+            out[slot] = defaults[slot];
+            return false;
+        }
+        out[slot] = code;
+        return true;
+    }
+
+    private static int[] vanillaDefaults() {
+        int[] codes = vanillaDefaultCodes;
+        if (codes == null) {
+            codes = dev.inputbooster.input.KeyBindingSet.defaultCodes(
+                mouseCode(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT),
+                mouseCode(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT),
+                mouseCode(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_MIDDLE));
+            vanillaDefaultCodes = codes;
+        }
+        return codes;
     }
 
     private static int mouseCode(int button) {

@@ -5,15 +5,18 @@ import dev.inputbooster.InputBoosterConfig;
 /**
  * CPU module.
  *
- * <p>Its optimisation is subtraction. Per-server identity used to be re-derived
- * once a second forever; it is now compared against the last observed value, so
- * a player sitting on one server does no further work, and a change of server or
- * dimension is still noticed immediately.
+ * <p>Its optimisation is subtraction, and it says exactly what is subtracted.
+ * Per-server identity used to be re-derived on a fixed cadence forever; the
+ * optimisation engine now asks the supplier at most once per adaptive window
+ * (every {@link InputBoosterConfig#getAdaptiveIntervalTicks()} ticks, stretched
+ * to {@link AdaptiveEngine#IDLE_INTERVAL} when idle) instead of every tick.
+ * This module keeps the last observed identity and reports when it actually
+ * changed, so a player sitting on one server does no further work while a
+ * change of server or dimension is still noticed on the next window.
  *
  * <p>The rest of the mod's per-tick dispatch is unchanged: the input pipeline
- * still runs, because the mod's existing features still exist. What changed is
- * that the optimisation engine itself is gated, so the performance side costs
- * one increment and one comparison per tick.
+ * still runs, because the mod's existing features still exist. The engine's
+ * own steady-state cost is one increment and one comparison per tick.
  */
 public final class CpuOptimizer implements Optimizer {
 

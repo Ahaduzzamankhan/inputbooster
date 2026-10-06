@@ -6,6 +6,7 @@ import dev.inputbooster.feature.LatencyProfiler;
 import dev.inputbooster.feature.OverlayLayout;
 import dev.inputbooster.feature.ProfileManager;
 import dev.inputbooster.feature.SessionStats;
+import dev.inputbooster.perf.OptimizationManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.layouts.GridLayout;
@@ -127,6 +128,7 @@ public class InputBoosterScreen extends OptionsSubScreen {
         addClickSection();
         addOverlaySection();
         addDiagnosticsSection();
+        addPerformanceSection();
         addStatsSection();
         addProfilesSection();
         updateManualPollAvailability();
@@ -288,6 +290,59 @@ public class InputBoosterScreen extends OptionsSubScreen {
             1.0, 100.0, 1.0,
             v -> Component.translatable("inputbooster.value.ticks", (int) Math.round(v)),
             (double) InputBoosterConfig.getFpsCheckInterval(), v -> InputBoosterConfig.setFpsCheckInterval((int) Math.round(v))));
+    }
+
+    private void addPerformanceSection() {
+        section("inputbooster.section.performance");
+
+        small(
+            checkbox("inputbooster.option.perf_cpu", "inputbooster.tip.perf_cpu",
+                InputBoosterConfig.isCpuOptimizationEnabled(), InputBoosterConfig::setCpuOptimizationEnabled),
+            checkbox("inputbooster.option.perf_memory", "inputbooster.tip.perf_memory",
+                InputBoosterConfig.isMemoryOptimizationEnabled(), InputBoosterConfig::setMemoryOptimizationEnabled));
+
+        small(
+            checkbox("inputbooster.option.perf_disk", "inputbooster.tip.perf_disk",
+                InputBoosterConfig.isDiskOptimizationEnabled(), InputBoosterConfig::setDiskOptimizationEnabled),
+            checkbox("inputbooster.option.perf_input", "inputbooster.tip.perf_input",
+                InputBoosterConfig.isInputOptimizationEnabled(), InputBoosterConfig::setInputOptimizationEnabled));
+
+        // GPU and chunk work stays with Sodium/Lithium/vanilla; the toggles are
+        // kept so the engine's scope is explicit rather than hidden.
+        small(
+            checkbox("inputbooster.option.perf_gpu", "inputbooster.tip.perf_gpu",
+                InputBoosterConfig.isGpuOptimizationEnabled(), InputBoosterConfig::setGpuOptimizationEnabled),
+            checkbox("inputbooster.option.perf_chunk", "inputbooster.tip.perf_chunk",
+                InputBoosterConfig.isChunkOptimizationEnabled(), InputBoosterConfig::setChunkOptimizationEnabled));
+
+        small(
+            checkbox("inputbooster.option.perf_adaptive", "inputbooster.tip.perf_adaptive",
+                InputBoosterConfig.isAdaptiveOptimizationEnabled(), InputBoosterConfig::setAdaptiveOptimizationEnabled));
+
+        big(slider(
+            "inputbooster.option.perf_interval", "inputbooster.tip.perf_interval",
+            20.0, 6000.0, 20.0,
+            v -> Component.translatable("inputbooster.value.ticks", (int) Math.round(v)),
+            InputBoosterConfig.getAdaptiveIntervalTicks(),
+            v -> InputBoosterConfig.setAdaptiveIntervalTicks((int) Math.round(v)),
+            this::markSettingsChanged));
+
+        big(slider(
+            "inputbooster.option.perf_debounce", "inputbooster.tip.perf_debounce",
+            100.0, 10_000.0, 100.0,
+            v -> Component.translatable("inputbooster.value.ms", (int) Math.round(v)),
+            InputBoosterConfig.getWriteDebounceMs(),
+            v -> InputBoosterConfig.setWriteDebounceMs((int) Math.round(v)),
+            this::markSettingsChanged));
+    }
+
+    /**
+     * Persists a change through the disk module's coalescing worker instead of
+     * the render thread: dragging the slider marks the file dirty once and the
+     * worker writes after the debounce window.
+     */
+    private void markSettingsChanged() {
+        OptimizationManager.get().onSettingsChanged();
     }
 
     private void addStatsSection() {

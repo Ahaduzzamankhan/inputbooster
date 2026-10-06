@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Minecraft-1.21.11-62b47a?style=for-the-badge&logo=minecraft&logoColor=white" alt="Minecraft 1.21.11">
   <img src="https://img.shields.io/badge/Fabric-Client--Side-DBD0B5?style=for-the-badge" alt="Fabric">
   <img src="https://img.shields.io/badge/Java-21%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21+">
-  <img src="https://img.shields.io/badge/Version-4.0.0--alpha-8B5CF6?style=for-the-badge" alt="Version 4.0.0-alpha">
+  <img src="https://img.shields.io/badge/Version-4.0.0-10B981?style=for-the-badge" alt="Version 4.0.0">
   <img src="https://img.shields.io/badge/Renderer-OpenGL%20%2B%20Vulkan-2E7D32?style=for-the-badge" alt="OpenGL and Vulkan">
 </p>
 
@@ -22,9 +22,9 @@
 
 > **InputBooster** is a client-side mod (NeoForge and Fabric) focused on making keyboard and mouse input feel more consistent during PvP, survival, and low-FPS gameplay.
 >
-> Current release: `4.0.0-alpha` — Fabric only: branch `fabric-26.2` for Minecraft 26.2 and branch `fabric-26.3` for Minecraft 26.3. NeoForge support is paused.
+> Current release: `4.0.0` (stable) — Fabric only: branch `fabric-26.2` for Minecraft 26.2 and branch `fabric-26.3` for Minecraft 26.3. NeoForge support is paused.
 >
-> 4.0.0-alpha moves the settings screen into the vanilla options layout (**Options → InputBooster → InputBooster**) and makes every rendering path work on Minecraft's Vulkan backend. It also adds an optional entry to the Sodium options sidebar. Sodium and Iris are not required and not depended on.
+> 4.0.0 ships the silent performance engine with its real optimisations active: per-tick snapshot rebuilds only happen on change, the input poller drops to 20 Hz on menus and while paused, settings writes are coalesced onto a background thread, and every module is switchable in the GUI under **Performance Engine**. No FPS claim is made anywhere; the engine's own metrics (rebuilds skipped, idle poll cycles, writes per burst) are counted, not estimated.
 
 ---
 

@@ -313,6 +313,8 @@ public class InputBoosterConfig {
         checkInt(props, bad, "max_cps", 1, 20);
         checkInt(props, bad, "overlay_position", 0, 3);
         checkInt(props, bad, "fps_check_interval", 1, 100);
+        checkInt(props, bad, "perf_interval_ticks", 20, 6000);
+        checkInt(props, bad, "perf_write_debounce_ms", 100, 10_000);
         if (!bad.isEmpty()) {
             LOGGER.warn("Config entries reset to defaults (invalid or unparsable): {}", String.join(", ", bad));
         }
@@ -376,6 +378,13 @@ public class InputBoosterConfig {
         configVersion = CONFIG_VERSION;
         showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
         overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
+        // FIX (stale optimisation settings after reload): the perf keys were
+        // added after this method was written and were never added to it, so a
+        // reload of a config file that omits them kept whatever the previous
+        // file (or a profile import) had left in memory.
+        cpuOptimization = true; memoryOptimization = true; gpuOptimization = true;
+        diskOptimization = true; chunkOptimization = true; inputOptimization = true;
+        adaptiveOptimization = true; adaptiveIntervalTicks = 600; writeDebounceMs = 1000;
     }
 
     // ── Getters ───────────────────────────────────────────────────────────────
