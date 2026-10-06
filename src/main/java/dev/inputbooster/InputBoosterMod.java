@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class InputBoosterMod {
     public static final String MOD_ID = "inputbooster";
     public static final String MOD_NAME = "InputBooster";
-    public static final String MOD_VERSION = "4.0.0-alpha";
+    public static final String MOD_VERSION = "4.0.0-alpha-2";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -72,6 +72,8 @@ public final class InputBoosterMod {
     private static volatile KeyMapping replayPlayKey;
     private static final ComboKeyPresets COMBO_KEYS = new ComboKeyPresets();
     private static double smoothedFps = 60.0D;
+    /** Client tick counter handed to the optimisation engine. */
+    private static long perfTick;
     private static int stableFpsTicks = 0;
     private static int unstableFpsTicks = 0;
     private static boolean hadPlayer = false;
@@ -144,6 +146,11 @@ public final class InputBoosterMod {
             currentPollHz = initialHz;
 
             DebugOverlayManager.register();
+            // The optimisation engine runs alongside every feature above; it
+            // adds no gameplay behaviour and no user-visible output.
+            dev.inputbooster.perf.OptimizationManager.get()
+                .setServerKeySource(InputBoosterMod::currentServerKey);
+            dev.inputbooster.perf.OptimizationManager.get().start();
             initialized.set(true);
             eventLog.add("InputBooster initialized");
             LOGGER.info("[{}] Ready!", MOD_NAME);
@@ -167,6 +174,7 @@ public final class InputBoosterMod {
             lastTickTime = System.nanoTime();
             gameReady = client.player != null;
             gamePaused = client.isPaused();
+            dev.inputbooster.perf.OptimizationManager.get().tick(++perfTick);
             if (!gameReady && hadPlayer) {
                 // Leaving a world (disconnect / world unload): drop transient
                 // input state so nothing carries into the next session.
@@ -311,11 +319,26 @@ public final class InputBoosterMod {
         return InputBoosterConfig.isDebugMode();
     }
 
+    /**
+     * Identity of the world the player is in. The optimisation engine compares
+     * this against the last observed value so server identity is re-derived on
+     * change rather than every second forever. Null outside a world.
+     */
+    private static String currentServerKey() {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.level == null) return null;
+        var connection = client.getConnection();
+        var serverData = connection == null ? null : connection.getServerData();
+        String host = serverData == null || serverData.ip == null ? "local" : serverData.ip;
+        return host + '/' + client.level.dimension();
+    }
+
     public static void shutdown() {
         if (shuttingDown) return;
         shuttingDown = true;
         LOGGER.info("[{}] Shutting down...", MOD_NAME);
         try {
+            dev.inputbooster.perf.OptimizationManager.get().shutdown();
             if (pollingThread != null) {
                 // Wait for the poller to actually finish: Minecraft keeps
                 // running ticks (and may still dispatch events) while close()
