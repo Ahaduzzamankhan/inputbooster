@@ -148,4 +148,26 @@ reflectively, and never as a dependency.
 - Every failure is caught and logged once. A Sodium version that moves its API
   costs the sidebar entry and nothing else.
 
-Enforced by `fabric/src/test/java/dev/inputbooster/SodiumIntegrationTest.java`.
+Two reflection rules are not optional, and breaking either one ends the game
+rather than losing the sidebar entry:
+
+1. **Read a hook from the public API type, never from `target.getClass()`.**
+   Sodium returns `ModOptionsBuilderImpl`, which is *package-private*. A method
+   read off that class reports `Modifier.PUBLIC` and `Method.invoke` still
+   refuses to call it, because the declaring class is unreachable from
+   InputBooster's package. The 4.0.0-alpha release shipped this bug and the
+   client died on launch with
+   `IllegalAccessException: … cannot access a member of class
+   …ModOptionsBuilderImpl with modifiers "public"`. Every hook therefore comes
+   from the public interface that declares it - `ConfigBuilder`,
+   `ModOptionsBuilder`, `ExternalPageBuilder`.
+2. **The `ConfigEntryPoint` proxy handler must not propagate.** Sodium calls
+   `registerConfigLate` inside a handler whose catch ends the game with
+   `ConfigManager#crashWithMessage`, so an escaping exception becomes a crash
+   report. The handler absorbs `Throwable`, logs it once, and returns `null` for
+   hooks it does not recognise.
+
+Enforced by `fabric/src/test/java/dev/inputbooster/SodiumIntegrationTest.java`
+(source-level rules) and
+`fabric/src/test/java/dev/inputbooster/integration/SodiumBridgeAccessTest.java`
+(the two rules exercised at runtime against a package-private fake).
