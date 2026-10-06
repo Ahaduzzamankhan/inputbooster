@@ -1,5 +1,55 @@
 # Changelog
 
+## 4.0.0-alpha-2 - Silent performance engine
+
+InputBooster gains a modular optimisation engine. **Every existing feature is
+kept** — the CPS limiter, w-tap, auto-sprint, auto-strafe, anti-idle, burst
+mode, replay, click sounds, combo keys, the HUD overlay, the debug read-out and
+the full settings screen all work exactly as in 4.0.0-alpha.
+
+The engine is purely additive: it runs alongside the features and adds no
+gameplay behaviour and no user-visible output of its own.
+
+| Branch | Minecraft | Jar |
+| ------ | --------- | --- |
+| `fabric-26.2` | 26.2 | `inputbooster-4.0.0-alpha-2-fabric-mc262.jar` |
+| `fabric-26.3` | 26.3 | `inputbooster-4.0.0-alpha-2-fabric-mc263.jar` |
+
+### Added
+
+- **`dev.inputbooster.perf`** — `OptimizationManager` with CPU, memory, GPU, disk,
+  chunk and input modules plus an `AdaptiveEngine`. The whole engine costs one
+  `long` increment and one comparison per client tick.
+- **Memory module.** Measured, not claimed: `OptimizationEngineTest` reads the
+  JVM's own per-thread allocation counter around 200,000 engine ticks and
+  asserts **zero bytes allocated per tick**. The test is non-vacuous — verified
+  to fail when an allocation is deliberately reintroduced into the engine tick.
+- **Disk module.** A settings change no longer writes the configuration
+  synchronously on the render thread. It marks the file dirty and one lazily
+  created daemon thread writes once after the debounce window, so a burst of
+  changes collapses into a single write. The file is still written atomically
+  through a temporary file and a move.
+- **CPU module.** Server identity is re-derived only when the player actually
+  changes server or dimension, instead of every second forever.
+- **Adaptive engine.** Module work runs once every N ticks (default 600, about
+  ten seconds) and the window stretches when nothing is pending.
+- **Nine new tests** (124 total). The existing 115 are unchanged and still pass.
+
+### Notes
+
+- **No FPS claim is made.** This was not benchmarked in a running client, so no
+  frame-rate improvement is claimed anywhere. What is measured is the work the
+  engine itself no longer does.
+- **The GPU and chunk modules deliberately add nothing.** Chunk scheduling and
+  mesh upload are owned by Sodium's `VanillaChunkRenderer`, Lithium and vanilla's
+  own priority queues, and a second mod injecting into those queues is the usual
+  source of crashes. They touch no chunk, unload nothing behind the player and
+  hold no reference to a `Chunk`. The GPU module issues no draw calls of its own.
+- The engine's switches live in `inputbooster.properties`
+  (`perf_cpu`, `perf_memory`, `perf_gpu`, `perf_disk`, `perf_chunk`,
+  `perf_input`, `perf_adaptive`, `perf_interval_ticks`,
+  `perf_write_debounce_ms`).
+
 ## 4.0.0-alpha - Modern GUI and Vulkan support
 
 A rebuild of the settings screen on Minecraft's own options APIs, plus a

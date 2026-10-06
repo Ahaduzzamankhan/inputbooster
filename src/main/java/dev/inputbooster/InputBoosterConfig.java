@@ -155,6 +155,16 @@ public class InputBoosterConfig {
                 showActionBar     = parseBool(props, "show_action_bar",       true);
                 fpsCheckInterval  = Math.max(1, Math.min(100, parseInt(props, "fps_check_interval", 20)));
                 debugMode         = parseBool(props, "debug_mode",            false);
+
+                cpuOptimization    = parseBool(props, "perf_cpu",            true);
+                memoryOptimization = parseBool(props, "perf_memory",         true);
+                gpuOptimization    = parseBool(props, "perf_gpu",            true);
+                diskOptimization   = parseBool(props, "perf_disk",           true);
+                chunkOptimization  = parseBool(props, "perf_chunk",          true);
+                inputOptimization  = parseBool(props, "perf_input",          true);
+                adaptiveOptimization = parseBool(props, "perf_adaptive",      true);
+                adaptiveIntervalTicks = parseInt(props, "perf_interval_ticks", 600);
+                writeDebounceMs      = parseInt(props, "perf_write_debounce_ms", 1000);
                 warnAboutDefaults(props);
                 LOGGER.info("✓ Config loaded successfully (config version {})", configVersion);
             } else {
@@ -207,6 +217,15 @@ public class InputBoosterConfig {
             props.setProperty("show_action_bar",     String.valueOf(showActionBar));
             props.setProperty("fps_check_interval",  String.valueOf(fpsCheckInterval));
             props.setProperty("debug_mode",          String.valueOf(debugMode));
+            props.setProperty("perf_cpu",            String.valueOf(cpuOptimization));
+            props.setProperty("perf_memory",         String.valueOf(memoryOptimization));
+            props.setProperty("perf_gpu",            String.valueOf(gpuOptimization));
+            props.setProperty("perf_disk",           String.valueOf(diskOptimization));
+            props.setProperty("perf_chunk",          String.valueOf(chunkOptimization));
+            props.setProperty("perf_input",          String.valueOf(inputOptimization));
+            props.setProperty("perf_adaptive",       String.valueOf(adaptiveOptimization));
+            props.setProperty("perf_interval_ticks", String.valueOf(adaptiveIntervalTicks));
+            props.setProperty("perf_write_debounce_ms", String.valueOf(writeDebounceMs));
             // FIX (save could not create a temp file): createTempFile needs a
             // real parent directory, so a config path with no parent threw.
             Path tempDir = (parent == null) ? Paths.get(".") : parent;
@@ -235,6 +254,17 @@ public class InputBoosterConfig {
 
     /** Current on-disk schema version. */
     public static final int CONFIG_VERSION = 304;
+
+    // ---- Optimisation engine ----
+    private static boolean cpuOptimization = true;
+    private static boolean memoryOptimization = true;
+    private static boolean gpuOptimization = true;
+    private static boolean diskOptimization = true;
+    private static boolean chunkOptimization = true;
+    private static boolean inputOptimization = true;
+    private static boolean adaptiveOptimization = true;
+    private static int adaptiveIntervalTicks = 600;
+    private static int writeDebounceMs = 1000;
 
     /**
      * Migrates older config files to the current schema in place.
@@ -410,4 +440,30 @@ public class InputBoosterConfig {
     public static void setShowActionBar(boolean v)    { showActionBar = v; }
     public static void setFpsCheckInterval(int v)     { fpsCheckInterval = Math.max(1, Math.min(100, v)); }
     public static void setDebugMode(boolean v)        { debugMode = v; }
+
+    // ---- Optimisation engine (dev.inputbooster.perf) ----
+
+    public static boolean isCpuOptimizationEnabled()      { return cpuOptimization; }
+    public static boolean isMemoryOptimizationEnabled()   { return memoryOptimization; }
+    public static boolean isGpuOptimizationEnabled()      { return gpuOptimization; }
+    public static boolean isDiskOptimizationEnabled()     { return diskOptimization; }
+    public static boolean isChunkOptimizationEnabled()    { return chunkOptimization; }
+    public static boolean isInputOptimizationEnabled()    { return inputOptimization; }
+    public static boolean isAdaptiveOptimizationEnabled() { return adaptiveOptimization; }
+    public static int getAdaptiveIntervalTicks()          { return adaptiveIntervalTicks; }
+    public static int getWriteDebounceMs()                { return writeDebounceMs; }
+
+    public static void setCpuOptimizationEnabled(boolean v)      { cpuOptimization = v; }
+    public static void setMemoryOptimizationEnabled(boolean v)   { memoryOptimization = v; }
+    public static void setGpuOptimizationEnabled(boolean v)      { gpuOptimization = v; }
+    public static void setDiskOptimizationEnabled(boolean v)     { diskOptimization = v; }
+    public static void setChunkOptimizationEnabled(boolean v)    { chunkOptimization = v; }
+    public static void setInputOptimizationEnabled(boolean v)    { inputOptimization = v; }
+    public static void setAdaptiveOptimizationEnabled(boolean v) { adaptiveOptimization = v; }
+    public static void setAdaptiveIntervalTicks(int v) {
+        adaptiveIntervalTicks = Math.max(20, Math.min(6000, v));
+    }
+    public static void setWriteDebounceMs(int v) {
+        writeDebounceMs = Math.max(100, Math.min(10_000, v));
+    }
 }
