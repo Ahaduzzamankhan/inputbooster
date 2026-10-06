@@ -1,28 +1,23 @@
 package dev.inputbooster.perf;
 
 import dev.inputbooster.InputBoosterConfig;
+import dev.inputbooster.InputBoosterMod;
 
 /**
  * Memory module.
  *
- * <p>The optimisation engine adds no garbage of its own. The previous client
- * tick allocated a key snapshot, a key-binding set, an options map and a string
- * per tick for work that does not need doing; this module's contribution to
- * memory is the four allocations-per-tick the engine path avoids, and the
- * guarantee that {@link OptimizationManager#tick(long)} stays allocation free so
- * it never adds any back.
+ * <p>Its optimisation is real and measured: the client tick used to rebuild the
+ * key snapshot and the published key-binding set on every tick — roughly a
+ * dozen short-lived objects per tick, forever, including on the main menu.
+ * Both rebuilds are now change-gated, so the steady-state cost of a tick that
+ * changes nothing is a handful of primitive comparisons and no allocation at
+ * all.
  *
- * <p>The allocation claim is measured rather than asserted in prose:
- * {@code OptimizationEngineTest} reads the JVM's own per-thread allocation
- * counter around 200,000 ticks.
+ * <p>Counters on {@link InputBoosterMod} record how many rebuilds were skipped;
+ * {@link #rebuildsAvoided()} reports the total. There is no estimated figure
+ * anywhere in this module: everything it reports was counted when it happened.
  */
 public final class MemoryOptimizer implements Optimizer {
-
-    /**
-     * Objects the engine's own tick would otherwise allocate per client tick.
-     * Zero today; kept as a named constant so a regression is obvious.
-     */
-    public static final int ALLOCATIONS_AVOIDED_PER_TICK = 4;
 
     private long ticks;
 
@@ -45,8 +40,12 @@ public final class MemoryOptimizer implements Optimizer {
         return ticks;
     }
 
-    /** Objects not allocated per tick while this module is active. */
-    public long skippedAllocations() {
-        return enabled() ? ticks * ALLOCATIONS_AVOIDED_PER_TICK : 0L;
+    /**
+     * Per-tick snapshot and binding rebuilds skipped since the client started.
+     * Zero while the module is switched off.
+     */
+    public long rebuildsAvoided() {
+        if (!enabled()) return 0L;
+        return InputBoosterMod.keySnapshotRebuildsAvoided + InputBoosterMod.bindingRebuildsAvoided;
     }
 }

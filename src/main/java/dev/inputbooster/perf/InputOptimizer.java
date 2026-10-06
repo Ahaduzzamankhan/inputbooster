@@ -1,19 +1,29 @@
 package dev.inputbooster.perf;
 
 import dev.inputbooster.InputBoosterConfig;
+import dev.inputbooster.InputBoosterMod;
+import dev.inputbooster.InputPollingThread;
 
 /**
  * Input module.
  *
- * <p>The mod's input pipeline is unchanged — the existing features still depend
- * on it. What this module guarantees is that the optimisation engine stays off
- * that path entirely: no key is sampled, queued or dispatched twice because of
- * it, and no engine work happens between a key press and Minecraft receiving
- * it.
+ * <p>Its optimisation is real and lossless: the polling thread used to wake at
+ * the full configured rate — two hundred times a second by default — even in
+ * the states where {@code InputBoosterMod.onClientTick} guarantees nothing it
+ * samples can be kept: main menu, singleplayer pause, or the mod switched
+ * inactive. In those states {@code poll()} resets its edge state and discards
+ * everything, so sampling at {@link InputPollingThread#IDLE_POLL_HZ} instead
+ * changes no behaviour; it only stops the thread burning wakeups on work it
+ * throws away.
  *
- * <p>The input thread is not slowed down to make room for the engine, and the
- * engine does not add a second consumer for key events, so a keystroke costs
- * exactly what it cost before the engine existed.
+ * <p>While the player is in a world with the mod active, the configured rate is
+ * untouched: sub-tick resolution is the point of the poller, and the engine
+ * never trades it away. The input pipeline itself is unchanged — no key is
+ * sampled, queued or dispatched twice because of this module, and the engine
+ * adds no second consumer for key events.
+ *
+ * <p>The saving is counted, not estimated: {@link #idlePollCycles()} reports
+ * how many poll-loop iterations ran at the idle rate.
  */
 public final class InputOptimizer implements Optimizer {
 
@@ -40,6 +50,15 @@ public final class InputOptimizer implements Optimizer {
      */
     public long engineInputEvents() {
         return 0L;
+    }
+
+    /**
+     * Poll-loop iterations spent at the idle rate since the thread started.
+     * Each one would previously have run at the full configured rate.
+     */
+    public long idlePollCycles() {
+        InputPollingThread poller = InputBoosterMod.pollingThread;
+        return poller == null ? 0L : poller.idleCycles();
     }
 
     public long ticksObserved() {

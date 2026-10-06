@@ -76,6 +76,27 @@ public final class KeySnapshot {
     /** Returns an empty snapshot (all keys released). Used during init/pause. */
     public static final KeySnapshot EMPTY = new KeySnapshot();
 
+    /**
+     * True when {@code opt} still produces exactly this snapshot.
+     *
+     * <p>Lets the client tick rebuild the snapshot only when a key state
+     * actually changed instead of allocating a fresh object every tick.
+     */
+    public boolean matches(Options opt) {
+        return attack == opt.keyAttack.isDown()
+            && use == opt.keyUse.isDown()
+            && sprint == opt.keySprint.isDown()
+            && sneak == opt.keyShift.isDown()
+            && jump == opt.keyJump.isDown()
+            && forward == opt.keyUp.isDown()
+            && back == opt.keyDown.isDown()
+            && left == opt.keyLeft.isDown()
+            && right == opt.keyRight.isDown()
+            && drop == opt.keyDrop.isDown()
+            && swap == opt.keySwapOffhand.isDown()
+            && pickBlock == opt.keyPickItem.isDown();
+    }
+
     private KeySnapshot() {
         this.attack = this.use = this.sprint = this.sneak = false;
         this.jump = this.forward = this.back = this.left = this.right = false;

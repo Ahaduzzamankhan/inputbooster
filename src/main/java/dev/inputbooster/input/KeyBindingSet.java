@@ -44,6 +44,29 @@ public final class KeyBindingSet {
         return codes[slot];
     }
 
+    /**
+     * True when a set built from these codes and completeness would be
+     * identical to this one. The client tick uses it to skip rebuilding the
+     * published set when no binding changed.
+     */
+    public boolean matches(int[] codes, boolean complete) {
+        return this.complete == complete && java.util.Arrays.equals(this.codes, codes);
+    }
+
+    /**
+     * Builds the binding set from already-resolved codes.
+     *
+     * <p>The array is copied, so the caller may pass a scratch buffer that is
+     * reused on the next comparison.
+     */
+    public static KeyBindingSet of(int[] codes, boolean complete) {
+        if (codes == null || codes.length != SLOTS) {
+            throw new IllegalArgumentException("expected " + SLOTS + " codes, got "
+                + (codes == null ? "null" : codes.length));
+        }
+        return new KeyBindingSet(codes.clone(), complete);
+    }
+
     /** Builds the binding set, falling back to the vanilla defaults per slot. */
     public static KeyBindingSet of(Map<String, KeyMapping> bindings, int[] defaults) {
         int[] codes = new int[SLOTS];

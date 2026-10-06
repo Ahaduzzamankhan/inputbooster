@@ -81,23 +81,27 @@ class OptimizationEngineTest {
     }
 
     @Test
-    void modulesAreDrivenByTheirSwitches() {
+    void modulesRunOnlyWhenEnabledAndOnlyOnEvaluationTicks() {
+        InputBoosterConfig.setMemoryOptimizationEnabled(false);
         OptimizationManager engine = OptimizationManager.get();
         engine.start();
-
-        InputBoosterConfig.setMemoryOptimizationEnabled(false);
-        engine.tick(1);
-        assertEquals(0L, engine.memory().skippedAllocations(),
-            "a disabled module contributes nothing");
-
-        // The adaptive gate defers module work, so the switch is only observed
-        // on an evaluation tick.
-        InputBoosterConfig.setMemoryOptimizationEnabled(true);
-        for (int i = 2; i <= InputBoosterConfig.getAdaptiveIntervalTicks() + 1; i++) {
+        for (int i = 1; i <= InputBoosterConfig.getAdaptiveIntervalTicks() + 1; i++) {
             engine.tick(i);
         }
-        assertTrue(engine.memory().skippedAllocations() > 0,
-            "an enabled module accounts for the work it avoids");
+        assertEquals(0L, engine.memory().ticksObserved(), "a disabled module is never ticked");
+
+        // A fresh engine with the module on: it must run on the first
+        // evaluation tick and not on the ticks the adaptive gate skips.
+        OptimizationManager.reset();
+        InputBoosterConfig.setMemoryOptimizationEnabled(true);
+        engine = OptimizationManager.get();
+        engine.start();
+        engine.tick(1);
+        assertEquals(1L, engine.memory().ticksObserved(),
+            "the first evaluation tick runs the module");
+        engine.tick(2);
+        assertEquals(1L, engine.memory().ticksObserved(),
+            "skipped ticks do not run the module");
     }
 
     @Test
@@ -157,11 +161,18 @@ class OptimizationEngineTest {
     }
 
     @Test
-    void theMemoryModuleCountsTheWorkItAvoids() {
+    void theMemoryModuleReportsMeasuredRebuildSkips() {
+        InputBoosterConfig.setMemoryOptimizationEnabled(true);
         MemoryOptimizer memory = new MemoryOptimizer();
-        memory.tick(50);
-        assertEquals(50L * MemoryOptimizer.ALLOCATIONS_AVOIDED_PER_TICK,
-            memory.skippedAllocations());
+        InputBoosterMod.keySnapshotRebuildsAvoided = 3;
+        InputBoosterMod.bindingRebuildsAvoided = 4;
+        assertEquals(7L, memory.rebuildsAvoided(),
+            "the module reports the skips that were counted, not an estimate");
+
+        InputBoosterConfig.setMemoryOptimizationEnabled(false);
+        assertEquals(0L, memory.rebuildsAvoided(),
+            "a disabled module contributes nothing");
+        InputBoosterConfig.setMemoryOptimizationEnabled(true);
     }
 
     @Test

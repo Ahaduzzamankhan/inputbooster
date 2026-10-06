@@ -26,8 +26,19 @@ import java.util.concurrent.locks.LockSupport;
  */
 public class InputPollingThread extends Thread {
 
+    /**
+     * Rate used while nothing can be sampled losslessly (main menu, singleplayer
+     * pause, mod inactive). {@link #poll()} discards everything it observes in
+     * those states, so a lower rate changes no behaviour — it only stops the
+     * thread from waking hundreds of times a second for work it throws away.
+     */
+    public static final int IDLE_POLL_HZ = 20;
+
     private final AtomicBoolean running    = new AtomicBoolean(true);
     private final AtomicInteger pollRateHz = new AtomicInteger(200);
+
+    /** Loop iterations spent at the idle rate. Measured, not estimated. */
+    private volatile long idleCycles = 0;
 
     private boolean prevAttack, prevUse, prevSprint, prevSneak;
     private boolean prevJump, prevForward, prevBack, prevLeft, prevRight;
@@ -68,10 +79,18 @@ public class InputPollingThread extends Thread {
                 }
             }
 
-            // Burst mode may override the configured poll rate
-            int hz = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting()
-                     ? 1000
-                     : pollRateHz.get();
+            // Burst mode may override the configured poll rate. Outside a
+            // burst, a state in which poll() only resets and discards (main
+            // menu, pause, inactive mod) drops to the idle rate; the game
+            // thread cannot queue input there either, so nothing is lost.
+            int hz;
+            if (InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting()) {
+                hz = 1000;
+            } else if (!shouldPollFast()) {
+                hz = idleRate();
+            } else {
+                hz = pollRateHz.get();
+            }
 
             long targetNs = 1_000_000_000L / hz;
             long elapsed  = System.nanoTime() - loopStart;
@@ -91,6 +110,35 @@ public class InputPollingThread extends Thread {
         }
 
         InputBoosterMod.LOGGER.info("[Input] Polling thread stopped.");
+    }
+
+    /**
+     * True when the polling thread must sample at the configured rate: only
+     * these states produce input the pipeline keeps. Package-visible and pure
+     * so the truth table is unit testable without a running game.
+     */
+    static boolean shouldPollFast(boolean active, boolean initialized, boolean shuttingDown,
+                                  boolean gameReady, boolean gamePaused) {
+        return active && initialized && !shuttingDown && gameReady && !gamePaused;
+    }
+
+    private boolean shouldPollFast() {
+        return shouldPollFast(InputBoosterMod.active, InputBoosterMod.initialized.get(),
+            InputBoosterMod.shuttingDown, InputBoosterMod.gameReady, InputBoosterMod.gamePaused);
+    }
+
+    /** The rate to use while idle; the input module can switch the saving off. */
+    private int idleRate() {
+        if (InputBoosterConfig.isInputOptimizationEnabled()) {
+            idleCycles++;
+            return IDLE_POLL_HZ;
+        }
+        return pollRateHz.get();
+    }
+
+    /** Loop iterations spent at the idle rate instead of the configured one. */
+    public long idleCycles() {
+        return idleCycles;
     }
 
     private void poll() {

@@ -1,5 +1,66 @@
 # Changelog
 
+## 4.0.0 - Stable: performance engine fixes, GUI controls, idle polling
+
+The first stable release of the 4.x performance engine. Every existing feature
+is kept. Three real defects in the alpha engine were found and fixed, the two
+optimisations that actually do work were made real and measured, and the
+performance settings are now reachable from the in-game GUI.
+
+| Branch | Minecraft | Jar |
+| ------ | --------- | --- |
+| `fabric-26.2` | 26.2 | `inputbooster-4.0.0-fabric-mc262.jar` |
+| `fabric-26.3` | 26.3 | `inputbooster-4.0.0-fabric-mc263.jar` |
+
+### Fixed
+
+- **The disk module was dead code.** `OptimizationManager.onSettingsChanged()`
+  had no callers, so the write-coalescing engine never ran in production. The
+  settings screen now routes performance-slider changes through it, and the
+  change is written once on the background worker after the debounce window.
+- **The memory module's headline metric was fabricated.**
+  `skippedAllocations()` multiplied ticks by a constant instead of measuring
+  anything, and the per-tick allocations it described were still happening:
+  `onClientTick` built a fresh `KeySnapshot` and a complete `KeyBindingSet` —
+  roughly a dozen short-lived objects, including a `LinkedHashMap` — on every
+  tick, forever, including on the main menu. Both rebuilds are now change-gated
+  and the module reports the counted skips (`rebuildsAvoided()`).
+- **Stale optimisation settings after a reload.** The nine `perf_*` keys were
+  missing from `resetDefaults()`, so a config file that omitted them kept the
+  previous file's values — the exact stale-settings bug the other keys had
+  already been fixed for. Covered by a regression test.
+
+### Changed
+
+- **Idle input polling (CPU/input modules).** The polling thread used to wake
+  at the full configured rate — 200 times a second by default — even on the
+  main menu, while paused, or while the mod is inactive, states in which
+  nothing it samples can be kept. It now drops to 20 Hz there and returns to
+  the configured rate in-game, where sub-tick resolution is untouched. The
+  decision is lossless by construction (in those states every sample is
+  discarded) and its truth table is unit tested. Switch: `perf_input`.
+- **GPU and chunk modules stay honest no-ops**, now stated in their GUI
+  tooltips: rendering and chunk scheduling belong to vanilla, Sodium and
+  Lithium, and a second scheduler there is the classic crash source.
+- **The server-identity supplier is only consulted while the CPU module is
+  enabled.**
+
+### Added
+
+- **Performance Engine section in the settings screen** — all seven module
+  switches plus the engine check interval and the settings write delay, with
+  tooltips explaining what each module does and what it deliberately does not
+  do.
+- **Four new tests** (128 total): the idle-polling truth table, the binding
+  change gate, and two regression tests for the fixes above.
+
+### Notes
+
+- **No FPS claim is made.** Nothing here was benchmarked in a running client;
+  the measurable claims are the counted ones: rebuilds skipped, idle poll
+  cycles, file writes per burst of changes, and a zero-allocation engine tick
+  path measured over 200,000 ticks.
+
 ## 4.0.0-alpha-2 - Silent performance engine
 
 InputBooster gains a modular optimisation engine. **Every existing feature is

@@ -69,6 +69,28 @@ class InputBoosterConfigTest {
     }
 
     @Test
+    void reloadResetsOptimisationKeysMissingFromTheFile() throws IOException {
+        // The perf keys were once missing from resetDefaults(), so a reload of
+        // a config that omitted them kept the previous file's values — the
+        // same stale-settings bug the other keys had already been fixed for.
+        write("perf_cpu=false\nperf_memory=false\nperf_input=false\nperf_interval_ticks=1200\n");
+        InputBoosterConfig.load();
+        assertFalse(InputBoosterConfig.isCpuOptimizationEnabled());
+        assertFalse(InputBoosterConfig.isMemoryOptimizationEnabled());
+        assertFalse(InputBoosterConfig.isInputOptimizationEnabled());
+        assertEquals(1200, InputBoosterConfig.getAdaptiveIntervalTicks());
+
+        write("poll_rate_auto=true\n");
+        InputBoosterConfig.load();
+        assertTrue(InputBoosterConfig.isCpuOptimizationEnabled(), "missing perf keys must return to defaults");
+        assertTrue(InputBoosterConfig.isMemoryOptimizationEnabled());
+        assertTrue(InputBoosterConfig.isInputOptimizationEnabled());
+        assertTrue(InputBoosterConfig.isAdaptiveOptimizationEnabled());
+        assertEquals(600, InputBoosterConfig.getAdaptiveIntervalTicks());
+        assertEquals(1000, InputBoosterConfig.getWriteDebounceMs());
+    }
+
+    @Test
     void acceptsCommonBooleanSpellings() throws IOException {
         write("""
             anti_idle=True

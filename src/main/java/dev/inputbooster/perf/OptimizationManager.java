@@ -78,7 +78,9 @@ public final class OptimizationManager {
         if (!adaptive.shouldRunModules(tick)) return;
 
         Supplier<String> source = serverKeySource;
-        cpu.observeServer(source == null ? null : source.get());
+        if (cpu.enabled()) {
+            cpu.observeServer(source == null ? null : source.get());
+        }
 
         for (int i = 0; i < modules.size(); i++) {
             Optimizer module = modules.get(i);
