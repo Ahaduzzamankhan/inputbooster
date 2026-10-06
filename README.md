@@ -1,15 +1,15 @@
 # ⚡ InputBooster
 
 <p align="center">
-  <strong>High-frequency input handling for Minecraft Java Edition.</strong><br>
-  Cleaner clicks • More consistent movement • Useful live diagnostics • Replay testing
+  <strong>Silent, lightweight performance optimisation for Minecraft Java Edition.</strong><br>
+  No HUD • No overlay • No messages • Nothing to configure beyond six switches
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Minecraft-1.21.11-62b47a?style=for-the-badge&logo=minecraft&logoColor=white" alt="Minecraft 1.21.11">
   <img src="https://img.shields.io/badge/Fabric-Client--Side-DBD0B5?style=for-the-badge" alt="Fabric">
   <img src="https://img.shields.io/badge/Java-21%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21+">
-  <img src="https://img.shields.io/badge/Version-4.0.0--alpha-8B5CF6?style=for-the-badge" alt="Version 4.0.0-alpha">
+  <img src="https://img.shields.io/badge/Version-4.0.0--alpha--2-8B5CF6?style=for-the-badge" alt="Version 4.0.0-alpha-2">
   <img src="https://img.shields.io/badge/Renderer-OpenGL%20%2B%20Vulkan-2E7D32?style=for-the-badge" alt="OpenGL and Vulkan">
 </p>
 
@@ -20,11 +20,15 @@
 </p>
 
 
-> **InputBooster** is a client-side mod (NeoForge and Fabric) focused on making keyboard and mouse input feel more consistent during PvP, survival, and low-FPS gameplay.
+> **InputBooster** is a client-side performance mod. It installs, does its work silently in the background and never tells you it did: no HUD, no overlay, no chat, no toasts, no notifications. There is no FPS counter and no performance graph.
 >
-> Current release: `4.0.0-alpha` — Fabric only: branch `fabric-26.2` for Minecraft 26.2 and branch `fabric-26.3` for Minecraft 26.3. NeoForge support is paused.
+> Current release: `4.0.0-alpha-2` — Fabric only: branch `fabric-26.2` for Minecraft 26.2 and branch `fabric-26.3` for Minecraft 26.3. NeoForge support is paused.
 >
-> 4.0.0-alpha moves the settings screen into the vanilla options layout (**Options → InputBooster → InputBooster**) and makes every rendering path work on Minecraft's Vulkan backend. It also adds an optional entry to the Sodium options sidebar. Sodium and Iris are not required and not depended on.
+> 4.0.0-alpha-2 turns InputBooster into a modular optimisation engine (CPU, memory, GPU, disk, chunk, input, plus an adaptive engine). It draws nothing, intercepts no input and keeps no background thread except a single disk writer that only appears when a setting actually changes. Settings live at **Options → InputBooster**, and in Sodium's options sidebar when Sodium is installed.
+>
+> **No performance claims.** These changes have not been benchmarked in a running client, so no frame-rate improvement is claimed. What is measured is the work the mod itself no longer performs; see the test suite.
+>
+> Sodium, Iris, Lithium, FerriteCore and ModernFix are not required and not depended on. Where another mod already owns a subsystem, InputBooster steps aside rather than competing with it.
 
 ---
 
