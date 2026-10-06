@@ -82,6 +82,39 @@ class SodiumIntegrationTest {
     }
 
     @Test
+    void sodiumHooksAreResolvedOnThePublicApiType() throws Exception {
+        // The 26.3 crash: "cannot access a member of class
+        // ...ModOptionsBuilderImpl with modifiers public". Sodium returns a
+        // package-private implementation class, so a Method read off the
+        // runtime class is public and still uncallable from this package.
+        String bridge = code(read(BRIDGE));
+        assertFalse(bridge.contains(".getClass().getMethod("),
+            "a hook must never be read off a runtime class; Sodium returns "
+                + "package-private implementation classes");
+        assertFalse(bridge.contains(".getClass().getDeclaredMethod("),
+            "the same rule applies to declared lookups");
+        for (String apiType : List.of("CONFIG_BUILDER_CLASS", "MOD_OPTIONS_BUILDER_CLASS",
+            "EXTERNAL_PAGE_BUILDER_CLASS")) {
+            assertTrue(bridge.contains(apiType),
+                "the hook must be read from the public Sodium API type it is declared on: "
+                    + apiType);
+        }
+    }
+
+    @Test
+    void theEntryPointHandlerCannotPropagate() throws Exception {
+        // Sodium calls registerConfigLate inside a handler that ends the game
+        // with crashWithMessage, so the proxy handler must absorb everything.
+        String bridge = code(read(BRIDGE));
+        assertFalse(bridge.contains("throws Throwable"),
+            "the invocation handler must not declare a checked exception, or Sodium turns a "
+                + "failed page build into a crash report");
+        int guards = bridge.split("catch \\(Throwable", -1).length - 1;
+        assertTrue(guards >= 2,
+            "both register() and the invocation handler need a Throwable guard, found " + guards);
+    }
+
+    @Test
     void theEntryPointIsRegisteredBeforeSodiumBuildsItsConfig() throws Exception {
         String bridge = read(BRIDGE);
         assertTrue(bridge.contains("registerConfigEntryPoint"),
@@ -122,6 +155,17 @@ class SodiumIntegrationTest {
             assertFalse(bridge.contains(forbidden),
                 "the integration must only add a sidebar entry; it must not touch " + forbidden);
         }
+    }
+
+    /** Strips block and line comments, leaving only the statements. */
+    private static String code(String source) {
+        String withoutBlocks = source.replaceAll("(?s)/\\*.*?\\*/", "");
+        StringBuilder out = new StringBuilder(withoutBlocks.length());
+        for (String line : withoutBlocks.split("\\R")) {
+            int comment = line.indexOf("//");
+            out.append(comment < 0 ? line : line.substring(0, comment)).append('\n');
+        }
+        return out.toString();
     }
 
     private static String stripComments(String script) {

@@ -33,7 +33,8 @@ renderer-independence pass over everything the mod draws.
   rendered inside the list and coloured against the configured CPS cap.
 - **Tests** covering the navigation chain, the GUI structure, the reachability
   of every setting, the rendering rules below and the optional Sodium
-  integration (107 tests in total).
+  integration, including the two reflection rules the crash above broke
+  (115 tests in total).
 
 ### Changed
 
@@ -55,6 +56,23 @@ renderer-independence pass over everything the mod draws.
 
 ### Fixed
 
+- **CRASH - the client died on launch with Sodium installed** (`Mod
+  'inputbooster' failed while registering config options`,
+  `IllegalAccessException: class ...SodiumOptionsBridge cannot access a member of
+  class ...ModOptionsBuilderImpl with modifiers "public"`). The sidebar entry
+  read `addPage` off the *runtime class* of the object Sodium returned. Sodium
+  returns `ModOptionsBuilderImpl`, which is package-private, so the resolved
+  method was public but unreachable from InputBooster's package. Every hook is
+  now read from the public API interface that declares it (`ConfigBuilder`,
+  `ModOptionsBuilder`, `ExternalPageBuilder`) and never from `target.getClass()`.
+- **A failed sidebar entry can no longer end the game.** Sodium calls the entry
+  point inside a handler that terminates the client with `crashWithMessage`, so
+  the previous handler let a `Throwable` escape and turned a cosmetic failure
+  into a crash report. The handler now absorbs everything, logs it once, and
+  ignores hooks it does not recognise - the worst case is a missing sidebar
+  entry, never a game over. Verified by running the shipped bridge against the
+  real Sodium 0.9.2 classes: it now builds `configId = inputbooster` with the
+  external page attached.
 - **The floating options button is gone.** Through 3.1.7 the `InputBooster`
   entry was drawn at a hard-coded `width - 110, 6`, on top of the options
   header, outside the screen layout, and it was never repositioned on resize.
