@@ -7,6 +7,8 @@ import dev.inputbooster.mixin.MinecraftClientAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -16,13 +18,8 @@ public class InputDrainer {
     /**
      * Duplicate-attack suppression is tick-scoped.
      *
-     * Previously two plain booleans were set by the drainer and cleared inside
-     * the injected vanilla methods. That is fragile: if vanilla stops calling
-     * the method (changed input order, a click handled elsewhere, a paused
-     * game) the stale flag survived and silently cancelled a legitimate attack
-     * on a later tick. Each token now carries the tick id it was issued in and
-     * is discarded automatically when that tick ends, so suppression can never
-     * leak across ticks.
+     * Each token carries the tick id it was issued in and is discarded when
+     * that tick ends, so suppression can never leak into a later tick.
      */
     private static final AtomicInteger TICK = new AtomicInteger(1);
     private static volatile int attackHandledTick = -1;
@@ -33,7 +30,7 @@ public class InputDrainer {
     /** Called once per client tick, before draining. */
     public static void beginTick() {
         int tick = TICK.incrementAndGet();
-        // Expire tokens from earlier ticks: vanilla never gets to consume them.
+        // Expire tokens from earlier ticks: vanilla never got to consume them.
         if (attackHandledTick != tick) attackHandledTick = -1;
         if (useHandledTick != tick) useHandledTick = -1;
     }
@@ -88,8 +85,23 @@ public class InputDrainer {
             InputActionQueue.clear();
             return;
         }
+        if (InputBoosterMod.moduleManager != null && !InputBoosterMod.moduleManager.enabled("input")) {
+            // Safe Mode pulled the execution layer after repeated failures.
+            beginTick();
+            InputActionQueue.clear();
+            return;
+        }
 
         beginTick();
+
+        // A click that lands in a container or any other screen belongs to the
+        // screen. Vanilla stops feeding those clicks to the player, so the mod
+        // must stop too: otherwise opening a chest and left-clicking inside it
+        // fires a world attack the player never asked for.
+        if (mc.gui != null && mc.gui.screen() != null) {
+            InputActionQueue.clear();
+            return;
+        }
 
         InputAction.Stamped stamped;
         while ((stamped = InputActionQueue.poll()) != null) {
@@ -104,15 +116,30 @@ public class InputDrainer {
                 }
             }
 
-            apply(stamped.action(), mc);
-            InputClickSoundManager.playFor(stamped.action(), mc);
-            if (stamped.action() == InputAction.ATTACK_PRESSED) {
-                InputBoosterMod.totalHits.incrementAndGet();
+            try {
+                apply(stamped.action(), mc);
+            } catch (Throwable t) {
+                // One bad action must not abort the tick or take the client
+                // down with it. Report it, then keep the rest of the queue
+                // moving so input does not stall behind a single failure.
+                InputBoosterMod.LOGGER.warn("[InputBooster] {} failed: {}",
+                    stamped.action(), t.toString());
+                if (InputBoosterMod.safeMode != null) {
+                    InputBoosterMod.safeMode.recordError("input", t);
+                }
+                continue;
             }
-            // Record CPS for every accepted attack, regardless of target type
-            if (stamped.action() == InputAction.ATTACK_PRESSED &&
-                InputBoosterMod.cpsLimiter != null) {
-                InputBoosterMod.cpsLimiter.recordClick();
+
+            // Replayed events are not the player's input: they must not tick
+            // the session hit counter, the CPS graph or the click sound.
+            if (!stamped.isReplay()) {
+                InputClickSoundManager.playFor(stamped.action(), mc);
+                if (stamped.action() == InputAction.ATTACK_PRESSED) {
+                    InputBoosterMod.totalHits.incrementAndGet();
+                    if (InputBoosterMod.cpsLimiter != null) {
+                        InputBoosterMod.cpsLimiter.recordClick();
+                    }
+                }
             }
         }
     }
@@ -124,30 +151,32 @@ public class InputDrainer {
         switch (action) {
 
             case ATTACK_PRESSED -> {
-                if (mc.hitResult != null) {
-                    switch (mc.hitResult.getType()) {
+                HitResult hit = mc.hitResult;
+                if (hit != null) {
+                    switch (hit.getType()) {
                         case ENTITY -> {
-                            // Entity hits are one-shot events: fire from the drainer and
-                            // suppress vanilla's doAttack() so it doesn't hit a second time.
-                            if (((net.minecraft.world.phys.EntityHitResult) mc.hitResult).getEntity() != null) {
-                                mc.gameMode.attack(player, ((net.minecraft.world.phys.EntityHitResult) mc.hitResult).getEntity());
-                                // 26.x requires an explicit swing animation component on 26.3 and a plain
-                                // hand on 26.2; the compat shim hides the difference.
-                                McVersion.swingArm(player);
-                                if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Entity attack fired");
-                                // Signal vanilla's attack handling to back off — we already fired.
-                                markAttackHandled();
+                            if (hit instanceof EntityHitResult entityHit) {
+                                Entity target = entityHit.getEntity();
+                                // The hit result is one frame old at tick start.
+                                // Only fire at a target that is still alive and
+                                // within vanilla melee reach.
+                                if (target != null && target.isAlive()
+                                    && player.distanceToSqr(target) <= 36.0D) {
+                                    mc.gameMode.attack(player, target);
+                                    // 26.x requires an explicit swing animation component on 26.3
+                                    // and a plain hand on 26.2; the compat shim hides the difference.
+                                    McVersion.swingArm(player);
+                                    if (InputBoosterMod.eventLog != null) InputBoosterMod.eventLog.add("Entity attack fired");
+                                    // Signal vanilla's attack handling to back off: we already fired.
+                                    markAttackHandled();
+                                }
                             }
                         }
                         case BLOCK -> {
                             // Block breaking is a CONTINUOUS held-key mechanic. Vanilla's
                             // handleBlockBreaking() already calls attackBlock() every tick
-                            // the button is held. If we also call attackBlock() here we get
-                            // TWO calls per tick — exactly the double-break bug the user sees.
-                            //
-                            // Fix: do NOT call attackBlock() from the drainer. Do NOT set
-                            // attackHandledThisTick so vanilla's doAttack() / handleBlockBreaking()
-                            // runs its normal single-call loop unobstructed.
+                            // the button is held. Calling attackBlock() here as well would
+                            // break two blocks per tick, so this case stays empty on purpose.
                         }
                         default -> {}
                     }
@@ -155,8 +184,16 @@ public class InputDrainer {
             }
 
             case USE_PRESSED -> {
-                mc.gameMode.useItem(player, InteractionHand.MAIN_HAND);
-                markUseHandled();
+                // Vanilla owns block and entity interaction: opening a chest,
+                // flipping a lever, trading, mounting. Only the "right-click at
+                // nothing" case is executed here. For anything under the
+                // crosshair the event is left to startUseItem(), so the mod no
+                // longer turns every right-click into a held-item use.
+                HitResult hit = mc.hitResult;
+                if (hit == null || hit.getType() == HitResult.Type.MISS) {
+                    mc.gameMode.useItem(player, InteractionHand.MAIN_HAND);
+                    markUseHandled();
+                }
             }
 
             case SPRINT_PRESSED  -> player.setSprinting(true);
@@ -170,11 +207,16 @@ public class InputDrainer {
             }
 
             case JUMP_PRESSED -> {
+                // The old guard required the jump key to be *up*, which made
+                // this branch unreachable: the event only exists because the
+                // key went down. Jump a tick earlier than vanilla when the
+                // player can actually leave the ground; vanilla then sees
+                // onGround() == false and does not jump a second time.
                 boolean canJump = player.onGround()
                     || McCompat.isInWater(player)
                     || player.isInLava()
                     || McCompat.isClimbing(player);
-                if (!mc.options.keyJump.isDown() && canJump) {
+                if (canJump) {
                     player.jumpFromGround();
                 }
             }
@@ -194,9 +236,9 @@ public class InputDrainer {
             case DROP_PRESSED -> McVersion.dropHeldItem(player);
 
             case SWAP_PRESSED -> {
-                if (!mc.options.keySwapOffhand.isDown()) {
-                    mc.gameMode.useItem(player, InteractionHand.OFF_HAND);
-                }
+                // The offhand swap belongs to vanilla's own keybind path. This
+                // used to call useItem(OFF_HAND), so pressing the swap key ate
+                // food or placed a block instead of swapping the shield in.
             }
 
             case PICK_BLOCK_PRESSED -> {

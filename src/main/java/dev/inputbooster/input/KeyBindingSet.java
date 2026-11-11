@@ -87,7 +87,9 @@ public final class KeyBindingSet {
     /** Vanilla defaults, used when a binding cannot be read. */
     public static int[] defaultCodes(int mouseAttack, int mouseUse, int middleMouse) {
         return new int[]{
-            mouseAttack, mouseUse, InputConstants.KEY_LSHIFT, InputConstants.KEY_LCONTROL,
+            // Slot order is sprint then sneak: vanilla binds sprint to left
+            // control and sneak to left shift, the reverse of the old array.
+            mouseAttack, mouseUse, InputConstants.KEY_LCONTROL, InputConstants.KEY_LSHIFT,
             InputConstants.KEY_SPACE, InputConstants.KEY_W, InputConstants.KEY_S,
             InputConstants.KEY_A, InputConstants.KEY_D, InputConstants.KEY_Q,
             InputConstants.KEY_F, middleMouse

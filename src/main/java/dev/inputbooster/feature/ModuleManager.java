@@ -9,6 +9,10 @@ public class ModuleManager {
     private final Map<String, Boolean> runtime = new LinkedHashMap<>();
 
     public ModuleManager() {
+        // "input" is the execution layer itself. Safe Mode turns it off when
+        // the drain path keeps failing, which lets the mod stop touching the
+        // player while everything else keeps running.
+        runtime.put("input", true);
         runtime.put("combat", true);
         runtime.put("movement", true);
         runtime.put("debug", true);

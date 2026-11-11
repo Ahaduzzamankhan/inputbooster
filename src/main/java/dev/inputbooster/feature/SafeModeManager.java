@@ -96,7 +96,7 @@ public class SafeModeManager {
 
     private static boolean isKnownModule(String key) {
         return switch (key) {
-            case "combat", "movement", "debug", "profiles", "anti_idle", "replay" -> true;
+            case "input", "combat", "movement", "debug", "profiles", "anti_idle", "replay" -> true;
             default -> false;
         };
     }

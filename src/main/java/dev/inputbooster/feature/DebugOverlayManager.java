@@ -73,12 +73,17 @@ public class DebugOverlayManager {
         float opacity = InputBoosterConfig.getOverlayOpacity();
         int backgroundColor = ((int) (0x90 * opacity) & 0xFF) << 24;
 
+        // The panel size is scaled, so the text has to be scaled as well. The
+        // local coordinates are divided by the scale because the matrix is
+        // applied before the glyphs reach their screen position; without this
+        // any scale other than 1 clipped or misplaced the badge.
+        float invScale = scale > 0.0f ? 1.0f / scale : 1.0f;
         renderState.addText(new GuiTextRenderState(
             font,
             Component.literal(text).getVisualOrderText(),
-            new Matrix3x2f(),
-            originX,
-            originY,
+            new Matrix3x2f().scaling(scale),
+            (int) (originX * invScale),
+            (int) (originY * invScale),
             color,
             backgroundColor,
             false,

@@ -144,7 +144,7 @@ public class InputBoosterConfig {
                 clickSoundsEnabled = parseBool(props, "click_sounds",         false);
                 clickSoundPitch   = Math.max(0.5f, Math.min(2.0f, parseFloat(props, "click_sound_pitch", 1.35f)));
                 clickSoundVolume  = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "click_sound_volume", 0.35f)));
-                configVersion     = Math.max(1, parseInt(props, "config_version", 303));
+                configVersion     = Math.max(1, parseInt(props, "config_version", CONFIG_VERSION));
                 showF3Info        = parseBool(props, "show_f3_info",          true);
                 showKeystrokes    = parseBool(props, "show_keystrokes",       true);
                 overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", 0)));
@@ -333,7 +333,11 @@ public class InputBoosterConfig {
         burstModeEnabled = true; maxCps = 20; comboKeysEnabled = true;
         cpsMode = "FIXED"; replayEnabled = true; safeModeEnabled = true;
         eventLogEnabled = true; keyConflictWarn = true; perServerProfiles = true;
-        clickSoundsEnabled = false; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f; configVersion = 303;
+        clickSoundsEnabled = false; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f;
+        // Start at the current schema version. Writing 303 here made every
+        // fresh config advertise an old version and migrate itself on the next
+        // load.
+        configVersion = CONFIG_VERSION;
         showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
         overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
     }

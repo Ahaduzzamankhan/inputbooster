@@ -42,13 +42,17 @@ public class ConfigTools {
         // Path.of("backup.properties").getParent() is null — creating
         // directories for it used to throw a NullPointerException.
         if (parent != null) Files.createDirectories(parent);
-        Files.copy(Path.of("config", "inputbooster.properties"), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        // Use the same directory the rest of the mod reads and writes. The
+        // hard-coded "config" ignored the inputbooster.configDir override and
+        // pointed at a file save() never created in that case.
+        Files.copy(InputBoosterConfig.configDir().resolve("inputbooster.properties"), target,
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
     }
 
     public void importConfig(Path source) throws IOException {
         if (source == null) throw new IllegalArgumentException("import source must not be null");
         if (!Files.isRegularFile(source)) throw new IOException("Not a file: " + source);
-        Path dir = Path.of("config");
+        Path dir = InputBoosterConfig.configDir();
         Files.createDirectories(dir);
         Files.copy(source, dir.resolve("inputbooster.properties"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         InputBoosterConfig.load();

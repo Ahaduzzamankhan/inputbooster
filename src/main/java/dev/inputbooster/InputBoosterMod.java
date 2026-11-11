@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class InputBoosterMod {
     public static final String MOD_ID = "inputbooster";
     public static final String MOD_NAME = "InputBooster";
-    public static final String MOD_VERSION = "3.1.4";
+    public static final String MOD_VERSION = "4.0.1-beta";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -47,6 +47,12 @@ public final class InputBoosterMod {
     public static volatile int currentPollHz = 200;
     public static volatile int currentFps = 0;
     public static volatile long lastTickTime = 0;
+    /**
+     * True while the game thread allows world input: a player exists and no
+     * screen is open. The polling thread reads this so a click in a container
+     * is never turned into a world action.
+     */
+    public static volatile boolean inputAllowed = false;
 
     // Managers & utilities
     public static InputPollingThread pollingThread;
@@ -75,6 +81,8 @@ public final class InputBoosterMod {
     private static int stableFpsTicks = 0;
     private static int unstableFpsTicks = 0;
     private static boolean hadPlayer = false;
+    /** Set when initialisation failed for good; stops the per-tick retry loop. */
+    private static volatile boolean initFailed = false;
 
     private InputBoosterMod() {}
 
@@ -106,7 +114,7 @@ public final class InputBoosterMod {
     }
 
     public static void initialize() {
-        if (initialized.get() || shuttingDown) return;
+        if (initialized.get() || shuttingDown || initFailed) return;
         LOGGER.info("[{}] Starting v{}", MOD_NAME, MOD_VERSION);
         try {
             createKeyMappings();
@@ -139,16 +147,23 @@ public final class InputBoosterMod {
             rawKeyState = dev.inputbooster.input.RawKeyState.of(
                 client != null && client.getWindow() != null ? client.getWindow() : null);
             publishKeyBindings(client);
+            // Mark initialised before the poller starts: the loop reads this
+            // flag on its first iteration, and a start that fails after the
+            // thread is created used to leave a running poller behind while
+            // the mod still reported itself as uninitialised.
+            initialized.set(true);
+            DebugOverlayManager.register();
             pollingThread = new InputPollingThread(initialHz);
             pollingThread.start();
             currentPollHz = initialHz;
-
-            DebugOverlayManager.register();
-            initialized.set(true);
             eventLog.add("InputBooster initialized");
             LOGGER.info("[{}] Ready!", MOD_NAME);
         } catch (Exception e) {
-            LOGGER.error("[{}] Fatal init error!", MOD_NAME, e);
+            // Retrying every tick logged the same failure forever and, when it
+            // happened after the poller started, left another polling thread
+            // behind on every attempt.
+            initFailed = true;
+            LOGGER.error("[{}] Fatal init error! InputBooster is disabled for this session.", MOD_NAME, e);
             active = false;
         }
     }
@@ -161,6 +176,10 @@ public final class InputBoosterMod {
         initialize();
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
+        // Screens own their clicks. Publishing this here keeps the decision on
+        // the game thread while the poller only reads a volatile boolean.
+        inputAllowed = client.player != null
+            && (client.gui == null || client.gui.screen() == null);
         handleKeybinds(client);
         if (!active || !initialized.get()) return;
         try {
@@ -329,6 +348,7 @@ public final class InputBoosterMod {
             keySnapshot = null;
             rawKeyState = null;
             InputBoosterConfig.save();
+            inputAllowed = false;
             active = false;
             initialized.set(false);
         } catch (Throwable t) {
@@ -337,8 +357,9 @@ public final class InputBoosterMod {
     }
 
     /**
-     * Republishes the key bindings the polling thread samples. Only allocates a
-     * new immutable set when a binding actually changed.
+     * Republishes the key bindings the polling thread samples. The codes are
+     * rebuilt every tick (a dozen array slots), but the volatile set the poller
+     * reads is only replaced when a binding actually changed.
      */
     private static void publishKeyBindings(Minecraft client) {
         if (client == null || client.options == null) return;

@@ -1,5 +1,69 @@
 # Changelog
 
+## 4.0.1-beta - Input pipeline correctness pass
+
+Bug review of the whole input path. No new features.
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-4.0.1-beta-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.0.1-beta-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.0.1-beta-fabric-mc263.jar` |
+
+### Fixed
+
+- **COOLDOWN CPS mode allowed one click per session.** The minimum gap was
+  computed in nanoseconds and then multiplied by 1,000,000 again, which came out
+  at roughly 15 hours. The gap is now 35 ms or one window divided by the cap,
+  whichever is larger.
+- **Clicks inside a screen were executed in the world.** The poller only checked
+  for the pause menu, so a left-click in a chest or inventory was queued as an
+  attack and fired at whatever was behind the window. Both the poller and the
+  drainer now require that no screen is open, and the decision is made on the
+  game thread.
+- **Right-click ignored block interaction.** `USE_PRESSED` called `useItem` on
+  every press and then suppressed vanilla, so chests, levers and doors could not
+  be opened. Only the "nothing under the crosshair" case is executed now and
+  everything else goes back to `startUseItem()`.
+- **The swap-offhand key used the offhand item.** Pressing F ate food or placed
+  a block instead of swapping. The swap is vanilla's job, so the mod no longer
+  touches it.
+- **One failing action could crash the tick.** Every action is applied inside a
+  try/catch, the failure is logged and reported to Safe Mode, and the queue
+  keeps draining. Safe Mode can now switch the execution layer off through a new
+  `input` module instead of only recording an error it could not act on.
+- **Jump from the mod never ran.** The guard required the jump key to be up, but
+  the event only exists because the key went down. The mod now jumps a tick
+  earlier when the player can leave the ground, and vanilla sees the player
+  airborne so it does not jump twice.
+- **Fallback sprint and sneak keys were swapped.** When a binding could not be
+  read, the defaults used left shift for sprint and left control for sneak, the
+  reverse of vanilla.
+- **A failed init retried on every tick.** It logged the same stack trace each
+  tick and could start a second polling thread per attempt. Initialisation now
+  stops after one failure, and the poller starts only once everything else is
+  ready.
+- **Keys held through a pause fired fresh presses on resume.** The edge detector
+  cleared its previous state instead of re-reading the held keys, so unpausing
+  with attack down produced an attack the player did not make.
+- **Entity attacks could target a stale hit result.** The hit result is one frame
+  old at tick start, so the drainer now checks that the target is still alive and
+  within reach before attacking.
+- **Replay inflated session stats.** Replayed attacks ticked the hit counter,
+  the CPS graph and the click sound. Only physical input does that now.
+- **`ConfigTools` ignored the config directory.** Import and export used a
+  hard-coded `config` path while the rest of the mod honours
+  `inputbooster.configDir`, so export failed when the two differed.
+- **New configs advertised the previous schema version.** `resetDefaults()` wrote
+  `config_version=303` while the current version is 304, so a fresh install
+  migrated itself on the next load.
+- **The event log could exceed its bound.** The size counter was incremented
+  outside the trim lock, so two producers could trim each other's entries.
+- **The CPS window state was written without a lock.** Two threads could roll the
+  window twice in one second and skip a limit.
+- **Overlay scale did not reach the text.** The panel was scaled but the glyphs
+  were not, which clipped the badge at any scale other than 1.
+
 ## 3.1.4 - Mixin declaration fix (launch crash)
 
 The 3.1.3 jars could not start the client at all:

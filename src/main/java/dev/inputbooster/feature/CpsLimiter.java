@@ -51,7 +51,14 @@ public class CpsLimiter {
         synchronized (bucketLock) {
             refill(now, maxCps);
             if ("COOLDOWN".equals(InputBoosterConfig.getCpsMode())) {
-                long minGapNs = Math.max(35L, WINDOW_NANOS / Math.max(1, maxCps)) * 1_000_000L;
+                // Minimum gap between two accepted clicks. Compute it in
+                // milliseconds first (WINDOW_NANOS / 1_000_000L is one second)
+                // and convert to nanos once. The previous form divided nanos by
+                // maxCps and then multiplied by 1e6 again, which produced a gap
+                // of about 15 hours: COOLDOWN mode allowed one click per
+                // session.
+                long minGapMs = Math.max(35L, (WINDOW_NANOS / 1_000_000L) / Math.max(1, maxCps));
+                long minGapNs = minGapMs * 1_000_000L;
                 if (lastAcceptedAt > 0 && now - lastAcceptedAt < minGapNs) return false;
             }
             if (tokens < 1.0d) {
@@ -138,6 +145,16 @@ public class CpsLimiter {
      * reused so every click in a window sees the same limit.
      */
     public int effectiveMaxCps(long nowNanos) {
+        // The window fields are read from the game thread and written from the
+        // click path, so the whole read-roll-compute sequence stays under the
+        // same lock. Without it two callers could roll the window twice in one
+        // second and skip a second's worth of limits.
+        synchronized (bucketLock) {
+            return effectiveMaxCpsLocked(nowNanos);
+        }
+    }
+
+    private int effectiveMaxCpsLocked(long nowNanos) {
         rollWindow(nowNanos);
         int cached = windowLimit;
         if (cached > 0) return cached;

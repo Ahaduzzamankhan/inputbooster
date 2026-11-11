@@ -26,10 +26,14 @@ public class EventLog {
 
     public void add(String message) {
         if (!InputBoosterConfig.isEventLogEnabled() || message == null || message.isBlank()) return;
-        events.addLast(LocalTime.now().withNano(0) + " " + message);
-        int size = logSize.incrementAndGet();
-        if (size <= MAX_EVENTS) return;
+        String line = LocalTime.now().withNano(0) + " " + message;
+        // Append and trim under one lock. Incrementing the counter outside the
+        // lock let two producers both observe the log as over the limit and
+        // trim each other's entries, so the "bounded" log was neither bounded
+        // nor consistent.
         synchronized (trimLock) {
+            events.addLast(line);
+            logSize.incrementAndGet();
             while (logSize.get() > MAX_EVENTS) {
                 if (events.pollFirst() == null) break;
                 logSize.decrementAndGet();

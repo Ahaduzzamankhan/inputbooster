@@ -95,8 +95,9 @@ public class InputPollingThread extends Thread {
 
     private void poll() {
         if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()
-            || InputBoosterMod.shuttingDown || !InputBoosterMod.gameReady || InputBoosterMod.gamePaused) {
-            resetPreviousStates();
+            || InputBoosterMod.shuttingDown || !InputBoosterMod.gameReady
+            || InputBoosterMod.gamePaused || !InputBoosterMod.inputAllowed) {
+            resyncPreviousStates();
             return;
         }
 
@@ -199,6 +200,37 @@ public class InputPollingThread extends Thread {
             // Record the failure instead of dropping the click silently.
             InputBoosterMod.eventLog.add("Attack dropped: input queue full");
         }
+    }
+
+    /**
+     * Re-seeds the edge detector from the state that is actually held right
+     * now. The old code cleared every previous flag, so a key that was still
+     * down when the game paused, lost focus or opened a screen looked like a
+     * fresh press on resume. That could fire an attack the player never made.
+     */
+    private void resyncPreviousStates() {
+        KeySnapshot snap;
+        try {
+            snap = sample();
+        } catch (Throwable ignored) {
+            snap = null;
+        }
+        if (snap == null) {
+            resetPreviousStates();
+            return;
+        }
+        prevAttack = snap.attack;
+        prevUse = snap.use;
+        prevSprint = snap.sprint;
+        prevSneak = snap.sneak;
+        prevJump = snap.jump;
+        prevForward = snap.forward;
+        prevBack = snap.back;
+        prevLeft = snap.left;
+        prevRight = snap.right;
+        prevDrop = snap.drop;
+        prevSwap = snap.swap;
+        prevPickBlock = snap.pickBlock;
     }
 
     private void resetPreviousStates() {
