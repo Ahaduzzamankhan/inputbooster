@@ -94,11 +94,13 @@ public class InputDrainer {
 
         beginTick();
 
-        // A click that lands in a container or any other screen belongs to the
-        // screen. Vanilla stops feeding those clicks to the player, so the mod
-        // must stop too: otherwise opening a chest and left-clicking inside it
-        // fires a world attack the player never asked for.
-        if (mc.gui != null && mc.gui.screen() != null) {
+        // A key pressed while a screen is open belongs to that screen. Vanilla
+        // stops feeding those events to the player, so the mod must stop too:
+        // otherwise the space typed in chat comes out as a jump. The router is
+        // fed by the game's own show-screen call, which is more reliable than
+        // asking the HUD at tick time.
+        if (dev.inputbooster.input.KeyboardRouter.isScreenOpen()
+            || (mc.gui != null && mc.gui.screen() != null)) {
             InputActionQueue.clear();
             return;
         }

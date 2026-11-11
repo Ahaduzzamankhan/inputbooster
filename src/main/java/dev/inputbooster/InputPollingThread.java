@@ -179,12 +179,20 @@ public class InputPollingThread extends Thread {
     private KeySnapshot sample() {
         RawKeyState raw = InputBoosterMod.rawKeyState;
         KeyBindingSet bindings = InputBoosterMod.keyBindings;
-        if (raw != null && raw.isAvailable() && bindings != null) {
+        boolean rawReady = raw != null && raw.isAvailable() && bindings != null;
+        if (rawReady) {
             try {
                 return KeySnapshot.fromRaw(raw, bindings);
             } catch (Throwable ignored) {
-                // Fall through to the tick-rate snapshot.
+                // Fall through to the tick-rate snapshot below.
             }
+        }
+        // With the custom handler enabled the poller refuses to borrow
+        // Minecraft's key mappings. Those mappings are updated by the same key
+        // events that belong to an open screen, so mixing them into the raw
+        // state is how a space typed in chat became a jump.
+        if (dev.inputbooster.input.KeyboardRouter.customHandlerEnabled()) {
+            return null;
         }
         return InputBoosterMod.keySnapshot;
     }

@@ -169,6 +169,26 @@ public class InputBoosterScreen extends Screen {
             btn.setMessage(toggleLabel("Action Bar Messages", InputBoosterConfig.isShowActionBar()));
             hasChanges = true;
         }));
+
+        // Alpha. Turning it on goes through a warning screen first, so the
+        // toggle cannot be flipped by accident while skimming the tab.
+        addRenderableWidget(toggleButton(leftCx, top + gap * 6, colW, "Custom Keyboard §cALPHA",
+            InputBoosterConfig.isCustomKeyboardHandlerEnabled(), btn -> {
+            if (InputBoosterConfig.isCustomKeyboardHandlerEnabled()) {
+                InputBoosterConfig.setCustomKeyboardHandlerEnabled(false);
+                btn.setMessage(toggleLabel("Custom Keyboard §cALPHA", false));
+                hasChanges = true;
+                return;
+            }
+            if (this.minecraft == null) return;
+            this.minecraft.setScreenAndShow(new KeyboardHandlerWarningScreen(this, () -> {
+                InputBoosterConfig.setCustomKeyboardHandlerEnabled(true);
+                hasChanges = true;
+                if (InputBoosterMod.eventLog != null) {
+                    InputBoosterMod.eventLog.add("Custom keyboard handler enabled (alpha)");
+                }
+            }));
+        }));
         addRenderableWidget(toggleButton(rightCx, top, colW, "Debug Mode", InputBoosterConfig.isDebugMode(), btn -> {
             InputBoosterConfig.setDebugMode(!InputBoosterConfig.isDebugMode());
             btn.setMessage(toggleLabel("Debug Mode", InputBoosterConfig.isDebugMode()));
@@ -269,6 +289,12 @@ public class InputBoosterScreen extends Screen {
         ctx.centeredText(this.font, tabLabel, this.width / 2, 55, TEXT_MUTED);
 
         if (currentTab == 3) renderStatsContent(ctx);
+
+        if (InputBoosterConfig.isCustomKeyboardHandlerEnabled()) {
+            ctx.centeredText(this.font,
+                "§cCustom keyboard handler is ALPHA — you use it at your own risk",
+                this.width / 2, this.height - 68, 0xFF5555);
+        }
 
         if (hasChanges) {
             ctx.centeredText(this.font,

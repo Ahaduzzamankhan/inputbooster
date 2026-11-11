@@ -1,6 +1,7 @@
 package dev.inputbooster;
 
 import dev.inputbooster.feature.*;
+import dev.inputbooster.input.KeyboardRouter;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.inputbooster.compat.McVersion;
 import net.minecraft.client.KeyMapping;
@@ -147,6 +148,7 @@ public final class InputBoosterMod {
             rawKeyState = dev.inputbooster.input.RawKeyState.of(
                 client != null && client.getWindow() != null ? client.getWindow() : null);
             publishKeyBindings(client);
+            KeyboardRouter.reset();
             // Mark initialised before the poller starts: the loop reads this
             // flag on its first iteration, and a start that fails after the
             // thread is created used to leave a running poller behind while
@@ -176,10 +178,11 @@ public final class InputBoosterMod {
         initialize();
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
-        // Screens own their clicks. Publishing this here keeps the decision on
-        // the game thread while the poller only reads a volatile boolean.
-        inputAllowed = client.player != null
-            && (client.gui == null || client.gui.screen() == null);
+        // Screens own the keyboard. Publishing this here keeps the decision on
+        // the game thread while the poller only reads a volatile boolean. The
+        // router records screen changes from the game's own show-screen call,
+        // so this does not depend on catching the HUD mid-tick.
+        inputAllowed = client.player != null && KeyboardRouter.worldInputAllowed(client);
         handleKeybinds(client);
         if (!active || !initialized.get()) return;
         try {
@@ -349,6 +352,7 @@ public final class InputBoosterMod {
             rawKeyState = null;
             InputBoosterConfig.save();
             inputAllowed = false;
+            KeyboardRouter.reset();
             active = false;
             initialized.set(false);
         } catch (Throwable t) {

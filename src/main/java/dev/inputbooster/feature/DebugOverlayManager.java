@@ -101,12 +101,13 @@ public class DebugOverlayManager {
 
     /** Human-readable status lines for the settings screen and debug output. */
     public static List<String> getDebugLines() {
-        List<String> lines = new ArrayList<>(4);
+        List<String> lines = new ArrayList<>(5);
         boolean burst = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
         lines.add("Poll rate: " + (burst ? 1000 : InputBoosterMod.currentPollHz) + " Hz" + (burst ? " (burst)" : ""));
         lines.add("Input queue: " + InputActionQueue.size() + "/" + InputActionQueue.capacity());
         lines.add("Poller: " + (InputBoosterMod.pollingThread != null && InputBoosterMod.pollingThread.isAlive()
             ? "running" : "stopped"));
+        lines.add(dev.inputbooster.input.KeyboardRouter.statusLine());
         lines.add("Overlay: " + (InputBoosterConfig.isShowF3Info() ? "enabled" : "disabled")
             + " @ " + positionName());
         return lines;

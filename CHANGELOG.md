@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Custom keyboard handler, alpha, off by default.** A new `KeyboardRouter`
+  makes the screen decision from the game's own show-screen call instead of
+  asking the HUD at tick time. A new `ScreenTrackingMixin` only observes that
+  call: it cancels nothing, changes no vanilla binding and never sees another
+  mod's input. With the handler on, the poller reads key state exclusively
+  through its own path and no longer falls back to Minecraft's key mappings.
+- The Advanced tab has a `Custom Keyboard (ALPHA)` toggle. Turning it on opens
+  a warning screen first, and a red line stays on the settings screen while it
+  is active. The value is stored as `custom_keyboard_handler=false`.
+
+### Fixed
+
+- **Space in chat jumped the player.** The poller read raw key state at full
+  rate with no reliable screen signal, so a space that belonged to the chat box
+  became a `JUMP_PRESSED` event. Screen state is now recorded before the screen
+  is shown, anything already queued is dropped at that moment, and the drainer
+  checks again before executing an event.
+
 ## 4.0.1-beta - Input pipeline correctness pass
 
 Bug review of the whole input path. No new features.

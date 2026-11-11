@@ -10,7 +10,8 @@
     "OptionsScreenMixin",
     "GuiAccessor",
     "KeyMappingAccessor",
-    "MinecraftClientAccessor"
+    "MinecraftClientAccessor",
+    "ScreenTrackingMixin"
   ],
   "injectors": {
     "defaultRequire": 1

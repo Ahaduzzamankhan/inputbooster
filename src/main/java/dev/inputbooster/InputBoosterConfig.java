@@ -59,6 +59,11 @@ public class InputBoosterConfig {
     private static volatile boolean burstModeEnabled  = true;   // Feature 1
     private static volatile int     maxCps            = 20;     // Feature 3 (1–20)
     private static volatile boolean comboKeysEnabled  = true;   // Feature 4
+    /**
+     * Alpha, off by default: InputBooster uses its own keyboard handler instead
+     * of borrowing Minecraft's key mappings. See KeyboardRouter.
+     */
+    private static volatile boolean customKeyboardHandler = false;
     private static volatile String  cpsMode           = "FIXED";
     private static volatile boolean replayEnabled     = true;
     private static volatile boolean safeModeEnabled   = true;
@@ -68,7 +73,7 @@ public class InputBoosterConfig {
     private static volatile boolean clickSoundsEnabled = false;
     private static volatile float   clickSoundPitch   = 1.35f;
     private static volatile float   clickSoundVolume  = 0.35f;
-    private static volatile int     configVersion     = 303;
+    private static volatile int     configVersion     = 304;
 
     // ── UI ───────────────────────────────────────────────────────────────────
     private static volatile boolean showF3Info        = true;
@@ -153,6 +158,7 @@ public class InputBoosterConfig {
                 showActionBar     = parseBool(props, "show_action_bar",       true);
                 fpsCheckInterval  = Math.max(1, Math.min(100, parseInt(props, "fps_check_interval", 20)));
                 debugMode         = parseBool(props, "debug_mode",            false);
+                customKeyboardHandler = parseBool(props, "custom_keyboard_handler", false);
                 warnAboutDefaults(props);
                 LOGGER.info("✓ Config loaded successfully (config version {})", configVersion);
             } else {
@@ -205,6 +211,7 @@ public class InputBoosterConfig {
             props.setProperty("show_action_bar",     String.valueOf(showActionBar));
             props.setProperty("fps_check_interval",  String.valueOf(fpsCheckInterval));
             props.setProperty("debug_mode",          String.valueOf(debugMode));
+            props.setProperty("custom_keyboard_handler", String.valueOf(customKeyboardHandler));
             Path temp = Files.createTempFile(parent, "inputbooster", ".tmp");
             try (OutputStream out = Files.newOutputStream(temp)) {
                 props.store(out, "InputBooster " + dev.inputbooster.InputBoosterMod.MOD_VERSION
@@ -273,6 +280,7 @@ public class InputBoosterConfig {
         checkBool(props, bad, "cps_limiter");
         checkBool(props, bad, "burst_mode");
         checkBool(props, bad, "combo_keys");
+        checkBool(props, bad, "custom_keyboard_handler");
         checkInt(props, bad, "poll_rate_hz", 60, 1000);
         checkInt(props, bad, "max_cps", 1, 20);
         checkInt(props, bad, "overlay_position", 0, 3);
@@ -339,6 +347,7 @@ public class InputBoosterConfig {
         // load.
         configVersion = CONFIG_VERSION;
         showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
+        customKeyboardHandler = false;
         overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
     }
 
@@ -373,6 +382,7 @@ public class InputBoosterConfig {
     public static boolean isShowActionBar()      { return showActionBar; }
     public static int     getFpsCheckInterval()  { return fpsCheckInterval; }
     public static boolean isDebugMode()          { return debugMode; }
+    public static boolean isCustomKeyboardHandlerEnabled() { return customKeyboardHandler; }
 
     // ── Setters ───────────────────────────────────────────────────────────────
 
@@ -404,4 +414,5 @@ public class InputBoosterConfig {
     public static void setShowActionBar(boolean v)    { showActionBar = v; }
     public static void setFpsCheckInterval(int v)     { fpsCheckInterval = Math.max(1, Math.min(100, v)); }
     public static void setDebugMode(boolean v)        { debugMode = v; }
+    public static void setCustomKeyboardHandlerEnabled(boolean v) { customKeyboardHandler = v; }
 }
