@@ -236,6 +236,11 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Create the tag when the version is new
         shell: bash
         env:
