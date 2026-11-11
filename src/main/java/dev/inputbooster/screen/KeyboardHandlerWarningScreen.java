@@ -27,7 +27,7 @@ public class KeyboardHandlerWarningScreen extends Screen {
         "§7It does not change your vanilla bindings and it does not cancel",
         "§7another mod's input. Still: §eyou use it at your own risk.",
         "",
-        "§7You can turn it off again from this screen at any time.",
+        "§7You can turn it off again in the Advanced tab at any time.",
     };
 
     private final Screen parent;
@@ -43,7 +43,7 @@ public class KeyboardHandlerWarningScreen extends Screen {
     protected void init() {
         int cx = this.width / 2;
         addRenderableWidget(Button.builder(
-            Component.literal("§cTurn it off"),
+            Component.literal("§cCancel (keep it off)"),
             button -> onClose()
         ).bounds(cx - 155, this.height - 40, 150, 20).build());
 

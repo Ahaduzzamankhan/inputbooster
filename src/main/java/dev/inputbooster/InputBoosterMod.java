@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class InputBoosterMod {
     public static final String MOD_ID = "inputbooster";
     public static final String MOD_NAME = "InputBooster";
-    public static final String MOD_VERSION = "4.0.2-alpha";
+    public static final String MOD_VERSION = "4.0.2-stable";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -160,10 +160,12 @@ public final class InputBoosterMod {
             currentPollHz = initialHz;
             eventLog.add("InputBooster initialized");
             LOGGER.info("[{}] Ready!", MOD_NAME);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             // Retrying every tick logged the same failure forever and, when it
             // happened after the poller started, left another polling thread
-            // behind on every attempt.
+            // behind on every attempt. Throwable, not Exception: a missing
+            // class or a linkage error from a version mismatch would otherwise
+            // escape into the tick handler on every single tick.
             initFailed = true;
             LOGGER.error("[{}] Fatal init error! InputBooster is disabled for this session.", MOD_NAME, e);
             active = false;
@@ -209,7 +211,12 @@ public final class InputBoosterMod {
             handleComboKeys(client);
             if (moduleManager.enabled("profiles")) perServerProfileManager.tick(client);
             if (moduleManager.enabled("debug")) keybindConflictDetector.tick(client);
-            if (moduleManager.enabled("replay")) replayRecorder.tick();
+            // Playback must not advance behind a screen. The drainer clears the
+            // queue while a screen is open, so a replayed event queued there
+            // would be consumed from the recording and never executed: the
+            // replay would silently skip inputs. Wait until the player owns the
+            // keyboard again.
+            if (moduleManager.enabled("replay") && inputAllowed) replayRecorder.tick();
             if (moduleManager.enabled("movement")) {
                 sprintManager.tick(client);
                 wTapAssist.tick(client);
@@ -220,7 +227,7 @@ public final class InputBoosterMod {
             if (InputBoosterConfig.isBurstModeEnabled()) burstMode.tick(client);
             if (safeMode != null) safeMode.tick();
             sessionStats.tick(currentFps, cpsLimiter.getCps());
-        } catch (Exception e) {
+        } catch (Throwable e) {
             LOGGER.warn("[{}] Tick error", MOD_NAME, e);
             if (safeMode != null) safeMode.recordError("client tick", e);
         }
@@ -404,14 +411,25 @@ public final class InputBoosterMod {
         java.util.List<String> missing = new java.util.ArrayList<>();
         for (String name : required) {
             try {
-                boolean found = false;
-                for (var m : Minecraft.class.getDeclaredMethods()) {
-                    if (m.getName().equals(name)) { found = true; break; }
-                }
-                if (!found) missing.add(name);
+                if (!hasMethod(name)) missing.add(name);
             } catch (Throwable t) {
                 missing.add(name);
             }
+        }
+        // The screen router has two candidate hooks and only needs one. Report
+        // which one this client really has, so a router that silently failed to
+        // apply is visible in the log instead of looking like a jump bug.
+        boolean showHook = false, setHook = false;
+        try {
+            showHook = hasMethod("setScreenAndShow");
+            setHook = hasMethod("setScreen");
+        } catch (Throwable ignored) {
+            // Reflection unavailable: the missing-hook path below covers it.
+        }
+        if (showHook || setHook) {
+            LOGGER.info("[Mixin] Screen hooks: setScreenAndShow={}, setScreen={}", showHook, setHook);
+        } else {
+            LOGGER.warn("[Mixin] No screen hook found; screen state falls back to the HUD check each tick.");
         }
         if (missing.isEmpty()) {
             LOGGER.info("[Mixin] All client hooks present.");
@@ -419,5 +437,12 @@ public final class InputBoosterMod {
             LOGGER.error("[Mixin] Missing vanilla method(s): {} — input handling is degraded. "
                 + "The mod may need an update for this Minecraft version.", String.join(", ", missing));
         }
+    }
+
+    private static boolean hasMethod(String name) {
+        for (var m : Minecraft.class.getDeclaredMethods()) {
+            if (m.getName().equals(name)) return true;
+        }
+        return false;
     }
 }

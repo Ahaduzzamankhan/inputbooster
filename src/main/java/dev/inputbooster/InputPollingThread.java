@@ -102,7 +102,14 @@ public class InputPollingThread extends Thread {
         }
 
         KeySnapshot snap = sample();
-        if (snap == null) return;
+        if (snap == null) {
+            // No source at all: the custom handler is on and raw sampling is
+            // unavailable. Re-seed from "nothing held" instead of keeping the
+            // previous flags forever, which would swallow the next press of a
+            // key that was down before the gap.
+            resetPreviousStates();
+            return;
+        }
 
         // Attack
         boolean attack = snap.attack;

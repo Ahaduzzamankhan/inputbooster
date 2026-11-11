@@ -1,5 +1,40 @@
 # Changelog
 
+## 4.0.2-stable - First stable release of the 4.0.2 line
+
+First non-prerelease build since 4.0.0. The same three jars as 4.0.2-alpha,
+with the bugs found in the stable audit fixed.
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-4.0.2-stable-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.0.2-stable-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.0.2-stable-fabric-mc263.jar` |
+
+### Fixed
+
+- **Replay skipped inputs while a screen was open.** Playback kept advancing
+  behind an inventory or the pause menu, but the drainer clears the queue there,
+  so those events were taken out of the recording and never executed. Playback
+  now waits until the player owns the keyboard again.
+- **A gap in the key source could swallow the next press.** If raw key sampling
+  was unavailable with the custom handler on, the poller kept its previous key
+  flags forever, so releasing and pressing a key during that gap produced no
+  press. It now re-seeds from "nothing held" when there is no source.
+- **Initialisation and the tick loop only caught `Exception`.** A missing class
+  or linkage error from a version mismatch would escape into the tick handler on
+  every tick. Both now catch `Throwable`, disable the mod once and log it.
+- **A silently unapplied screen hook was invisible.** Startup now logs which of
+  `setScreenAndShow` / `setScreen` the client actually has, so a router that did
+  not apply can be told apart from a jump bug.
+- The alpha warning's cancel button said "Turn it off" before the handler had
+  ever been on. It now says "Cancel (keep it off)".
+
+### Changed
+
+- `README.md` rewritten: supported versions, install, every settings tab, the
+  config keys, build commands and troubleshooting are all in one place.
+
 ## 4.0.2-alpha - Alpha keyboard handler
 
 | Loader | Minecraft | Jar |
