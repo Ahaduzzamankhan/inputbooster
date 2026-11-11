@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 4.0.2-alpha - Alpha keyboard handler
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-4.0.2-alpha-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.0.2-alpha-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.0.2-alpha-fabric-mc263.jar` |
 
 ### Added
 
