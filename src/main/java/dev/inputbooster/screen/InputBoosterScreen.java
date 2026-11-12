@@ -10,7 +10,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -661,12 +660,13 @@ public class InputBoosterScreen extends Screen {
         int railY = panelY + 48 + tab.ordinal() * 24;
         ctx.fill(panelX + 2, railY, panelX + 5, railY + 20, ACCENT);
 
-        ctx.scissorStack.push(new ScreenRectangle(contentX - 6, contentTop - 4,
-            Math.max(1, contentRight - contentX + 12), viewportHeight() + 8));
         for (TextLine line : textLines) {
+            // Lines are culled to the viewport rather than clipped. The scissor
+            // stack is private in the NeoForge Minecraft artifact, and drawing
+            // a line only when it fits keeps both loaders on the same code.
+            if (line.y < contentTop - 1 || line.y + 9 > contentBottom() + 1) continue;
             ctx.text(this.font, line.text, line.x, line.y, line.color);
         }
-        ctx.scissorStack.pop();
 
         if (tab == Tab.OVERVIEW) drawSparkline(ctx);
         drawScrollbar(ctx);

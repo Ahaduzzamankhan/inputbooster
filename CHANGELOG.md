@@ -14,8 +14,8 @@
 - Drag the bottom-right corner grip to resize it, down to 380x260, up to the
   edge of the window.
 - Scroll the section content with the mouse wheel or by dragging the scrollbar.
-  Content is clipped to the viewport and widgets outside it are hidden, so no
-  row bleeds into the header or footer.
+  Rows that do not fit the viewport are hidden rather than drawn over the header
+  or footer.
 - Geometry is kept for the session, so reopening the screen keeps the size and
   position you chose. It is deliberately not written to the config file: it is a
   view preference, not a mod setting.
