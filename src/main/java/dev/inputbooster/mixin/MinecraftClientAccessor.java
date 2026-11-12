@@ -10,6 +10,11 @@ import org.spongepowered.asm.mixin.gen.Invoker;
  *
  * <p>Declared as an abstract class because {@link Minecraft} is a class; an
  * interface-form mixin is only valid for interface targets.
+ *
+ * <p>No static helpers here: Mixin rejects a non-private static method in a
+ * mixin and aborts the transformation of {@code Minecraft}, which killed the
+ * client before the main menu in 4.0.2-stable. Callers use
+ * {@code dev.inputbooster.access.MixinAccess}.
  */
 @Mixin(Minecraft.class)
 public abstract class MinecraftClientAccessor {
@@ -17,23 +22,4 @@ public abstract class MinecraftClientAccessor {
     /** Invokes the vanilla pick-block action. */
     @Invoker("pickBlockOrEntity")
     public abstract void inputbooster$pickBlockOrEntity();
-
-    /**
-     * Runs the vanilla pick-block action.
-     *
-     * <p>The cast goes through {@link Object} because a class-form mixin is not
-     * a compile-time supertype of its target.
-     *
-     * @return {@code false} when the mixin is not applied, so the caller can
-     *         report that pick-block input is unavailable instead of crashing
-     */
-    public static boolean pickBlockOrEntity(Minecraft client) {
-        if (client == null) return false;
-        try {
-            ((MinecraftClientAccessor) (Object) client).inputbooster$pickBlockOrEntity();
-            return true;
-        } catch (ClassCastException notApplied) {
-            return false;
-        }
-    }
 }

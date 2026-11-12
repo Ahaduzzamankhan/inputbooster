@@ -1,6 +1,41 @@
 # Changelog
 
+## 4.0.3-stable - Launch crash fix
+
+**Do not use 4.0.2-stable.** It crashes before the main menu, on every client, in
+every mod list. Use these jars instead.
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-4.0.3-stable-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.0.3-stable-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.0.3-stable-fabric-mc263.jar` |
+
+### Fixed
+
+- **CRITICAL — the client crashed during startup.** The three accessor mixins
+  carried their cast helpers as `public static` methods. Mixin only permits
+  *private* static methods inside a mixin, and a non-private one aborts the
+  transformation of the whole target class:
+
+  ```
+  InvalidMixinException: Mixin inputbooster.mixins.json:KeyMappingAccessor
+  contains non-private static method boundCode(Lnet/minecraft/client/KeyMapping;)I
+  ```
+
+  That ran while the game was loading `Minecraft`, so the launch ended with
+  "Mixin transformation of net.minecraft.client.Minecraft failed" and no crash
+  report. The helpers now live in the plain class
+  `dev.inputbooster.access.MixinAccess`; the mixins contain nothing but their
+  `@Accessor` / `@Invoker` members.
+- **A test now guards the rule.** `MixinDeclarationTest` fails the build if any
+  registered mixin declares a non-private static method, so this cannot ship
+  again. The old tests only checked the accessor members themselves, which is
+  why CI stayed green while the jar could not start.
+
 ## 4.0.2-stable - First stable release of the 4.0.2 line
+
+> **Withdrawn.** Crashes on launch, see 4.0.3-stable. Kept for history.
 
 First non-prerelease build since 4.0.0. The same three jars as 4.0.2-alpha,
 with the bugs found in the stable audit fixed.

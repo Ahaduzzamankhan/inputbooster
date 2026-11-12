@@ -84,6 +84,36 @@ class MixinDeclarationTest {
         }
     }
 
+    /**
+     * Regression test for the 4.0.2-stable launch crash.
+     *
+     * Mixin refuses a mixin whose class declares a non-private static method and
+     * aborts the transformation of the whole target:
+     *
+     * <pre>
+     * InvalidMixinException: Mixin inputbooster.mixins.json:MinecraftClientAccessor
+     * contains non-private static method pickBlockOrEntity(Lnet/minecraft/client/Minecraft;)Z
+     * </pre>
+     *
+     * Applied to {@code Minecraft}, that error killed the client during class
+     * loading, before the main menu. The helpers now live in
+     * {@code dev.inputbooster.access.MixinAccess}, and this test keeps them out.
+     */
+    @Test
+    void noMixinDeclaresANonPrivateStaticMethod() throws Exception {
+        for (String name : clientMixins()) {
+            Class<?> mixin = load(name);
+            for (Method method : mixin.getDeclaredMethods()) {
+                if (!Modifier.isStatic(method.getModifiers())) continue;
+                assertTrue(Modifier.isPrivate(method.getModifiers()),
+                    name + "#" + method.getName() + " is a non-private static method. Mixin rejects "
+                        + "these at apply time with \"contains non-private static method\", which crashed "
+                        + "the client at launch in 4.0.2-stable. Put the helper in "
+                        + "dev.inputbooster.access.MixinAccess instead.");
+            }
+        }
+    }
+
     @Test
     void theAccessorsTheModNeedsAreRegistered() throws Exception {
         List<String> mixins = clientMixins();

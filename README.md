@@ -10,9 +10,12 @@ It is not an autoclicker and it does not play the game for you. Every attack, us
 
 | Loader | Minecraft | Jar |
 | ------ | --------- | --- |
-| Fabric | 26.2 | `inputbooster-4.0.2-stable-fabric-mc262.jar` |
-| Fabric | 26.3 | `inputbooster-4.0.2-stable-fabric-mc263.jar` |
-| NeoForge | 26.2 | `inputbooster-4.0.2-stable-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.0.3-stable-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.0.3-stable-fabric-mc263.jar` |
+| NeoForge | 26.2 | `inputbooster-4.0.3-stable-nf-mc262.jar` |
+
+**4.0.2-stable is withdrawn.** It crashes during startup on every client. Use the
+jars above.
 
 Fabric builds need Fabric Loader 0.19.0 or newer and Fabric API 0.161.0 or newer. NeoForge builds need 26.2.0.88 or newer. One jar per loader and Minecraft version. Do not install two of them at once.
 

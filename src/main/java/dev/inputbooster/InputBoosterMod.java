@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class InputBoosterMod {
     public static final String MOD_ID = "inputbooster";
     public static final String MOD_NAME = "InputBooster";
-    public static final String MOD_VERSION = "4.0.2-stable";
+    public static final String MOD_VERSION = "4.0.3-stable";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 

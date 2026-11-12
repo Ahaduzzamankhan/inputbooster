@@ -12,27 +12,14 @@ import org.spongepowered.asm.mixin.gen.Accessor;
  *
  * <p>Declared as an abstract class because {@link Gui} is a class; Mixin only
  * allows interface-form mixins for interface targets.
+ *
+ * <p>No static helpers here: a non-private static method in a mixin fails the
+ * transformation at apply time. Callers use
+ * {@code dev.inputbooster.access.MixinAccess}.
  */
 @Mixin(Gui.class)
 public abstract class GuiAccessor {
 
     @Accessor("guiRenderState")
     public abstract GuiRenderState inputbooster$renderState();
-
-    /**
-     * Reads the Gui's render state.
-     *
-     * <p>The cast goes through {@link Object} because a class-form mixin is not
-     * a compile-time supertype of its target.
-     *
-     * @return the render state, or {@code null} when the mixin is not applied
-     */
-    public static GuiRenderState renderState(Gui gui) {
-        if (gui == null) return null;
-        try {
-            return ((GuiAccessor) (Object) gui).inputbooster$renderState();
-        } catch (ClassCastException notApplied) {
-            return null;
-        }
-    }
 }
