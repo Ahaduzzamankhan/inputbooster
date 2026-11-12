@@ -1,6 +1,8 @@
 package dev.inputbooster;
 
+import dev.inputbooster.engine.InputEngine;
 import dev.inputbooster.input.KeyBindingSet;
+import dev.inputbooster.input.KeyboardRouter;
 import dev.inputbooster.input.RawKeyState;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -8,19 +10,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
 /**
- * InputPollingThread — high-frequency input observer. Runs at up to 1000 Hz.
+ * InputPollingThread — high-frequency input sampler. Runs at up to 1000 Hz.
  *
- * Architecture: the polling thread samples the platform key state itself
- * (through {@link RawKeyState}) rather than re-reading a snapshot that only
- * changes once per Minecraft tick. That is what makes short taps observable:
- * a key pressed and released inside a single tick still produces a
- * pressed/released pair here. The tick-rate snapshot published by the game
- * thread stays available as a fallback if raw sampling is unavailable.
+ * <p>This thread no longer detects edges itself. It samples, and hands the sample
+ * to {@link InputEngine}, which owns the state machine, duplicate suppression and
+ * dispatch. That keeps the threading rule intact: the thread reads immutable data
+ * captured on the game thread and a raw key state handle, and never touches a
+ * Minecraft object.
  *
- * Threading: the polling thread is an observer and event producer only. It
- * never touches Minecraft objects — it reads the immutable
- * {@link KeyBindingSet} and the key state window that were captured on the
- * game thread, and it only writes to the bounded {@link InputActionQueue}.
+ * <p>No allocation happens per poll: the engine reads key codes directly instead
+ * of a per-sample snapshot object.
+ *
+ * <p>Default thread priority on purpose. An aggressively prioritised poller
+ * starves the render thread on low-end CPUs, which is the stutter the mod exists
+ * to avoid.
  *
  * Author: Ahaduzzaman Khan
  */
@@ -29,16 +32,9 @@ public class InputPollingThread extends Thread {
     private final AtomicBoolean running    = new AtomicBoolean(true);
     private final AtomicInteger pollRateHz = new AtomicInteger(200);
 
-    private boolean prevAttack, prevUse, prevSprint, prevSneak;
-    private boolean prevJump, prevForward, prevBack, prevLeft, prevRight;
-    private boolean prevDrop, prevSwap, prevPickBlock;
-
     public InputPollingThread(int initialHz) {
         super("InputBooster-PollerThread");
         setDaemon(true);
-        // Default priority on purpose: an aggressively prioritised poller starves
-        // the render/game thread on low-end CPUs and can make the client feel
-        // stuttery — the exact situation the mod exists to avoid.
         this.pollRateHz.set(clampHz(initialHz));
     }
 
@@ -68,7 +64,6 @@ public class InputPollingThread extends Thread {
                 }
             }
 
-            // Burst mode may override the configured poll rate
             int hz = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting()
                      ? 1000
                      : pollRateHz.get();
@@ -94,164 +89,38 @@ public class InputPollingThread extends Thread {
     }
 
     private void poll() {
-        if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()
-            || InputBoosterMod.shuttingDown || !InputBoosterMod.gameReady
-            || InputBoosterMod.gamePaused || !InputBoosterMod.inputAllowed) {
-            resyncPreviousStates();
-            return;
-        }
+        InputEngine engine = InputBoosterMod.inputEngine;
+        if (engine == null) return;
 
-        KeySnapshot snap = sample();
-        if (snap == null) {
-            // No source at all: the custom handler is on and raw sampling is
-            // unavailable. Re-seed from "nothing held" instead of keeping the
-            // previous flags forever, which would swallow the next press of a
-            // key that was down before the gap.
-            resetPreviousStates();
-            return;
-        }
-
-        // Attack
-        boolean attack = snap.attack;
-        if ( attack && !prevAttack) queue(InputAction.ATTACK_PRESSED);
-        if (!attack &&  prevAttack) queue(InputAction.ATTACK_RELEASED);
-        prevAttack = attack;
-
-        // Use/right-click
-        boolean use = snap.use;
-        if (use && !prevUse) queue(InputAction.USE_PRESSED);
-        if (!use && prevUse) queue(InputAction.USE_RELEASED);
-        prevUse = use;
-
-        // Sprint
-        boolean sprint = snap.sprint;
-        if ( sprint && !prevSprint) queue(InputAction.SPRINT_PRESSED);
-        if (!sprint &&  prevSprint) queue(InputAction.SPRINT_RELEASED);
-        prevSprint = sprint;
-
-        // Sneak
-        boolean sneak = snap.sneak;
-        if ( sneak && !prevSneak) queue(InputAction.SNEAK_PRESSED);
-        if (!sneak &&  prevSneak) queue(InputAction.SNEAK_RELEASED);
-        prevSneak = sneak;
-
-        // Jump — only PRESSED (no RELEASED needed for vanilla jump)
-        boolean jump = snap.jump;
-        if (jump && !prevJump) queue(InputAction.JUMP_PRESSED);
-        prevJump = jump;
-
-        // Forward
-        boolean forward = snap.forward;
-        if ( forward && !prevForward) queue(InputAction.FORWARD_PRESSED);
-        if (!forward &&  prevForward) queue(InputAction.FORWARD_RELEASED);
-        prevForward = forward;
-
-        // Back
-        boolean back = snap.back;
-        if ( back && !prevBack) queue(InputAction.BACK_PRESSED);
-        if (!back &&  prevBack) queue(InputAction.BACK_RELEASED);
-        prevBack = back;
-
-        // Left
-        boolean left = snap.left;
-        if ( left && !prevLeft) queue(InputAction.LEFT_PRESSED);
-        if (!left &&  prevLeft) queue(InputAction.LEFT_RELEASED);
-        prevLeft = left;
-
-        // Right
-        boolean right = snap.right;
-        if ( right && !prevRight) queue(InputAction.RIGHT_PRESSED);
-        if (!right &&  prevRight) queue(InputAction.RIGHT_RELEASED);
-        prevRight = right;
-
-        // Drop / Swap / Pick-block
-        boolean drop = snap.drop;
-        if (drop && !prevDrop) queue(InputAction.DROP_PRESSED);
-        prevDrop = drop;
-
-        boolean swap = snap.swap;
-        if (swap && !prevSwap) queue(InputAction.SWAP_PRESSED);
-        prevSwap = swap;
-
-        boolean pickBlock = snap.pickBlock;
-        if (pickBlock && !prevPickBlock) queue(InputAction.PICK_BLOCK_PRESSED);
-        prevPickBlock = pickBlock;
-    }
-
-    /**
-     * Samples the current key state. Raw platform state is preferred; the
-     * tick-rate snapshot is the fallback so the mod still works if the raw
-     * path is unavailable.
-     */
-    private KeySnapshot sample() {
         RawKeyState raw = InputBoosterMod.rawKeyState;
         KeyBindingSet bindings = InputBoosterMod.keyBindings;
         boolean rawReady = raw != null && raw.isAvailable() && bindings != null;
-        if (rawReady) {
-            try {
-                return KeySnapshot.fromRaw(raw, bindings);
-            } catch (Throwable ignored) {
-                // Fall through to the tick-rate snapshot below.
-            }
-        }
-        // With the custom handler enabled the poller refuses to borrow
-        // Minecraft's key mappings. Those mappings are updated by the same key
-        // events that belong to an open screen, so mixing them into the raw
-        // state is how a space typed in chat became a jump.
-        if (dev.inputbooster.input.KeyboardRouter.customHandlerEnabled()) {
-            return null;
-        }
-        return InputBoosterMod.keySnapshot;
-    }
+        boolean customHandler = KeyboardRouter.customHandlerEnabled();
 
-    private void queue(InputAction action) {
-        if (InputActionQueue.queue(action, InputAction.Origin.INPUT)) {
-            InputBoosterMod.recoveredInputs.incrementAndGet();
-            if (InputBoosterMod.replayRecorder != null) InputBoosterMod.replayRecorder.onQueued(action);
-            if (InputBoosterMod.eventLog != null && action == InputAction.ATTACK_PRESSED) {
-                InputBoosterMod.eventLog.add("Attack queued");
-            }
-        } else if (InputBoosterMod.eventLog != null && action == InputAction.ATTACK_PRESSED) {
-            // Record the failure instead of dropping the click silently.
-            InputBoosterMod.eventLog.add("Attack dropped: input queue full");
-        }
-    }
+        boolean gated = !InputBoosterMod.active || !InputBoosterMod.initialized.get()
+            || InputBoosterMod.shuttingDown || !InputBoosterMod.gameReady
+            || InputBoosterMod.gamePaused || !InputBoosterMod.inputAllowed;
 
-    /**
-     * Re-seeds the edge detector from the state that is actually held right
-     * now. The old code cleared every previous flag, so a key that was still
-     * down when the game paused, lost focus or opened a screen looked like a
-     * fresh press on resume. That could fire an attack the player never made.
-     */
-    private void resyncPreviousStates() {
-        KeySnapshot snap;
-        try {
-            snap = sample();
-        } catch (Throwable ignored) {
-            snap = null;
-        }
-        if (snap == null) {
-            resetPreviousStates();
+        if (gated) {
+            // Follow the state silently so a key held through a pause or an open
+            // screen is not reported as a fresh press when play resumes.
+            if (rawReady) {
+                engine.syncOnlyRaw(raw, bindings);
+            } else if (!customHandler && InputBoosterMod.keySnapshot != null) {
+                engine.syncOnlySnapshot(InputBoosterMod.keySnapshot);
+            }
             return;
         }
-        prevAttack = snap.attack;
-        prevUse = snap.use;
-        prevSprint = snap.sprint;
-        prevSneak = snap.sneak;
-        prevJump = snap.jump;
-        prevForward = snap.forward;
-        prevBack = snap.back;
-        prevLeft = snap.left;
-        prevRight = snap.right;
-        prevDrop = snap.drop;
-        prevSwap = snap.swap;
-        prevPickBlock = snap.pickBlock;
-    }
 
-    private void resetPreviousStates() {
-        prevAttack = prevUse = prevSprint = prevSneak = false;
-        prevJump = prevForward = prevBack = prevLeft = prevRight = false;
-        prevDrop = prevSwap = prevPickBlock = false;
+        if (rawReady) {
+            engine.pollRaw(raw, bindings);
+        } else if (!customHandler) {
+            // With the custom handler enabled the poller refuses to borrow
+            // Minecraft's key mappings: those are driven by the same events that
+            // belong to an open screen, which is how a space typed in chat used
+            // to become a jump.
+            engine.pollSnapshot(InputBoosterMod.keySnapshot);
+        }
     }
 
     public void stopPolling() {

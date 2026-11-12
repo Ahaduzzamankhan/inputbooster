@@ -10,7 +10,9 @@
     "OptionsScreenMixin",
     "GuiAccessor",
     "KeyMappingAccessor",
+    "KeyboardHandlerMixin",
     "MinecraftClientAccessor",
+    "MouseHandlerMixin",
     "ScreenTrackingMixin"
   ],
   "injectors": {

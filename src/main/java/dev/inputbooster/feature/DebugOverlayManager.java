@@ -5,124 +5,67 @@ import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
 import dev.inputbooster.access.MixinAccess;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.state.gui.GuiRenderState;
-import net.minecraft.client.renderer.state.gui.GuiTextRenderState;
-import net.minecraft.network.chat.Component;
-import org.joml.Matrix3x2f;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * F3 debug-screen overlay.
+ * F3 overlay entry point.
  *
- * Minecraft 26.x renders the HUD through a deferred {@link GuiRenderState}
- * rather than a graphics extractor, so the overlay enqueues a text state while
- * the GUI render state is being built.
+ * <p>The drawing itself lives in {@link OverlayRenderer}. This class owns the
+ * decision of whether to draw, and the text list used by the diagnostics tab.
+ *
+ * <p>Why the previous version appeared broken: the glyph colours were RGB values
+ * with a zero alpha channel, which Minecraft treats as fully transparent, so the
+ * panel drew and its text did not. It also only drew while the F3 screen was
+ * open. Both are addressed: colours are ARGB, and {@code overlay_mode} can keep
+ * the overlay on outside F3.
  */
 public class DebugOverlayManager {
 
-    private static final int COLOR_AQUA   = 0x55FFFF;
-    private static final int COLOR_ORANGE = 0xFFAA00;
-
-    /**
-     * Adds the InputBooster poll-rate badge to the HUD render state.
-     *
-     * FIX: the visibility check used to be inverted — it returned early exactly
-     * when the F3 debug screen was open, which is the only situation this
-     * overlay is meant to decorate.
-     */
+    /** Hooked from {@code InGameHudMixin} at the tail of GUI render-state extraction. */
     public static void extractRenderState(Minecraft mc) {
-        if (!InputBoosterConfig.isShowF3Info()) return;
-        // Opacity 0 must mean "do not draw at all" — rendering a fully
-        // transparent panel still costs extraction work every frame.
-        if (InputBoosterConfig.getOverlayOpacity() <= 0.001f) return;
-        if (mc == null || mc.player == null) return;
-        if (mc.getDebugOverlay() == null || !mc.getDebugOverlay().showDebugScreen()) return;
+        if (!OverlayRenderer.visible(mc)) return;
+        if (mc == null || mc.gui == null) return;
 
-        Gui gui = mc.gui;
-        GuiRenderState renderState = MixinAccess.renderState(gui);
-        if (renderState == null) return;
+        GuiRenderState state = MixinAccess.renderState(mc.gui);
+        if (state == null) return;
 
-        Font font = mc.font;
-        boolean burst = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
-        int hz = burst ? 1000 : InputBoosterMod.currentPollHz;
-
-        String text = hz + " Hz" + (burst ? " ⚡" : "");
-        int color = burst ? COLOR_ORANGE : COLOR_AQUA;
-
-        int screenW = mc.getWindow().getGuiScaledWidth();
-        int screenH = mc.getWindow().getGuiScaledHeight();
-        int textW = font.width(text);
-        float scale = InputBoosterConfig.getOverlayScale();
-        int panelW = (int) (textW * scale);
-        int panelH = (int) (9 * scale);
-
-        int pos = InputBoosterConfig.getOverlayPosition();
-        int originX;
-        int originY;
-        switch (pos) {
-            case 1  -> { originX = screenW - panelW; originY = 0; }
-            case 2  -> { originX = 0;               originY = screenH - panelH; }
-            case 3  -> { originX = screenW - panelW; originY = screenH - panelH; }
-            default -> { originX = 0;               originY = 0; }
-        }
-
-        float opacity = InputBoosterConfig.getOverlayOpacity();
-        int backgroundColor = ((int) (0x90 * opacity) & 0xFF) << 24;
-
-        // The panel size is scaled, so the text has to be scaled as well. The
-        // local coordinates are divided by the scale because the matrix is
-        // applied before the glyphs reach their screen position; without this
-        // any scale other than 1 clipped or misplaced the badge.
-        float invScale = scale > 0.0f ? 1.0f / scale : 1.0f;
-        renderState.addText(new GuiTextRenderState(
-            font,
-            Component.literal(text).getVisualOrderText(),
-            new Matrix3x2f().scaling(scale),
-            (int) (originX * invScale),
-            (int) (originY * invScale),
-            color,
-            backgroundColor,
-            false,
-            false,
-            null
-        ));
+        OverlayRenderer.render(mc, state);
     }
 
     /**
-     * Nothing to register: the overlay is driven by the Gui render-state
-     * mixin. Kept as an explicit no-op call site so the initialisation
-     * sequence documents that there is no separate registration step.
+     * Nothing to register: the overlay is driven by the GUI render-state mixin.
+     * Kept as an explicit call site so the initialisation order documents that
+     * there is no separate registration step.
      */
     public static void register() {}
 
     /** Human-readable status lines for the settings screen and debug output. */
     public static List<String> getDebugLines() {
-        List<String> lines = new ArrayList<>(5);
+        List<String> lines = new ArrayList<>(7);
         boolean burst = InputBoosterMod.burstMode != null && InputBoosterMod.burstMode.isBursting();
-        lines.add("Poll rate: " + (burst ? 1000 : InputBoosterMod.currentPollHz) + " Hz" + (burst ? " (burst)" : ""));
+        lines.add("Poll rate: " + (burst ? 1000 : InputBoosterMod.currentPollHz) + " Hz"
+            + (burst ? " (burst)" : ""));
         lines.add("Input queue: " + InputActionQueue.size() + "/" + InputActionQueue.capacity());
         lines.add("Poller: " + (InputBoosterMod.pollingThread != null && InputBoosterMod.pollingThread.isAlive()
             ? "running" : "stopped"));
-        lines.add(dev.inputbooster.input.KeyboardRouter.statusLine());
+        if (InputBoosterMod.inputEngine != null) {
+            lines.add(InputBoosterMod.inputEngine.statusLine());
+            lines.add("Events: keys " + InputBoosterMod.inputEngine.diagnostics().keyboardEvents()
+                + ", mouse " + InputBoosterMod.inputEngine.diagnostics().mouseEvents());
+        }
+        if (InputBoosterMod.compatibilityManager != null) {
+            lines.add(InputBoosterMod.compatibilityManager.statusLine());
+        }
         lines.add("Overlay: " + (InputBoosterConfig.isShowF3Info() ? "enabled" : "disabled")
-            + " @ " + positionName());
+            + " @ " + OverlayLayout.positionName(InputBoosterConfig.getOverlayPosition())
+            + (InputBoosterConfig.getOverlayMode() == 1 ? " (always)" : " (F3)"));
         return lines;
     }
 
-    private static String positionName() {
-        return switch (InputBoosterConfig.getOverlayPosition()) {
-            case 1 -> "top-right";
-            case 2 -> "bottom-left";
-            case 3 -> "bottom-right";
-            default -> "top-left";
-        };
-    }
-
-    /** True when the overlay can actually draw (mixin + settings permitting). */
+    /** True when the overlay can actually draw (mixin and settings permitting). */
     public static boolean isInitialized() {
         return InputBoosterConfig.isShowF3Info()
             && InputBoosterConfig.getOverlayOpacity() > 0.001f;

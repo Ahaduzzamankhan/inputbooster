@@ -10,12 +10,13 @@ It is not an autoclicker and it does not play the game for you. Every attack, us
 
 | Loader | Minecraft | Jar |
 | ------ | --------- | --- |
-| Fabric | 26.2 | `inputbooster-4.0.3-stable-fabric-mc262.jar` |
-| Fabric | 26.3 | `inputbooster-4.0.3-stable-fabric-mc263.jar` |
-| NeoForge | 26.2 | `inputbooster-4.0.3-stable-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.0-alpha-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.0-alpha-fabric-mc263.jar` |
+| NeoForge | 26.2 | `inputbooster-4.1.0-alpha-nf-mc262.jar` |
 
-**4.0.2-stable is withdrawn.** It crashes during startup on every client. Use the
-jars above.
+This is an alpha: the input engine and the new settings screen are new code and
+have not been tested in a running client. 4.0.3-stable remains the last stable
+build.
 
 Fabric builds need Fabric Loader 0.19.0 or newer and Fabric API 0.161.0 or newer. NeoForge builds need 26.2.0.88 or newer. One jar per loader and Minecraft version. Do not install two of them at once.
 
@@ -34,40 +35,48 @@ Two ways in:
 - **Options → InputBooster...** in the top right of the vanilla options screen.
 - The key binding screen has an InputBooster category if you want to rebind anything.
 
-The settings screen has five tabs. Changes apply as you make them; **Save & Close** writes them to disk.
+The settings screen has seven sections in a left rail. Changes apply as you make
+them; **Save & Close** writes them to disk.
 
-### Poll
+### Overview
 
-The core of the mod. The poller runs on its own thread and never touches a Minecraft object, so it cannot stall the render thread.
+Live engine state, whether the poller is running, the current rate, queue depth,
+overlay state, detected input mods, the features that are on, and a 60 second CPS
+graph. **Profiles...** opens profile management.
 
-- **Mode AUTO** follows your FPS: the poll rate goes up when the frame rate drops and back down when it recovers. **Mode MANUAL** holds a fixed rate.
-- **Poll Rate** slider, 60 to 1000 Hz, plus presets at 100, 200, 350, 500, 750 and 1000.
-- **Burst Mode** pushes the poller to 1000 Hz for a moment when you click.
-- **Combo Keys** sets the rate with `Ctrl+1` to `Ctrl+5` without opening the menu.
+### Keyboard
 
-### Features
+Repeat guard (a held key is one press, never a stream), combo keys, the engine
+mode, and a manual key resync. It also reports whether all twelve bindings
+resolved or some fell back to defaults.
 
-- **Sprint Fix**: keeps sprinting when you hold forward and the sprint key, even if the client had a bad tick.
-- **Auto-Sprint**: sprints while forward is held, you are not sneaking, and your food level is above 6.
-- **W-Tap Assist**: helps the short release-and-press that resets your sprint.
-- **Anti-Idle**: tiny view adjustment every 200 ticks.
-- **Auto-Strafe**: small yaw correction while strafing below 40 FPS.
-- **CPS Limiter**: caps clicks per second. The **Max CPS** slider sets the cap from 1 to 20. The mode (`FIXED`, `HUMANIZED`, `COOLDOWN`, `WEAPON_AWARE`) lives in the config file.
-- **Key Click Sounds**: optional click feedback. **Click Pitch** and **Click Volume** shape it.
+### Mouse
+
+CPS limiter and cap, the click dedupe window, scroll debounce, the CPS mode read
+from the config, and click sound pitch and volume.
+
+### Overlay
+
+Enabled, mode (F3 only or always), position (four corners), scale, opacity, the
+keystrokes overlay, and which lines the overlay draws: engine state, event
+counters, dispatch timing.
+
+### Performance
+
+Automatic or manual polling, burst mode, the rate slider and presets, the FPS
+check interval, dispatch timing, and a counter reset.
+
+### Compatibility
+
+Detected input mods, whether the event hooks are live, the fallback switch, the
+engine mode, the alpha keyboard handler, and a button that writes the
+compatibility status to the log.
 
 ### Advanced
 
-Overlay controls (**HUD Overlay**, **Keystrokes Overlay**, position, scale, opacity), action bar messages, debug mode, the replay recorder, safe mode, the event log, key conflict warnings, per-server profiles, and the FPS check interval.
-
-**Custom Keyboard (ALPHA)** is the one option that changes how input is routed. Read [Alpha keyboard handler](#alpha-keyboard-handler) before turning it on.
-
-### Stats
-
-Session uptime, how many inputs the poller recovered, an estimate of what vanilla would have missed, drain latency, whether the poll thread is alive, the current poll rate, and a 60 second CPS graph. **Reset Peak Latency** clears the latency high-water mark.
-
-### Profiles
-
-Save the current settings under a name, load them back, or delete them. Quick buttons cover the common setups. Per-server profiles, when enabled, switch automatically based on the server you join.
+Safe mode, the event log, debug mode, key conflict warnings, per-server
+profiles, profile management, live duplicate and repeat counters, and resets for
+the engine, the overlay and the latency peak.
 
 ## Alpha keyboard handler
 
@@ -127,8 +136,42 @@ Settings are stored in `.minecraft/config/inputbooster.properties` and written a
 | `show_action_bar` | `true` | Action bar messages |
 | `fps_check_interval` | `20` | Ticks between FPS checks |
 | `debug_mode` | `false` | Verbose diagnostics |
+| `engine_mode` | `0` | `0` automatic, `1` event driven, `2` polled |
+| `keyboard_repeat_guard` | `true` | A held key is one press |
+| `mouse_scroll_debounce_ms` | `0` | Ignore repeat wheel events inside this window |
+| `mouse_click_dedupe_ms` | `0` | Minimum gap between accepted clicks |
+| `compat_fallback` | `true` | Poll when another input mod is present |
+| `overlay_mode` | `0` | `0` F3 only, `1` always |
+| `overlay_show_engine` | `true` | Engine line in the overlay |
+| `overlay_show_events` | `true` | Event counters in the overlay |
+| `overlay_show_overhead` | `true` | Dispatch timing in the overlay |
 
 Bad values are not fatal. Every entry that cannot be parsed falls back to its default, and the log names the ones that were reset. `True`, `yes`, `1` and `on` all count as true.
+
+## Input engine
+
+The mod's engine turns key state into exactly one action per physical edge. It does
+not replace vanilla's handlers: `KeyboardHandler` and `MouseHandler` still receive
+every event and route it exactly as before, and two observing mixins run at HEAD
+without cancelling anything. Another mod's key is never touched because only the
+twelve actions InputBooster owns are mapped.
+
+Two sources feed one state machine: the polling thread reading raw platform key
+state, and the keyboard and mouse handlers reporting the event itself. Both write
+through the same state store, and only a real change emits an action, so a press
+seen by one source is never applied twice by the other. There is no timing window
+and no "already handled" flag to leak between ticks.
+
+Modes:
+
+- **Automatic** (default): event hooks when they applied and no known input mod is
+  present, otherwise polling.
+- **Event driven**: hooks only. Falls back to polling if they are unavailable.
+- **Polled**: high-rate sampling only; hooks never dispatch.
+
+Fallback matters because other input mods own event routing. When one of the known
+mods is detected and fallback is on, the engine keeps polling and leaves event
+handling alone instead of competing for it.
 
 ## How it works
 

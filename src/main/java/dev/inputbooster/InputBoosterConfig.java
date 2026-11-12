@@ -64,6 +64,21 @@ public class InputBoosterConfig {
      * of borrowing Minecraft's key mappings. See KeyboardRouter.
      */
     private static volatile boolean customKeyboardHandler = false;
+
+    // ── Input engine (4.1) ──────────────────────────────────────────────────
+    /** 0 = automatic, 1 = event driven, 2 = polled. */
+    private static volatile int     engineMode           = 0;
+    private static volatile boolean keyboardRepeatGuard  = true;
+    private static volatile int     mouseScrollDebounceMs = 0;
+    private static volatile int     mouseClickDedupeMs    = 0;
+    private static volatile boolean compatFallback        = true;
+
+    // ── Overlay (4.1) ────────────────────────────────────────────────────────
+    /** 0 = only while the F3 debug screen is open, 1 = always. */
+    private static volatile int     overlayMode          = 0;
+    private static volatile boolean overlayShowEngine    = true;
+    private static volatile boolean overlayShowEvents    = true;
+    private static volatile boolean overlayShowOverhead  = true;
     private static volatile String  cpsMode           = "FIXED";
     private static volatile boolean replayEnabled     = true;
     private static volatile boolean safeModeEnabled   = true;
@@ -73,7 +88,7 @@ public class InputBoosterConfig {
     private static volatile boolean clickSoundsEnabled = false;
     private static volatile float   clickSoundPitch   = 1.35f;
     private static volatile float   clickSoundVolume  = 0.35f;
-    private static volatile int     configVersion     = 304;
+    private static volatile int     configVersion     = 305;
 
     // ── UI ───────────────────────────────────────────────────────────────────
     private static volatile boolean showF3Info        = true;
@@ -159,6 +174,15 @@ public class InputBoosterConfig {
                 fpsCheckInterval  = Math.max(1, Math.min(100, parseInt(props, "fps_check_interval", 20)));
                 debugMode         = parseBool(props, "debug_mode",            false);
                 customKeyboardHandler = parseBool(props, "custom_keyboard_handler", false);
+                engineMode         = Math.max(0, Math.min(2, parseInt(props, "engine_mode", 0)));
+                keyboardRepeatGuard = parseBool(props, "keyboard_repeat_guard", true);
+                mouseScrollDebounceMs = Math.max(0, Math.min(200, parseInt(props, "mouse_scroll_debounce_ms", 0)));
+                mouseClickDedupeMs = Math.max(0, Math.min(100, parseInt(props, "mouse_click_dedupe_ms", 0)));
+                compatFallback     = parseBool(props, "compat_fallback", true);
+                overlayMode        = Math.max(0, Math.min(1, parseInt(props, "overlay_mode", 0)));
+                overlayShowEngine  = parseBool(props, "overlay_show_engine", true);
+                overlayShowEvents  = parseBool(props, "overlay_show_events", true);
+                overlayShowOverhead = parseBool(props, "overlay_show_overhead", true);
                 warnAboutDefaults(props);
                 LOGGER.info("✓ Config loaded successfully (config version {})", configVersion);
             } else {
@@ -212,6 +236,15 @@ public class InputBoosterConfig {
             props.setProperty("fps_check_interval",  String.valueOf(fpsCheckInterval));
             props.setProperty("debug_mode",          String.valueOf(debugMode));
             props.setProperty("custom_keyboard_handler", String.valueOf(customKeyboardHandler));
+            props.setProperty("engine_mode",             String.valueOf(engineMode));
+            props.setProperty("keyboard_repeat_guard",    String.valueOf(keyboardRepeatGuard));
+            props.setProperty("mouse_scroll_debounce_ms", String.valueOf(mouseScrollDebounceMs));
+            props.setProperty("mouse_click_dedupe_ms",    String.valueOf(mouseClickDedupeMs));
+            props.setProperty("compat_fallback",          String.valueOf(compatFallback));
+            props.setProperty("overlay_mode",             String.valueOf(overlayMode));
+            props.setProperty("overlay_show_engine",      String.valueOf(overlayShowEngine));
+            props.setProperty("overlay_show_events",      String.valueOf(overlayShowEvents));
+            props.setProperty("overlay_show_overhead",    String.valueOf(overlayShowOverhead));
             Path temp = Files.createTempFile(parent, "inputbooster", ".tmp");
             try (OutputStream out = Files.newOutputStream(temp)) {
                 props.store(out, "InputBooster " + dev.inputbooster.InputBoosterMod.MOD_VERSION
@@ -235,7 +268,7 @@ public class InputBoosterConfig {
     // ── Schema migration ───────────────────────────────────────────────────────
 
     /** Current on-disk schema version. */
-    public static final int CONFIG_VERSION = 304;
+    public static final int CONFIG_VERSION = 305;
 
     /**
      * Migrates older config files to the current schema in place.
@@ -281,6 +314,15 @@ public class InputBoosterConfig {
         checkBool(props, bad, "burst_mode");
         checkBool(props, bad, "combo_keys");
         checkBool(props, bad, "custom_keyboard_handler");
+        checkBool(props, bad, "keyboard_repeat_guard");
+        checkBool(props, bad, "compat_fallback");
+        checkBool(props, bad, "overlay_show_engine");
+        checkBool(props, bad, "overlay_show_events");
+        checkBool(props, bad, "overlay_show_overhead");
+        checkInt(props, bad, "engine_mode", 0, 2);
+        checkInt(props, bad, "mouse_scroll_debounce_ms", 0, 200);
+        checkInt(props, bad, "mouse_click_dedupe_ms", 0, 100);
+        checkInt(props, bad, "overlay_mode", 0, 1);
         checkInt(props, bad, "poll_rate_hz", 60, 1000);
         checkInt(props, bad, "max_cps", 1, 20);
         checkInt(props, bad, "overlay_position", 0, 3);
@@ -348,6 +390,9 @@ public class InputBoosterConfig {
         configVersion = CONFIG_VERSION;
         showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
         customKeyboardHandler = false;
+        engineMode = 0; keyboardRepeatGuard = true;
+        mouseScrollDebounceMs = 0; mouseClickDedupeMs = 0; compatFallback = true;
+        overlayMode = 0; overlayShowEngine = true; overlayShowEvents = true; overlayShowOverhead = true;
         overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
     }
 
@@ -383,6 +428,15 @@ public class InputBoosterConfig {
     public static int     getFpsCheckInterval()  { return fpsCheckInterval; }
     public static boolean isDebugMode()          { return debugMode; }
     public static boolean isCustomKeyboardHandlerEnabled() { return customKeyboardHandler; }
+    public static int     getEngineMode()        { return engineMode; }
+    public static boolean isKeyboardRepeatGuard() { return keyboardRepeatGuard; }
+    public static int     getMouseScrollDebounceMs() { return mouseScrollDebounceMs; }
+    public static int     getMouseClickDedupeMs() { return mouseClickDedupeMs; }
+    public static boolean isCompatFallback()     { return compatFallback; }
+    public static int     getOverlayMode()       { return overlayMode; }
+    public static boolean isOverlayShowEngine()  { return overlayShowEngine; }
+    public static boolean isOverlayShowEvents()  { return overlayShowEvents; }
+    public static boolean isOverlayShowOverhead() { return overlayShowOverhead; }
 
     // ── Setters ───────────────────────────────────────────────────────────────
 
@@ -415,4 +469,13 @@ public class InputBoosterConfig {
     public static void setFpsCheckInterval(int v)     { fpsCheckInterval = Math.max(1, Math.min(100, v)); }
     public static void setDebugMode(boolean v)        { debugMode = v; }
     public static void setCustomKeyboardHandlerEnabled(boolean v) { customKeyboardHandler = v; }
+    public static void setEngineMode(int v)        { engineMode = Math.max(0, Math.min(2, v)); }
+    public static void setKeyboardRepeatGuard(boolean v) { keyboardRepeatGuard = v; }
+    public static void setMouseScrollDebounceMs(int v)   { mouseScrollDebounceMs = Math.max(0, Math.min(200, v)); }
+    public static void setMouseClickDedupeMs(int v)      { mouseClickDedupeMs = Math.max(0, Math.min(100, v)); }
+    public static void setCompatFallback(boolean v)      { compatFallback = v; }
+    public static void setOverlayMode(int v)             { overlayMode = Math.max(0, Math.min(1, v)); }
+    public static void setOverlayShowEngine(boolean v)   { overlayShowEngine = v; }
+    public static void setOverlayShowEvents(boolean v)   { overlayShowEvents = v; }
+    public static void setOverlayShowOverhead(boolean v) { overlayShowOverhead = v; }
 }

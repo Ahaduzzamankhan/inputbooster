@@ -1,5 +1,7 @@
 package dev.inputbooster;
 
+import dev.inputbooster.engine.CompatibilityManager;
+import dev.inputbooster.engine.InputEngine;
 import dev.inputbooster.feature.*;
 import dev.inputbooster.input.KeyboardRouter;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -27,7 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class InputBoosterMod {
     public static final String MOD_ID = "inputbooster";
     public static final String MOD_NAME = "InputBooster";
-    public static final String MOD_VERSION = "4.0.3-stable";
+    public static final String MOD_VERSION = "4.1.0-alpha";
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -73,6 +75,11 @@ public final class InputBoosterMod {
     public static KeybindConflictDetector keybindConflictDetector;
     public static PerServerProfileManager perServerProfileManager;
     public static ConfigTools configTools;
+    /** The mod's own input processing engine. Null until initialisation. */
+    public static volatile InputEngine inputEngine;
+    /** Input-mod detection and engine-mode fallback. */
+    public static volatile CompatibilityManager compatibilityManager;
+    private static int lastConfiguredEngineMode = -1;
 
     // Key bindings
     private static volatile KeyMapping replayRecordKey;
@@ -140,6 +147,11 @@ public final class InputBoosterMod {
             perServerProfileManager = new PerServerProfileManager();
             perServerProfileManager.load();
             configTools = new ConfigTools();
+            compatibilityManager = new CompatibilityManager();
+            compatibilityManager.detect();
+            inputEngine = new InputEngine();
+            lastConfiguredEngineMode = InputBoosterConfig.getEngineMode();
+            inputEngine.setMode(compatibilityManager.resolveMode());
 
             int initialHz = InputBoosterConfig.isPollRateAutoMode() ? 200 : InputBoosterConfig.getPollRateHz();
             Minecraft client = Minecraft.getInstance();
@@ -148,6 +160,7 @@ public final class InputBoosterMod {
             rawKeyState = dev.inputbooster.input.RawKeyState.of(
                 client != null && client.getWindow() != null ? client.getWindow() : null);
             publishKeyBindings(client);
+            inputEngine.publishBindings(keyBindings);
             KeyboardRouter.reset();
             // Mark initialised before the poller starts: the loop reads this
             // flag on its first iteration, and a start that fails after the
@@ -195,6 +208,7 @@ public final class InputBoosterMod {
                 // Leaving a world (disconnect / world unload): drop transient
                 // input state so nothing carries into the next session.
                 InputActionQueue.clear();
+                if (inputEngine != null) inputEngine.reset();
                 if (cpsLimiter != null) cpsLimiter.reset();
                 if (replayRecorder != null) replayRecorder.stopPlayback();
                 LatencyProfiler.reset();
@@ -203,6 +217,16 @@ public final class InputBoosterMod {
             if (client.options != null) {
                 keySnapshot = new KeySnapshot(client.options);
                 publishKeyBindings(client);
+                if (inputEngine != null && keyBindings != null) inputEngine.publishBindings(keyBindings);
+            }
+            // A focus change must not leave a key stuck down in the engine.
+            if (inputEngine != null && (client.getWindow() == null || !client.getWindow().isFocused())) {
+                inputEngine.reset();
+            }
+            if (inputEngine != null && compatibilityManager != null
+                && lastConfiguredEngineMode != InputBoosterConfig.getEngineMode()) {
+                lastConfiguredEngineMode = InputBoosterConfig.getEngineMode();
+                inputEngine.setMode(compatibilityManager.resolveMode());
             }
             if (client.player == null) return;
             currentFps = McCompat.getFps(client);
@@ -360,6 +384,7 @@ public final class InputBoosterMod {
             InputBoosterConfig.save();
             inputAllowed = false;
             KeyboardRouter.reset();
+            if (inputEngine != null) inputEngine.reset();
             active = false;
             initialized.set(false);
         } catch (Throwable t) {

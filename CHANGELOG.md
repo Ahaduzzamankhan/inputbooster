@@ -1,5 +1,57 @@
 # Changelog
 
+## 4.1.0-alpha - Input engine, new overlay, new settings
+
+Alpha: the engine and the screens are new code and have not been run in a client.
+4.0.3-stable stays the recommended build until this is tested.
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-4.1.0-alpha-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.0-alpha-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.0-alpha-fabric-mc263.jar` |
+
+### Added
+
+- **Input engine** (`dev.inputbooster.engine`): `InputEngine`,
+  `KeyStateManager`, `KeyboardProcessor`, `MouseProcessor`,
+  `KeyBindingProcessor`, `InputEventDispatcher`, `CompatibilityManager`,
+  `DiagnosticsManager` and `ConfigurationManager`.
+- Two observing mixins on `KeyboardHandler.keyPress` and
+  `MouseHandler.onPress/onScroll`. Both run at HEAD, cancel nothing, change no
+  binding and use `require = 0`, so a rename degrades to polling instead of
+  breaking the client.
+- Engine modes: automatic, event driven and polled, with automatic fallback when
+  a known input mod (Controlify, Midnight Controls, Controllable, Sodium, Iris,
+  Zoomify) owns input routing.
+- `DiagnosticsManager` counters: keyboard and mouse events, actions submitted,
+  rejected, duplicates suppressed, repeats ignored, and mean dispatch cost.
+- **Overlay rewrite**: `OverlayRenderer` and `OverlayLayout`, an always-on mode,
+  configurable content, cached text, and four-corner placement with clamping.
+- **Settings redesign**: seven sections (Overview, Keyboard, Mouse, Overlay,
+  Performance, Compatibility, Advanced) in a left rail, plus a separate profiles
+  screen. Every control writes a real config value.
+- Nine new config keys, all persisted and validated: `engine_mode`,
+  `keyboard_repeat_guard`, `mouse_scroll_debounce_ms`, `mouse_click_dedupe_ms`,
+  `compat_fallback`, `overlay_mode`, `overlay_show_engine`,
+  `overlay_show_events`, `overlay_show_overhead`. Schema version 305.
+- Tests: engine state edges, cross-source duplicate suppression, poll-mode
+  suppression, unknown-key isolation, diagnostics, overlay layout clamping, and
+  config round trips. 81 tests total.
+
+### Fixed
+
+- **The overlay's text was invisible.** It passed `0x55FFFF` and `0xFFAA00` as
+  glyph colours: RGB values whose alpha byte is zero, which the GUI treats as
+  "do not draw". The panel drew and every line in it was transparent. Colours are
+  now ARGB.
+- **The overlay never appeared without F3.** It required the debug screen to be
+  open. `overlay_mode=1` keeps it on during normal play.
+- **Overlay placement could leave the panel off-screen** after a resize. Corner
+  placement now clamps inside the window, and the maths is unit tested.
+- Per-poll allocation removed from the hot path: the engine reads key codes
+  directly instead of building a snapshot object on every poll.
+
 ## 4.0.3-stable - Launch crash fix
 
 **Do not use 4.0.2-stable.** It crashes before the main menu, on every client, in
