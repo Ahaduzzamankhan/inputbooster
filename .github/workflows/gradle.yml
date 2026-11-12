@@ -36,7 +36,21 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build
-        run: chmod +x gradlew && ./gradlew build --no-daemon
+        shell: bash
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew build --no-daemon 2>&1 | tee neoforge-build.log
+
+      # Gradle job logs need authentication to read. Annotations do not, so the
+      # failure reason is republished here where it can actually be seen.
+      - name: Report build failure
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "error:|FAILURE:|What went wrong|Caused by|> Task .* FAILED" neoforge-build.log \
+            | tail -n 10 \
+            | while IFS= read -r line; do echo "::error title=Gradle::$line"; done
 
       - name: Find built jar
         id: jar
