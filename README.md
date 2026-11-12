@@ -10,9 +10,9 @@ It is not an autoclicker and it does not play the game for you. Every attack, us
 
 | Loader | Minecraft | Jar |
 | ------ | --------- | --- |
-| Fabric | 26.2 | `inputbooster-4.1.1-alpha-fabric-mc262.jar` |
-| Fabric | 26.3 | `inputbooster-4.1.1-alpha-fabric-mc263.jar` |
-| NeoForge | 26.2 | `inputbooster-4.1.1-alpha-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.2-alpha-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.2-alpha-fabric-mc263.jar` |
+| NeoForge | 26.2 | `inputbooster-4.1.2-alpha-nf-mc262.jar` |
 
 This is an alpha: the input engine and the new settings screen are new code and
 have not been tested in a running client. 4.0.3-stable remains the last stable
@@ -37,6 +37,12 @@ Two ways in:
 
 The settings screen has seven sections in a left rail. Changes apply as you make
 them; **Save & Close** writes them to disk.
+
+The window is a real window: drag its header to move it, drag the corner grip at
+the bottom right to resize it, and scroll the section with the mouse wheel or
+the scrollbar when the section is taller than the window. The tab rail and the
+footer stay where they are, and the chosen size and position last until the game
+closes.
 
 ### Overview
 

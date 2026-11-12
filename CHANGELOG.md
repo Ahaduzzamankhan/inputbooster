@@ -1,5 +1,33 @@
 # Changelog
 
+## 4.1.2-alpha - Movable, scrollable and resizable settings window
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-4.1.2-alpha-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.2-alpha-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.2-alpha-fabric-mc263.jar` |
+
+### Added
+
+- Drag the window header to move the settings window anywhere on screen.
+- Drag the bottom-right corner grip to resize it, down to 380x260, up to the
+  edge of the window.
+- Scroll the section content with the mouse wheel or by dragging the scrollbar.
+  Content is clipped to the viewport and widgets outside it are hidden, so no
+  row bleeds into the header or footer.
+- Geometry is kept for the session, so reopening the screen keeps the size and
+  position you chose. It is deliberately not written to the config file: it is a
+  view preference, not a mod setting.
+
+### Fixed
+
+- On a short window, controls below the fold, including Save & Close in some
+  sections, could not be reached at all. The content area now scrolls and the
+  tab rail and footer stay fixed.
+- The panel no longer always covers the entire screen height; it opens at a
+  sensible size and can be resized.
+
 ## 4.1.1-alpha - Fix the launch crash in 4.1.0-alpha
 
 4.1.0-alpha crashed during startup on every loader with

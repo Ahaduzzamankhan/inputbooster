@@ -8,8 +8,11 @@ import dev.inputbooster.feature.OverlayLayout;
 import dev.inputbooster.feature.SessionStats;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -21,11 +24,15 @@ import java.util.function.IntFunction;
 /**
  * InputBooster settings.
  *
- * <p>Seven sections in a left rail, one at a time, with a fixed dark panel and
- * a two-column control grid so the same layout works from a small window to a
- * 4K display. Vanilla buttons and sliders are used deliberately: they keep
- * Minecraft's own input handling, narration and focus behaviour instead of a
- * bespoke widget that would need its own focus and accessibility handling.
+ * <p>Seven sections in a left rail, one at a time, with a two-column control
+ * grid. The window itself behaves like a window: drag the header to move it,
+ * drag the bottom-right corner to resize it, and scroll the content with the
+ * wheel or the scrollbar. Without that, anything below the fold on a small
+ * window was simply unreachable.
+ *
+ * <p>Vanilla buttons and sliders are used deliberately: they keep Minecraft's
+ * own input handling, narration and focus behaviour instead of a bespoke widget
+ * that would need its own focus and accessibility handling.
  *
  * <p>Every control reads and writes {@link InputBoosterConfig}; nothing is
  * display-only. {@code Save & Close} writes atomically.
@@ -56,13 +63,38 @@ public class InputBoosterScreen extends Screen {
     private static final int DANGER        = 0xFFFF6B6B;
 
     private static final int RAIL_WIDTH = 100;
+    private static final int HEADER_H = 44;
+    private static final int FOOTER_H = 34;
+    private static final int MIN_PANEL_W = 380;
+    private static final int MIN_PANEL_H = 260;
+    private static final int SCROLL_STEP = 24;
+    private static final int RESIZE_GRIP = 12;
 
     private final Screen parent;
     private Tab tab = Tab.OVERVIEW;
     private boolean hasChanges;
 
     private final List<TextLine> textLines = new ArrayList<>();
+    private final List<AbstractWidget> contentWidgets = new ArrayList<>();
     private int contentX, contentRight, contentTop, rowGap, panelX, panelY, panelW, panelH;
+
+    /**
+     * Window geometry survives closing the screen, but not a game restart: it is
+     * a view preference, not configuration, and putting it in the config file
+     * would add four keys that need migration for no functional gain.
+     */
+    private static int savedPanelW, savedPanelH;
+    private static int savedPanelX = Integer.MIN_VALUE;
+    private static int savedPanelY = Integer.MIN_VALUE;
+
+    private int scrollOffset;
+    private int maxScroll;
+    private boolean settlingScroll;
+
+    private boolean draggingWindow;
+    private boolean resizingWindow;
+    private boolean draggingScrollbar;
+    private int grabX, grabY;
 
     public InputBoosterScreen(Screen parent) {
         super(Component.literal("InputBooster"));
@@ -74,18 +106,26 @@ public class InputBoosterScreen extends Screen {
     @Override
     protected void init() {
         textLines.clear();
+        contentWidgets.clear();
 
-        panelW = Math.min(520, this.width - 16);
-        panelH = this.height - 16;
-        panelX = (this.width - panelW) / 2;
-        panelY = 8;
+        int maxW = Math.max(MIN_PANEL_W, this.width - 16);
+        int maxH = Math.max(MIN_PANEL_H, this.height - 8);
+        panelW = savedPanelW == 0 ? Math.min(560, maxW) : clamp(savedPanelW, MIN_PANEL_W, maxW);
+        panelH = savedPanelH == 0 ? Math.min(460, maxH) : clamp(savedPanelH, MIN_PANEL_H, maxH);
+        panelW = Math.min(panelW, maxW);
+        panelH = Math.min(panelH, maxH);
+        panelX = savedPanelX == Integer.MIN_VALUE
+            ? (this.width - panelW) / 2
+            : clamp(savedPanelX, 0, Math.max(0, this.width - panelW));
+        panelY = savedPanelY == Integer.MIN_VALUE
+            ? (this.height - panelH) / 2
+            : clamp(savedPanelY, 0, Math.max(0, this.height - panelH));
+        rememberGeometry();
 
         contentX = panelX + RAIL_WIDTH + 14;
-        contentRight = panelX + panelW - 14;
-        contentTop = panelY + 56;
-        rowGap = this.height < 300 ? 2 : 4;
-
-        buildRail();
+        contentRight = panelX + panelW - 16;
+        contentTop = panelY + HEADER_H + 12;
+        rowGap = panelH < 300 ? 2 : 4;
 
         switch (tab) {
             case OVERVIEW -> buildOverview();
@@ -97,6 +137,62 @@ public class InputBoosterScreen extends Screen {
             case ADVANCED -> buildAdvanced();
         }
 
+        buildRail();
+        buildFooter();
+        measureContent();
+
+        if (scrollOffset > maxScroll) {
+            scrollOffset = maxScroll;
+            if (!settlingScroll) {
+                // The extent shrinks while scrolling or resizing: rebuild once
+                // with the corrected offset rather than drawing stale positions.
+                settlingScroll = true;
+                rebuildWidgets();
+                settlingScroll = false;
+                return;
+            }
+        }
+        cullContent();
+    }
+
+    private void rememberGeometry() {
+        savedPanelW = panelW;
+        savedPanelH = panelH;
+        savedPanelX = panelX;
+        savedPanelY = panelY;
+    }
+
+    private int contentBottom() {
+        return panelY + panelH - FOOTER_H - 4;
+    }
+
+    private int viewportHeight() {
+        return Math.max(1, contentBottom() - contentTop);
+    }
+
+    /** Content height is measured with the scroll offset added back, so it does not depend on scroll. */
+    private void measureContent() {
+        int lowest = contentTop;
+        for (AbstractWidget widget : contentWidgets) {
+            lowest = Math.max(lowest, widget.getY() + widget.getHeight() + scrollOffset);
+        }
+        for (TextLine line : textLines) {
+            lowest = Math.max(lowest, line.y + scrollOffset + 10);
+        }
+        int contentHeight = lowest - contentTop + 8;
+        maxScroll = Math.max(0, contentHeight - viewportHeight());
+        scrollOffset = clamp(scrollOffset, 0, maxScroll);
+    }
+
+    /** Widgets are culled rather than clipped: no partial rows bleeding into the header. */
+    private void cullContent() {
+        for (AbstractWidget widget : contentWidgets) {
+            widget.visible = widget.getY() >= contentTop - 1
+                && widget.getY() + widget.getHeight() <= contentBottom() + 1;
+        }
+    }
+
+    private void buildFooter() {
         addRenderableWidget(Button.builder(Component.literal("§aSave & Close"), b -> {
             InputBoosterConfig.save();
             hasChanges = false;
@@ -107,12 +203,23 @@ public class InputBoosterScreen extends Screen {
             .bounds(panelX + panelW - 94, panelY + panelH - 26, 80, 20).build());
     }
 
+    private <T extends AbstractWidget> T addContent(T widget) {
+        addRenderableWidget(widget);
+        contentWidgets.add(widget);
+        return widget;
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private void buildRail() {
         int y = panelY + 48;
         for (Tab value : Tab.values()) {
             final Tab target = value;
             Button b = Button.builder(Component.literal((target == tab ? "§b" : "§7") + target.label), btn -> {
                 tab = target;
+                scrollOffset = 0;
                 rebuildWidgets();
             }).bounds(panelX + 8, y, RAIL_WIDTH - 16, 20).build();
             b.active = target != tab;
@@ -134,7 +241,7 @@ public class InputBoosterScreen extends Screen {
     }
 
     private int rowY(int row) {
-        return contentTop + row * (rowHeight() + rowGap);
+        return contentTop + row * (rowHeight() + rowGap) - scrollOffset;
     }
 
     private void section(int row, String title) {
@@ -161,11 +268,11 @@ public class InputBoosterScreen extends Screen {
         note(row++, 1, "Max CPS: §e" + InputBoosterConfig.getMaxCps(), TEXT);
 
         int y = rowY(row);
-        addRenderableWidget(Button.builder(Component.literal("§bProfiles..."), b -> {
+        addContent(Button.builder(Component.literal("§bProfiles..."), b -> {
             if (this.minecraft != null) this.minecraft.setScreenAndShow(new ProfilesScreen(this));
         }).bounds(contentX, y, cellWidth(), 20).build());
 
-        addRenderableWidget(Button.builder(Component.literal("§b" + ConfigurationManager.engineModeLabel() + " engine"),
+        addContent(Button.builder(Component.literal("§b" + ConfigurationManager.engineModeLabel() + " engine"),
             b -> {
                 ConfigurationManager.setEngineMode((ConfigurationManager.engineMode() + 1) % 3);
                 applyEngineMode();
@@ -369,7 +476,7 @@ public class InputBoosterScreen extends Screen {
         int presetWidth = (contentRight - contentX - 10) / 6;
         for (int i = 0; i < presets.length; i++) {
             final int hz = presets[i];
-            addRenderableWidget(Button.builder(Component.literal(hz + ""), b -> {
+            addContent(Button.builder(Component.literal(hz + ""), b -> {
                 InputBoosterConfig.setPollRateAutoMode(false);
                 InputBoosterConfig.setPollRateHz(hz);
                 applyPollRate();
@@ -491,7 +598,7 @@ public class InputBoosterScreen extends Screen {
     // ── Widgets ──────────────────────────────────────────────────────────────
 
     private void toggle(int row, int column, String label, boolean initial, Consumer<Boolean> setter) {
-        addRenderableWidget(Button.builder(toggleText(label, initial), b -> {
+        addContent(Button.builder(toggleText(label, initial), b -> {
             // The button's own message is the state: no shadow copy that can
             // drift from the config after a reset or a profile load.
             boolean value = !b.getMessage().getString().contains("§aON");
@@ -502,13 +609,13 @@ public class InputBoosterScreen extends Screen {
     }
 
     private void action(int row, int column, String label, Runnable action) {
-        addRenderableWidget(Button.builder(Component.literal(label), b -> action.run())
+        addContent(Button.builder(Component.literal(label), b -> action.run())
             .bounds(cellX(column), rowY(row), cellWidth(), 20).build());
     }
 
     private void slider(int row, int column, String label, int min, int max, int step, int value,
                         IntFunction<String> format, IntConsumer setter) {
-        addRenderableWidget(new SettingSlider(cellX(column), rowY(row), cellWidth(), 20,
+        addContent(new SettingSlider(cellX(column), rowY(row), cellWidth(), 20,
             label, min, max, step, value, format, setter));
     }
 
@@ -554,11 +661,16 @@ public class InputBoosterScreen extends Screen {
         int railY = panelY + 48 + tab.ordinal() * 24;
         ctx.fill(panelX + 2, railY, panelX + 5, railY + 20, ACCENT);
 
+        ctx.scissorStack.push(new ScreenRectangle(contentX - 6, contentTop - 4,
+            Math.max(1, contentRight - contentX + 12), viewportHeight() + 8));
         for (TextLine line : textLines) {
             ctx.text(this.font, line.text, line.x, line.y, line.color);
         }
+        ctx.scissorStack.pop();
 
         if (tab == Tab.OVERVIEW) drawSparkline(ctx);
+        drawScrollbar(ctx);
+        drawResizeGrip(ctx);
 
         ctx.fill(panelX + 1, panelY + panelH - 34, panelX + panelW - 1, panelY + panelH - 33, BORDER);
         if (hasChanges) {
@@ -569,6 +681,159 @@ public class InputBoosterScreen extends Screen {
         }
 
         super.extractRenderState(ctx, mouseX, mouseY, delta);
+    }
+
+    // ── Window manipulation ──────────────────────────────────────────────────
+
+    private int scrollbarX() {
+        return panelX + panelW - 9;
+    }
+
+    private int scrollbarTop() {
+        return contentTop;
+    }
+
+    private int scrollbarHeight() {
+        return viewportHeight();
+    }
+
+    private int scrollbarThumbHeight() {
+        if (maxScroll == 0) return scrollbarHeight();
+        int total = viewportHeight() + maxScroll;
+        return Math.max(24, (int) (scrollbarHeight() * (viewportHeight() / (double) total)));
+    }
+
+    private int scrollbarThumbTop() {
+        if (maxScroll == 0) return scrollbarTop();
+        int travel = Math.max(0, scrollbarHeight() - scrollbarThumbHeight());
+        return scrollbarTop() + (int) Math.round(travel * (scrollOffset / (double) maxScroll));
+    }
+
+    private boolean overScrollbar(double mouseX, double mouseY) {
+        return maxScroll > 0
+            && mouseX >= scrollbarX() - 3 && mouseX <= scrollbarX() + 5
+            && mouseY >= scrollbarTop() && mouseY <= scrollbarTop() + scrollbarHeight();
+    }
+
+    private boolean inResizeGrip(double mouseX, double mouseY) {
+        return mouseX >= panelX + panelW - RESIZE_GRIP && mouseX <= panelX + panelW
+            && mouseY >= panelY + panelH - RESIZE_GRIP && mouseY <= panelY + panelH;
+    }
+
+    private boolean inHeader(double mouseX, double mouseY) {
+        return mouseX >= panelX && mouseX < panelX + panelW
+            && mouseY >= panelY && mouseY < panelY + HEADER_H;
+    }
+
+    private void scrollToPointer(double mouseY) {
+        int travel = scrollbarHeight() - scrollbarThumbHeight();
+        if (travel <= 0) {
+            scrollOffset = 0;
+        } else {
+            double ratio = (mouseY - scrollbarTop() - scrollbarThumbHeight() / 2.0) / travel;
+            ratio = Math.max(0.0, Math.min(1.0, ratio));
+            scrollOffset = clamp((int) Math.round(ratio * maxScroll), 0, maxScroll);
+        }
+        rebuildWidgets();
+    }
+
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (event.button() == 0) {
+            if (inResizeGrip(mouseX, mouseY)) {
+                resizingWindow = true;
+                return true;
+            }
+            if (overScrollbar(mouseX, mouseY)) {
+                draggingScrollbar = true;
+                scrollToPointer(mouseY);
+                return true;
+            }
+            if (inHeader(mouseX, mouseY)) {
+                draggingWindow = true;
+                grabX = (int) mouseX - panelX;
+                grabY = (int) mouseY - panelY;
+                return true;
+            }
+        }
+        return super.mouseClicked(event, doubled);
+    }
+
+    @Override
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (resizingWindow) {
+            panelW = clamp((int) mouseX - panelX, MIN_PANEL_W,
+                Math.max(MIN_PANEL_W, this.width - panelX));
+            panelH = clamp((int) mouseY - panelY, MIN_PANEL_H,
+                Math.max(MIN_PANEL_H, this.height - panelY));
+            rememberGeometry();
+            rebuildWidgets();
+            return true;
+        }
+        if (draggingWindow) {
+            panelX = clamp((int) mouseX - grabX, 0, Math.max(0, this.width - panelW));
+            panelY = clamp((int) mouseY - grabY, 0, Math.max(0, this.height - panelH));
+            rememberGeometry();
+            rebuildWidgets();
+            return true;
+        }
+        if (draggingScrollbar) {
+            scrollToPointer(mouseY);
+            return true;
+        }
+        return super.mouseDragged(event, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(MouseButtonEvent event) {
+        if (event.button() == 0 && (resizingWindow || draggingWindow || draggingScrollbar)) {
+            resizingWindow = false;
+            draggingWindow = false;
+            draggingScrollbar = false;
+            return true;
+        }
+        return super.mouseReleased(event);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (maxScroll > 0
+            && mouseX >= panelX && mouseX <= panelX + panelW
+            && mouseY >= contentTop && mouseY <= contentBottom()) {
+            int next = clamp(scrollOffset - (int) Math.round(scrollY * SCROLL_STEP), 0, maxScroll);
+            if (next != scrollOffset) {
+                scrollOffset = next;
+                rebuildWidgets();
+            }
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    private void drawScrollbar(GuiGraphicsExtractor ctx) {
+        if (maxScroll <= 0) return;
+        int x = scrollbarX();
+        int top = scrollbarTop();
+        int height = scrollbarHeight();
+        ctx.fill(x, top, x + 3, top + height, 0x40000000);
+        int thumbTop = scrollbarThumbTop();
+        int thumbHeight = scrollbarThumbHeight();
+        ctx.fill(x, thumbTop, x + 3, thumbTop + thumbHeight,
+            draggingScrollbar ? ACCENT : 0xCC55D6E8);
+    }
+
+    private void drawResizeGrip(GuiGraphicsExtractor ctx) {
+        int right = panelX + panelW;
+        int bottom = panelY + panelH;
+        for (int i = 0; i < 3; i++) {
+            int offset = 4 + i * 4;
+            ctx.fill(right - offset - 3, bottom - 4, right - offset, bottom - 3, BORDER);
+            ctx.fill(right - 4, bottom - offset - 3, right - 3, bottom - offset, BORDER);
+        }
     }
 
     private void drawSparkline(GuiGraphicsExtractor ctx) {
