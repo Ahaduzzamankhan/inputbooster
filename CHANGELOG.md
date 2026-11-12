@@ -1,5 +1,36 @@
 # Changelog
 
+## 4.1.1-alpha - Fix the launch crash in 4.1.0-alpha
+
+4.1.0-alpha crashed during startup on every loader with
+`InvalidInjectionException ... Invalid descriptor on
+inputbooster.mixins.json:KeyboardHandlerMixin`. The two observing input mixins
+were written against the 1.21 signature `keyPress(long, int key, int scancode,
+int action, int modifiers)`; 26.2 and 26.3 use `keyPress(long window, int
+action, KeyEvent event)` and `MouseHandler.onButton(long window, MouseButtonInfo
+button, int action)` instead of `onPress`. `require = 0` does not protect against
+this: it tolerates a missing target, not a handler whose parameters disagree
+with the target, so the client died while transforming `KeyboardHandler`.
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-4.1.1-alpha-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.1-alpha-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.1-alpha-fabric-mc263.jar` |
+
+### Fixed
+
+- `KeyboardHandlerMixin` injects into `keyPress(long, int, KeyEvent)` and reads
+  the key from `KeyEvent.key()`, which exists in both 26.2 (`key`/`scancode`/
+  `modifiers`) and 26.3 (`key`/`keycode`/`modifiers`).
+- `MouseHandlerMixin` injects into `onButton(long, MouseButtonInfo, int)` and
+  reads the button from `MouseButtonInfo.button()`. `onScroll(long, double,
+  double)` was already correct.
+- `MixinTargetSignatureTest` checks every `@Inject`, `@Accessor` and `@Invoker`
+  in `inputbooster.mixins.json` against the resolved Minecraft jar, for both
+  the 26.2 and 26.3 builds. A wrong hook signature now fails `./gradlew test`
+  instead of crashing the game during startup.
+
 ## 4.1.0-alpha - Input engine, new overlay, new settings
 
 Alpha: the engine and the screens are new code and have not been run in a client.

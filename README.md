@@ -10,9 +10,9 @@ It is not an autoclicker and it does not play the game for you. Every attack, us
 
 | Loader | Minecraft | Jar |
 | ------ | --------- | --- |
-| Fabric | 26.2 | `inputbooster-4.1.0-alpha-fabric-mc262.jar` |
-| Fabric | 26.3 | `inputbooster-4.1.0-alpha-fabric-mc263.jar` |
-| NeoForge | 26.2 | `inputbooster-4.1.0-alpha-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.1-alpha-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.1-alpha-fabric-mc263.jar` |
+| NeoForge | 26.2 | `inputbooster-4.1.1-alpha-nf-mc262.jar` |
 
 This is an alpha: the input engine and the new settings screen are new code and
 have not been tested in a running client. 4.0.3-stable remains the last stable

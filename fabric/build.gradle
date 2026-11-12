@@ -31,6 +31,8 @@ dependencies {
 
     testImplementation platform("org.junit:junit-bom:${junit_version}")
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    // MixinTargetSignatureTest reads @Mixin (CLASS retention) from bytecode.
+    testImplementation 'org.ow2.asm:asm:9.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
