@@ -34,7 +34,7 @@ dependencies {
     // the Config API entrypoint is type-checked for both supported game lines.
     // Modrinth version IDs: Sodium 0.9.2 Fabric for MC 26.2 and 26.3.
     def sodiumMavenVersion = minecraft_version == '26.2' ? 'xJZxADzI' : 'bAZQdGpg'
-    modCompileOnly "maven.modrinth:AANobbMI:${sodiumMavenVersion}"
+    compileOnly "maven.modrinth:AANobbMI:${sodiumMavenVersion}"
 
     testImplementation platform("org.junit:junit-bom:${junit_version}")
     testImplementation 'org.junit.jupiter:junit-jupiter'
