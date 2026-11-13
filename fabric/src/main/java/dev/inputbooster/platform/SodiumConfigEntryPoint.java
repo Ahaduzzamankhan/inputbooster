@@ -69,7 +69,7 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
             "Polling frequency used when automatic mode is disabled.",
             60, 1000, 10, " Hz",
             InputBoosterConfig::getPollRateHz, InputBoosterConfig::setPollRateHz)
-            .setEnabledProvider(state -> !InputBoosterConfig.isPollRateAutoMode(),
+            .setEnabledProvider(state -> !state.readBooleanOption(id("poll_rate_auto")),
                 id("poll_rate_auto")));
 
         page.addOptionGroup(polling);
@@ -133,7 +133,7 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
             "Maximum accepted clicks per second.",
             1, 20, 1, " CPS",
             InputBoosterConfig::getMaxCps, InputBoosterConfig::setMaxCps)
-            .setEnabledProvider(state -> InputBoosterConfig.isCpsLimiterEnabled(),
+            .setEnabledProvider(state -> state.readBooleanOption(id("cps_limiter")),
                 id("cps_limiter")));
         clickControl.addOption(bool(builder, "burst_mode", "Adaptive burst mode",
             "Allow short input bursts while keeping the configured long-term limit.",
@@ -277,7 +277,7 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
             50, 200, 5, "%",
             () -> Math.round(InputBoosterConfig.getClickSoundPitch() * 100.0f),
             value -> InputBoosterConfig.setClickSoundPitch(value / 100.0f))
-            .setEnabledProvider(state -> InputBoosterConfig.isClickSoundsEnabled(),
+            .setEnabledProvider(state -> state.readBooleanOption(id("click_sounds")),
                 id("click_sounds")));
         audio.addOption(integer(builder, "click_sound_volume", "Click sound volume",
             "Volume percentage for click feedback.",
@@ -349,6 +349,6 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
     }
 
     private static Identifier id(String path) {
-        return Identifier.fromNamespaceAndPath("inputbooster", path);
+        return Identifier.parse("inputbooster:" + path);
     }
 }
