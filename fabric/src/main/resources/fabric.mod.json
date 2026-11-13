@@ -18,6 +18,9 @@
   "entrypoints": {
     "client": [
       "dev.inputbooster.platform.InputBoosterFabric"
+    ],
+    "sodium:config_api_user": [
+      "dev.inputbooster.platform.SodiumConfigEntryPoint"
     ]
   },
   "mixins": [
@@ -28,5 +31,8 @@
     "fabric-api": "${fabric_version_range}",
     "minecraft": "${minecraft_version_range}",
     "java": ">=25"
+  },
+  "suggests": {
+    "sodium": "*"
   }
 }
