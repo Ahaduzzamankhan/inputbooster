@@ -32,6 +32,13 @@ import java.util.function.Supplier;
 public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
     private static final Runnable SAVE = InputBoosterConfig::save;
 
+    private enum CpsMode {
+        FIXED,
+        COOLDOWN,
+        HUMANIZED,
+        WEAPON_AWARE
+    }
+
     private enum OverlayMode {
         F3_ONLY,
         ALWAYS
@@ -135,6 +142,17 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
             InputBoosterConfig::getMaxCps, InputBoosterConfig::setMaxCps)
             .setEnabledProvider(state -> state.readBooleanOption(id("cps_limiter")),
                 id("cps_limiter")));
+        clickControl.addOption(enumOption(builder, "cps_mode", "Limiter mode",
+            "Choose how the click limiter applies its configured cap.",
+            CpsMode.class,
+            SodiumConfigEntryPoint::getCpsMode,
+            value -> InputBoosterConfig.setCpsMode(value.name()),
+            value -> switch (value) {
+                case FIXED -> "Fixed";
+                case COOLDOWN -> "Cooldown";
+                case HUMANIZED -> "Humanized";
+                case WEAPON_AWARE -> "Item-aware";
+            }));
         clickControl.addOption(bool(builder, "burst_mode", "Adaptive burst mode",
             "Allow short input bursts while keeping the configured long-term limit.",
             InputBoosterConfig::isBurstModeEnabled, InputBoosterConfig::setBurstModeEnabled));
@@ -289,6 +307,14 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
         page.addOptionGroup(audio);
 
         return page;
+    }
+
+    private static CpsMode getCpsMode() {
+        try {
+            return CpsMode.valueOf(InputBoosterConfig.getCpsMode());
+        } catch (IllegalArgumentException exception) {
+            return CpsMode.FIXED;
+        }
     }
 
     private static BooleanOptionBuilder bool(
