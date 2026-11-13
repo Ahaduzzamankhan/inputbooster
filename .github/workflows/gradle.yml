@@ -5,7 +5,7 @@ on:
     branches: [ "main", "fabric-26.2-26.3" ]
     tags: [ "v*" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "fabric-26.2-26.3" ]
   workflow_dispatch:
     inputs:
       tag:
