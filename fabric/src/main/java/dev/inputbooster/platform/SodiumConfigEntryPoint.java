@@ -14,7 +14,6 @@ import net.minecraft.resources.Identifier;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 /**
@@ -74,7 +73,7 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
 
         polling.addOption(integer(builder, "poll_rate_hz", "Manual poll rate",
             "Polling frequency used when automatic mode is disabled.",
-            60, 1000, 10, " Hz",
+            60, 1000, 1, " Hz",
             InputBoosterConfig::getPollRateHz, InputBoosterConfig::setPollRateHz)
             .setEnabledProvider(state -> !state.readBooleanOption(id("poll_rate_auto")),
                 id("poll_rate_auto")));
@@ -201,12 +200,12 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
             }));
         appearance.addOption(integer(builder, "overlay_opacity", "Overlay opacity",
             "Background opacity percentage.",
-            0, 100, 5, "%",
+            0, 100, 1, "%",
             () -> Math.round(InputBoosterConfig.getOverlayOpacity() * 100.0f),
             value -> InputBoosterConfig.setOverlayOpacity(value / 100.0f)));
         appearance.addOption(integer(builder, "overlay_scale", "Overlay scale",
             "Overlay size percentage.",
-            50, 300, 5, "%",
+            50, 300, 1, "%",
             () -> Math.round(InputBoosterConfig.getOverlayScale() * 100.0f),
             value -> InputBoosterConfig.setOverlayScale(value / 100.0f)));
         page.addOptionGroup(appearance);
@@ -240,7 +239,7 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
             InputBoosterConfig::isKeyboardRepeatGuard, InputBoosterConfig::setKeyboardRepeatGuard));
         input.addOption(integer(builder, "mouse_scroll_debounce_ms", "Scroll debounce",
             "Minimum debounce interval for mouse-wheel events.",
-            0, 200, 5, " ms",
+            0, 200, 1, " ms",
             InputBoosterConfig::getMouseScrollDebounceMs, InputBoosterConfig::setMouseScrollDebounceMs));
         input.addOption(integer(builder, "mouse_click_dedupe_ms", "Click deduplication",
             "Deduplication interval for duplicate mouse-click events.",
@@ -292,17 +291,17 @@ public final class SodiumConfigEntryPoint implements ConfigEntryPoint {
             InputBoosterConfig::isClickSoundsEnabled, InputBoosterConfig::setClickSoundsEnabled));
         audio.addOption(integer(builder, "click_sound_pitch", "Click sound pitch",
             "Pitch percentage for click feedback.",
-            50, 200, 5, "%",
+            50, 200, 1, "%",
             () -> Math.round(InputBoosterConfig.getClickSoundPitch() * 100.0f),
             value -> InputBoosterConfig.setClickSoundPitch(value / 100.0f))
             .setEnabledProvider(state -> state.readBooleanOption(id("click_sounds")),
                 id("click_sounds")));
         audio.addOption(integer(builder, "click_sound_volume", "Click sound volume",
             "Volume percentage for click feedback.",
-            0, 100, 5, "%",
+            0, 100, 1, "%",
             () -> Math.round(InputBoosterConfig.getClickSoundVolume() * 100.0f),
             value -> InputBoosterConfig.setClickSoundVolume(value / 100.0f))
-            .setEnabledProvider(state -> InputBoosterConfig.isClickSoundsEnabled(),
+            .setEnabledProvider(state -> state.readBooleanOption(id("click_sounds")),
                 id("click_sounds")));
         page.addOptionGroup(audio);
 
