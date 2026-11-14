@@ -83,7 +83,12 @@ public class InputBoosterVanillaScreen extends Screen {
     // ── Layout ───────────────────────────────────────────────────────────────
 
     private void rebuildRows() {
-        super.rebuildWidgets();
+        // clearWidgets(), never super.rebuildWidgets(): that method calls init(),
+        // which calls this method, which called rebuildWidgets() again. The
+        // recursion grew the stack on every scroll and on every screen open until
+        // it overflowed — that is the StackOverflowError Mod Menu reported as
+        // "Failed to load config screen for 'inputbooster'".
+        clearWidgets();
         headings.clear();
 
         int contentWidth = this.width - 20;
@@ -243,7 +248,7 @@ public class InputBoosterVanillaScreen extends Screen {
         slider("Maximum CPS", 1, 20, 1, InputBoosterConfig.getMaxCps(),
                 value -> value + " CPS", InputBoosterConfig::setMaxCps);
         cycle("Limiter mode", List.of(CpsMode.values()),
-                () -> CpsMode.valueOf(InputBoosterConfig.getCpsMode()),
+                InputBoosterVanillaScreen::currentCpsMode,
                 mode -> mode.name().charAt(0) + mode.name().substring(1).toLowerCase(Locale.ROOT),
                 mode -> InputBoosterConfig.setCpsMode(mode.name()));
         toggle("Adaptive burst mode",
@@ -296,6 +301,22 @@ public class InputBoosterVanillaScreen extends Screen {
                 value -> InputBoosterConfig.setClickSoundPitch(value / 100.0f));
         slider("Click sound volume", 0, 100, 5, InputBoosterConfig.getClickSoundVolume() * 100.0f,
                 value -> value + "%", value -> InputBoosterConfig.setClickSoundVolume(value / 100.0f));
+    }
+
+    /**
+     * The stored limiter mode, without throwing on an unknown value.
+     *
+     * <p>A configuration file written by hand or by an older build could hold a
+     * mode this version does not know; {@code valueOf} would throw while the
+     * screen was being built, which is another way the config screen could fail
+     * to open at all.
+     */
+    private static CpsMode currentCpsMode() {
+        try {
+            return CpsMode.valueOf(InputBoosterConfig.getCpsMode());
+        } catch (IllegalArgumentException unknown) {
+            return CpsMode.FIXED;
+        }
     }
 
     /** When the diagnostics overlay is drawn. */

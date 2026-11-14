@@ -31,6 +31,12 @@ public final class OverlayRenderer {
 
     private static final long REBUILD_INTERVAL_NANOS = 250_000_000L;
     private static final int LINE_HEIGHT = 10;
+    /**
+     * Rough height of the vanilla F3 text block, in lines. Vanilla has no API
+     * for it, and the number only has to keep our panel clear of the text: the
+     * block is between ten and twelve lines on every 26.x client.
+     */
+    private static final int DEBUG_SCREEN_LINES = 12;
 
     private static final String[] LINES = new String[6];
     private static int lineCount;
@@ -75,14 +81,33 @@ public final class OverlayRenderer {
         }
         if (panelWidth <= 0 || panelHeight <= 0) return;
 
+        // The vanilla F3 screen owns the top of the window: its two columns of
+        // text start at y=2 and span the full width. Drawing the panel over them
+        // erased the debug text, which is what "the overlay overrides the F3
+        // text" looked like. With the debug screen open the panel moves below
+        // that block and drops its background, so nothing is covered either way.
+        boolean debugScreenOpen = mc.getDebugOverlay() != null
+            && mc.getDebugOverlay().showDebugScreen();
+        int guiWidth = mc.getWindow().getGuiScaledWidth();
+        int guiHeight = mc.getWindow().getGuiScaledHeight();
+        int position = InputBoosterConfig.getOverlayPosition();
+        int reservedTop = debugScreenOpen
+            ? Math.min(font.lineHeight * DEBUG_SCREEN_LINES + 4, Math.max(0, guiHeight / 2))
+            : 0;
+        boolean anchoredToBottom = position == OverlayLayout.BOTTOM_LEFT
+            || position == OverlayLayout.BOTTOM_RIGHT;
         OverlayLayout.Pos pos = OverlayLayout.compute(
-            mc.getWindow().getGuiScaledWidth(),
-            mc.getWindow().getGuiScaledHeight(),
+            guiWidth,
+            anchoredToBottom ? guiHeight : Math.max(1, guiHeight - reservedTop),
             panelWidth, panelHeight,
-            InputBoosterConfig.getOverlayPosition());
+            position);
+        int panelX = pos.x();
+        int panelY = pos.y() + (anchoredToBottom ? 0 : reservedTop);
 
         float opacity = InputBoosterConfig.getOverlayOpacity();
-        int background = (((int) (0xA0 * opacity)) & 0xFF) << 24;
+        int background = debugScreenOpen
+            ? 0
+            : (((int) (0xA0 * opacity)) & 0xFF) << 24;
         float invScale = scale > 0.0f ? 1.0f / scale : 1.0f;
         Matrix3x2f pose = new Matrix3x2f().scaling(scale);
 
@@ -97,8 +122,8 @@ public final class OverlayRenderer {
                 font,
                 Component.literal(" ".repeat(spaces)).getVisualOrderText(),
                 pose,
-                (int) (pos.x() * invScale),
-                (int) (pos.y() * invScale),
+                (int) (panelX * invScale),
+                (int) (panelY * invScale),
                 COLOR_TEST_RECT,
                 COLOR_TEST_RECT,
                 false,
@@ -116,8 +141,8 @@ public final class OverlayRenderer {
                 font,
                 Component.literal(line).getVisualOrderText(),
                 pose,
-                (int) ((pos.x() + 2) * invScale),
-                (int) ((pos.y() + 1 + i * LINE_HEIGHT) * invScale),
+                (int) ((panelX + 2) * invScale),
+                (int) ((panelY + 1 + i * LINE_HEIGHT) * invScale),
                 color,
                 background,
                 false,

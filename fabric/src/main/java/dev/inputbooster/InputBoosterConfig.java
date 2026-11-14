@@ -245,7 +245,7 @@ public class InputBoosterConfig {
                 burstModeEnabled  = parseBool(props, "burst_mode",            Defaults.BURST_MODE);
                 maxCps            = Math.max(1, Math.min(20, parseInt(props, "max_cps", Defaults.MAX_CPS)));
                 comboKeysEnabled  = parseBool(props, "combo_keys",            Defaults.COMBO_KEYS);
-                cpsMode           = props.getProperty("cps_mode", Defaults.CPS_MODE).toUpperCase(Locale.ROOT);
+                cpsMode           = sanitizeCpsMode(props.getProperty("cps_mode", Defaults.CPS_MODE));
                 replayEnabled     = parseBool(props, "replay_enabled",        Defaults.REPLAY_ENABLED);
                 safeModeEnabled   = parseBool(props, "safe_mode",             Defaults.SAFE_MODE);
                 eventLogEnabled   = parseBool(props, "event_log",             Defaults.EVENT_LOG);
@@ -553,7 +553,27 @@ public class InputBoosterConfig {
     public static void setBurstModeEnabled(boolean v) { burstModeEnabled = v; }
     public static void setMaxCps(int v)               { maxCps = Math.max(1, Math.min(20, v)); }
     public static void setComboKeysEnabled(boolean v) { comboKeysEnabled = v; }
-    public static void setCpsMode(String v)            { cpsMode = (v == null ? "FIXED" : v.toUpperCase(Locale.ROOT)); }
+    public static void setCpsMode(String v)            { cpsMode = sanitizeCpsMode(v); }
+
+    /**
+     * The limiter modes this build understands.
+     *
+     * <p>The value is read from a file a user can edit and from profiles that
+     * outlive a version change, and it is turned into an enum by the settings
+     * screen and by the Sodium pages. {@code valueOf} on an unknown name throws,
+     * which used to make the config screen fail to open, so an unknown mode now
+     * falls back to the documented default instead of reaching the user
+     * interface.
+     */
+    private static final List<String> CPS_MODES =
+            List.of("FIXED", "HUMANIZED", "WEAPON_AWARE", "COOLDOWN");
+
+    /** @return the stored form of a limiter mode, never an unknown name */
+    public static String sanitizeCpsMode(String value) {
+        if (value == null) return Defaults.CPS_MODE;
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        return CPS_MODES.contains(normalized) ? normalized : Defaults.CPS_MODE;
+    }
     public static void setReplayEnabled(boolean v)     { replayEnabled = v; }
     public static void setSafeModeEnabled(boolean v)   { safeModeEnabled = v; }
     public static void setEventLogEnabled(boolean v)   { eventLogEnabled = v; }

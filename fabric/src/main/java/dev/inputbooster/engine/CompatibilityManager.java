@@ -35,26 +35,32 @@ public final class CompatibilityManager {
      * disabled the event path for no reason at all. Zoomify is an input mod — it
      * holds the middle mouse button — so it stays.
      */
-    private static final String[][] KNOWN_INPUT_MODS = {
-        {"controlify", "dev.isxander.controlify.Controlify"},
-        {"midnightcontrols", "dev.lambdaurora.midnightcontrols.MidnightControls"},
-        {"controllable", "com.mrcrayfish.controllable.Controllable"},
-        {"zoomify", "com.jab125.zoomify.Zoomify"},
+    private static final String[] KNOWN_INPUT_MODS = {
+        "controlify", "midnightcontrols", "controllable", "zoomify"
     };
 
     private final List<String> detected = new ArrayList<>();
     private boolean eventSourceActive;
     private String fallbackReason = "";
 
-    /** Scans the class path once during initialisation. */
+    /**
+     * Asks the loader once during initialisation.
+     *
+     * <p>Presence is a loader question, so this is a map lookup per mod id. The
+     * previous version called {@code Class.forName} on each mod's main class,
+     * which made the game load another mod's classes — and everything those
+     * reference — while this mod was initialising. That is real startup work for
+     * a decision the loader can answer from its metadata.
+     */
     public void detect() {
         detected.clear();
-        for (String[] mod : KNOWN_INPUT_MODS) {
+        for (String modId : KNOWN_INPUT_MODS) {
             try {
-                Class.forName(mod[1], false, CompatibilityManager.class.getClassLoader());
-                detected.add(mod[0]);
+                if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(modId)) {
+                    detected.add(modId);
+                }
             } catch (Throwable ignored) {
-                // Not installed: the normal case.
+                // Loader unavailable (unit tests): no mod is detected.
             }
         }
     }
