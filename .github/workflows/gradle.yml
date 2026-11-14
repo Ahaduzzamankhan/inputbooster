@@ -1,5 +1,9 @@
 name: Build and Release
 
+# The single pipeline: it tests both Minecraft lines, builds the two jars,
+# uploads them as artifacts and attaches them to the GitHub release. There is no
+# headless client job — the client is tested by hand.
+
 on:
   push:
     branches: [ "main", "fabric-26.2-26.3" ]
@@ -50,14 +54,27 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and test
+      - name: Test and build
         run: |
           cd fabric
           chmod +x gradlew
-          ./gradlew build --no-daemon \
+          # clean test build: the tests are part of the release pipeline, so a
+          # version that does not pass them cannot publish a jar.
+          ./gradlew clean test build --no-daemon \
             -Pminecraft_version=${{ matrix.minecraft }} \
             "-Pminecraft_version_range=${{ matrix.version_range }}" \
             -Pfabric_version=${{ matrix.fabric_api }}
+
+      - name: Upload JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-reports-mc${{ matrix.minecraft }}
+          path: |
+            fabric/build/reports/tests/test/
+            fabric/build/test-results/test/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verify mod metadata
         shell: bash
