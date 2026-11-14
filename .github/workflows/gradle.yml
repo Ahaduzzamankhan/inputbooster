@@ -94,9 +94,11 @@ jobs:
           distribution: temurin
           java-version: "25"
 
-      # The 1.21.x projects target Java 21, the runtime Minecraft itself uses.
-      # This step runs last, so JAVA_HOME and the Gradle toolchain are 21 there.
-      - name: Setup Java 21
+      # The 1.21.x projects compile and test on a Java 21 toolchain, the runtime
+      # Minecraft itself uses. Gradle itself keeps running on 25: Loom 1.18.2
+      # refuses to load on a Java 21 JVM ("Dependency requires at least JVM
+      # runtime version 25"), which is what broke these builds.
+      - name: Setup Java 21 toolchain
         if: matrix.java == '21'
         uses: actions/setup-java@v4
         with:
@@ -107,12 +109,24 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Test and build
+        shell: bash
         run: |
+          set -euo pipefail
+          # Loom needs a Java 25 Gradle JVM even for the 1.21.x projects, so the
+          # JDK 21 installed above is used only as the compile/test toolchain.
+          if [ -n "${JAVA_HOME_25_X64:-}" ]; then
+            export JAVA_HOME="$JAVA_HOME_25_X64"
+          fi
+          toolchain_args=()
+          if [ -n "${JAVA_HOME_21_X64:-}" ]; then
+            toolchain_args+=("-Dorg.gradle.java.installations.paths=${JAVA_HOME_21_X64}")
+          fi
           cd ${{ matrix.project }}
           chmod +x gradlew
           # clean test build: the tests are part of the release pipeline, so a
           # version that does not pass them cannot publish a jar.
           ./gradlew clean test build --no-daemon \
+            "${toolchain_args[@]}" \
             -Pminecraft_version=${{ matrix.minecraft }} \
             "-Pminecraft_version_range=${{ matrix.version_range }}" \
             -Pfabric_version=${{ matrix.fabric_api }}
