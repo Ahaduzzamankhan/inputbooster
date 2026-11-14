@@ -31,14 +31,26 @@ jobs:
           # Fabric loader 0.19.5 cannot evaluate bracket ranges such as
           # [26.2,26.3) for two-component Minecraft versions, so the space
           # separated comparison form is used for the declared dependency.
-          - minecraft: "26.2"
+          - project: fabric
+            minecraft: "26.2"
             suffix: "262"
             version_range: ">=26.2 <26.3"
             fabric_api: "0.161.0+26.2"
-          - minecraft: "26.3"
+          - project: fabric
+            minecraft: "26.3"
             suffix: "263"
             version_range: ">=26.3 <26.4"
             fabric_api: "0.161.0+26.3"
+          - project: fabric-26.1
+            minecraft: "26.1"
+            suffix: "261"
+            version_range: ">=26.1 <26.2"
+            fabric_api: "0.155.3+26.1.2"
+          - project: fabric-26.1.2
+            minecraft: "26.1.2"
+            suffix: "2612"
+            version_range: ">=26.1.2 <26.1.3"
+            fabric_api: "0.155.3+26.1.2"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,7 +68,7 @@ jobs:
 
       - name: Test and build
         run: |
-          cd fabric
+          cd ${{ matrix.project }}
           chmod +x gradlew
           # clean test build: the tests are part of the release pipeline, so a
           # version that does not pass them cannot publish a jar.
@@ -71,8 +83,8 @@ jobs:
         with:
           name: junit-reports-mc${{ matrix.minecraft }}
           path: |
-            fabric/build/reports/tests/test/
-            fabric/build/test-results/test/
+            ${{ matrix.project }}/build/reports/tests/test/
+            ${{ matrix.project }}/build/test-results/test/
           if-no-files-found: warn
           retention-days: 14
 
@@ -80,7 +92,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          jar="fabric/build/libs/inputbooster-*-mc${{ matrix.suffix }}.jar"
+          jar="${{ matrix.project }}/build/libs/inputbooster-*-mc${{ matrix.suffix }}.jar"
           unzip -p $jar fabric.mod.json | tee /tmp/fabric.mod.json
           grep -q '"minecraft": *">=' /tmp/fabric.mod.json \
             || { echo "minecraft dependency must use the '>=x <y' form" >&2; exit 1; }
@@ -106,10 +118,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          jar_path="$(find fabric/build/libs -maxdepth 1 -type f -name "inputbooster-*-mc${{ matrix.suffix }}.jar" | sort | head -n 1)"
+          jar_path="$(find ${{ matrix.project }}/build/libs -maxdepth 1 -type f -name "inputbooster-*-mc${{ matrix.suffix }}.jar" | sort | head -n 1)"
           if [[ -z "$jar_path" ]]; then
-            echo "No Fabric jar found in fabric/build/libs" >&2
-            find fabric/build/libs -type f >&2 || true
+            echo "No Fabric jar found in ${{ matrix.project }}/build/libs" >&2
+            find ${{ matrix.project }}/build/libs -type f >&2 || true
             exit 1
           fi
           echo "path=$jar_path" >> "$GITHUB_OUTPUT"
@@ -118,7 +130,7 @@ jobs:
       - name: Upload Fabric jar
         uses: actions/upload-artifact@v4
         with:
-          name: inputbooster-fabric-mc${{ matrix.minecraft }}
+          name: inputbooster-mc${{ matrix.minecraft }}
           path: ${{ steps.jar.outputs.path }}
           if-no-files-found: error
 
@@ -174,8 +186,8 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           jars=(release-artifacts/*.jar)
-          if [ ${#jars[@]} -lt 2 ]; then
-            echo "Expected the Fabric 26.2 and 26.3 jars, found ${#jars[@]}" >&2
+          if [ ${#jars[@]} -lt 3 ]; then
+            echo "Expected at least the 26.2 and 26.3 jars, found ${#jars[@]}" >&2
             ls -la release-artifacts >&2
             exit 1
           fi

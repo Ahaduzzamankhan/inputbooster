@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${version}",
+  "name": "InputBooster",
+  "description": "Ultra-fast client-side input registration for low-FPS PvP, survival, and replay testing.",
+  "authors": [
+    "Ahaduzzaman Khan"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Ahaduzzamankhan/inputbooster",
+    "sources": "https://github.com/Ahaduzzamankhan/inputbooster",
+    "issues": "https://github.com/Ahaduzzamankhan/inputbooster/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/inputbooster/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.inputbooster.compat.fabric.InputBoosterFabric"
+    ],
+    "sodium:config_api_user": [
+      "dev.inputbooster.compat.sodium.SodiumConfigEntryPoint"
+    ],
+    "modmenu": [
+      "dev.inputbooster.compat.modmenu.ModMenuIntegration"
+    ]
+  },
+  "mixins": [
+    "inputbooster.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "${loader_version_range}",
+    "fabric-api": "${fabric_version_range}",
+    "minecraft": "${minecraft_version_range}",
+    "java": ">=25"
+  },
+  "suggests": {
+    "sodium": "*",
+    "modmenu": "*"
+  }
+}

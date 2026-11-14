@@ -8,6 +8,7 @@ out/
 # Ignore JARs except the Gradle wrapper (required for CI)
 *.jar
 !fabric/gradle/wrapper/gradle-wrapper.jar
+!fabric-*/gradle/wrapper/gradle-wrapper.jar
 
 # Local game/config directories created while running the mod
 config/
