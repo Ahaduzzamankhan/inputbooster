@@ -1,8 +1,8 @@
 name: Build and Release
 
-# The single pipeline: it tests both Minecraft lines, builds the two jars,
-# uploads them as artifacts and attaches them to the GitHub release. There is no
-# headless client job — the client is tested by hand.
+# The single pipeline: it tests every supported Minecraft line, builds one jar
+# per line, uploads them as artifacts and attaches them to the GitHub release.
+# There is no headless client job — the client is tested by hand.
 
 on:
   push:
@@ -36,21 +36,45 @@ jobs:
             suffix: "262"
             version_range: ">=26.2 <26.3"
             fabric_api: "0.161.0+26.2"
+            sodium_config: "true"
           - project: fabric
             minecraft: "26.3"
             suffix: "263"
             version_range: ">=26.3 <26.4"
             fabric_api: "0.161.0+26.3"
+            sodium_config: "true"
           - project: fabric-26.1
             minecraft: "26.1"
             suffix: "261"
             version_range: ">=26.1 <26.2"
             fabric_api: "0.155.3+26.1.2"
+            sodium_config: "true"
           - project: fabric-26.1.2
             minecraft: "26.1.2"
             suffix: "2612"
             version_range: ">=26.1.2 <26.1.3"
             fabric_api: "0.155.3+26.1.2"
+            sodium_config: "true"
+          # 1.21.x Sodium releases do not ship the Config API, so those jars
+          # carry no Sodium entrypoint and use the mod's own settings screen.
+          - project: fabric-1.21.11
+            minecraft: "1.21.11"
+            suffix: "12111"
+            version_range: ">=1.21.11 <1.21.12"
+            fabric_api: "0.141.6+1.21.11"
+            sodium_config: "false"
+          - project: fabric-1.21.4
+            minecraft: "1.21.4"
+            suffix: "1214"
+            version_range: ">=1.21.4 <1.21.5"
+            fabric_api: "0.119.4+1.21.4"
+            sodium_config: "false"
+          - project: fabric-1.21.1
+            minecraft: "1.21.1"
+            suffix: "1211"
+            version_range: ">=1.21.1 <1.21.2"
+            fabric_api: "0.116.18+1.21.1"
+            sodium_config: "false"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -97,11 +121,19 @@ jobs:
           grep -q '"minecraft": *">=' /tmp/fabric.mod.json \
             || { echo "minecraft dependency must use the '>=x <y' form" >&2; exit 1; }
           # The Sodium configuration pages are only reachable through the
-          # Sodium Config API entrypoint.
-          grep -q '"sodium:config_api_user"' /tmp/fabric.mod.json \
-            || { echo "the Sodium config entrypoint must be declared" >&2; exit 1; }
-          grep -q 'dev.inputbooster.compat.sodium.SodiumConfigEntryPoint' /tmp/fabric.mod.json \
-            || { echo "the Sodium config entrypoint must point at SodiumConfigEntryPoint" >&2; exit 1; }
+          # Sodium Config API entrypoint, and only Sodium releases that ship it
+          # may carry the declaration.
+          if [ "${{ matrix.sodium_config }}" == "true" ]; then
+            grep -q '"sodium:config_api_user"' /tmp/fabric.mod.json \
+              || { echo "the Sodium config entrypoint must be declared" >&2; exit 1; }
+            grep -q 'dev.inputbooster.compat.sodium.SodiumConfigEntryPoint' /tmp/fabric.mod.json \
+              || { echo "the Sodium config entrypoint must point at SodiumConfigEntryPoint" >&2; exit 1; }
+          else
+            if grep -q '"sodium:config_api_user"' /tmp/fabric.mod.json; then
+              echo "this Sodium release has no Config API, so the entrypoint must not be declared" >&2
+              exit 1
+            fi
+          fi
           # Sodium and Mod Menu stay optional: their classes must never be
           # bundled into the InputBooster jar.
           if unzip -l $jar | grep -q 'net/caffeinemc/mods/sodium/'; then
@@ -186,8 +218,8 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           jars=(release-artifacts/*.jar)
-          if [ ${#jars[@]} -lt 3 ]; then
-            echo "Expected at least the 26.2 and 26.3 jars, found ${#jars[@]}" >&2
+          if [ ${#jars[@]} -lt 7 ]; then
+            echo "Expected one jar per supported Minecraft line (7), found ${#jars[@]}" >&2
             ls -la release-artifacts >&2
             exit 1
           fi
@@ -205,8 +237,13 @@ jobs:
             echo
             echo "Loader support in this release:"
             echo
-            echo "- Fabric — Minecraft 26.2"
             echo "- Fabric — Minecraft 26.3"
+            echo "- Fabric — Minecraft 26.2"
+            echo "- Fabric — Minecraft 26.1.2"
+            echo "- Fabric — Minecraft 26.1"
+            echo "- Fabric — Minecraft 1.21.11"
+            echo "- Fabric — Minecraft 1.21.4"
+            echo "- Fabric — Minecraft 1.21.1"
             echo
             if [ -n "$previous_tag" ]; then
               echo "Changes since ${previous_tag}:"
@@ -231,8 +268,8 @@ jobs:
           tag_name: ${{ steps.release.outputs.tag }}
           name: InputBooster ${{ steps.release.outputs.tag }}
           body_path: release_notes.md
-          # The two jars come from the build jobs above. This step attaches
-          # them and creates the tag itself when the version is new.
+          # The jars come from the build jobs above. This step attaches them
+          # and creates the tag itself when the version is new.
           files: release-artifacts/*.jar
           generate_release_notes: true
           prerelease: ${{ contains(steps.release.outputs.version, 'alpha') || contains(steps.release.outputs.version, 'beta') }}

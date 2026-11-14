@@ -1,0 +1,157 @@
+plugins {
+    // 1.21.x ships obfuscated, so the remapping Loom plugin is used.
+    id 'fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+
+group = mod_group_id
+version = "${mod_version}-mc${minecraft_version.replace('.', '')}"
+
+base {
+    archivesName = mod_id
+}
+
+repositories {
+    maven {
+        name = 'FabricMC'
+        url = 'https://maven.fabricmc.net/'
+    }
+    mavenCentral()
+    // Sodium publishes its releases to Modrinth, which mirrors them through a
+    // Maven repository. Only the Sodium group is read from here.
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content {
+            includeGroup 'maven.modrinth'
+        }
+    }
+    // The Mod Menu API, used for the optional Mod Menu entry.
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/releases'
+        content {
+            includeGroup 'com.terraformersmc'
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    // The sources are written against the Mojang names.
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    // Used by the HUD overlay to build the text transform matrix.
+    implementation "org.joml:joml:${joml_version}"
+    // Gson ships with Minecraft and is used for the profile file.
+    implementation "com.google.code.gson:gson:${gson_version}"
+
+    // 1.21.x Sodium releases do not ship the Config API entrypoint, so the
+    // settings stay on the mod's own screen and Sodium is only detected at
+    // runtime through the loader.
+
+    // The Mod Menu API is optional in exactly the same way. The entrypoint
+    // that implements it is only ever loaded when Mod Menu asks for it.
+    def modMenuVersion = [
+        '1.21.11': '17.0.1',
+        '1.21.4': '13.0.4',
+        '1.21.1': '11.0.5',
+    ][minecraft_version]
+    if (modMenuVersion == null) {
+        throw new GradleException("No Mod Menu API artifact is mapped for Minecraft ${minecraft_version}. " +
+                "Add the matching release to the modMenuVersion map in fabric/build.gradle.")
+    }
+    modCompileOnly "com.terraformersmc:modmenu:${modMenuVersion}"
+
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    // MixinTargetSignatureTest reads @Mixin (CLASS retention) from bytecode.
+    testImplementation 'org.ow2.asm:asm:9.10.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+loom {
+    runs {
+        client {
+            client()
+        }
+    }
+}
+
+// The mod is Fabric only, so everything lives in this project.
+sourceSets {
+    main {
+        java {
+            // Version specific API shim (26.2 vs 26.3) plus the shared core.
+            srcDirs = ['src/main/java',
+                       "src/compat/mc${minecraft_version.replace('.', '_')}/java"]
+        }
+        resources {
+            srcDirs = ['src/main/resources']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['src/test/java']
+        }
+    }
+}
+
+processResources {
+    def properties = [
+        version               : project.version,
+        mod_id                : mod_id,
+        minecraft_version     : minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        loader_version_range  : loader_version_range,
+        fabric_version_range  : fabric_version_range
+    ]
+    inputs.properties properties
+    filteringCharset = 'UTF-8'
+
+    filesMatching('fabric.mod.json') {
+        expand properties
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    // 1.21.x runs on Java 21, so the classes must not be newer than that.
+    options.release = 21
+}
+
+java {
+    withSourcesJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+test {
+    useJUnitPlatform()
+    // Keep the config tests off the developer's real config directory.
+    systemProperty 'inputbooster.configDir', layout.buildDirectory.dir('test-config').get().asFile.absolutePath
+    // The resolved target version (honours -Pminecraft_version overrides).
+    systemProperty 'inputbooster.minecraftVersion', project.minecraft_version
+    inputs.property 'minecraftVersion', project.minecraft_version
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        showStandardStreams = false
+    }
+}
+
+jar {
+    // The licence file lives in the repository root, not in this build dir.
+    from("${rootDir}/../LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+}
