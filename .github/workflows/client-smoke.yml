@@ -48,11 +48,14 @@ jobs:
       - name: Install headless graphics dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            xvfb \
-            libgl1-mesa-dri libglx-mesa0 libgl1-mesa-glx libegl1 libgles2 \
-            libxrandr2 libxinerama1 libxcursor1 libxi6 libxxf86vm1 libxext6 libxrender1 \
-            x11-utils mesa-utils
+          # The X server, the GLX provider and the software rasteriser are what
+          # the client needs to get a context.
+          sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils
+          # The rest is best effort: some of these packages do not exist on
+          # every runner image, and a missing one must not fail the job.
+          sudo apt-get install -y libegl1 libgles2 libxrandr2 libxinerama1 libxcursor1 \
+            libxi6 libxxf86vm1 libxext6 libxrender1 x11-utils \
+            || echo "some optional graphics packages are unavailable on this image"
 
       - name: Check the headless OpenGL context
         run: |
