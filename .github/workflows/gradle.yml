@@ -123,6 +123,18 @@ jobs:
           unzip -p $jar fabric.mod.json | tee /tmp/fabric.mod.json
           grep -q '"minecraft": *">=' /tmp/fabric.mod.json \
             || { echo "minecraft dependency must use the '>=x <y' form" >&2; exit 1; }
+          # The Sodium configuration pages are only reachable through the
+          # Sodium Config API entrypoint.
+          grep -q '"sodium:config_api_user"' /tmp/fabric.mod.json \
+            || { echo "the Sodium config entrypoint must be declared" >&2; exit 1; }
+          grep -q 'dev.inputbooster.platform.SodiumConfigEntryPoint' /tmp/fabric.mod.json \
+            || { echo "the Sodium config entrypoint must point at SodiumConfigEntryPoint" >&2; exit 1; }
+          # Sodium stays optional: its classes must never be bundled into the
+          # InputBooster jar.
+          if unzip -l $jar | grep -q 'net/caffeinemc/mods/sodium'; then
+            echo "Sodium classes must not be bundled into the InputBooster jar" >&2
+            exit 1
+          fi
 
       - name: Find built jar
         id: jar
