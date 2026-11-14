@@ -18,7 +18,15 @@ repositories {
         url = 'https://maven.fabricmc.net/'
     }
     mavenCentral()
-    maven { url = 'https://api.modrinth.com/maven' }
+    // Sodium publishes its releases to Modrinth, which mirrors them through a
+    // Maven repository. Only the Sodium group is read from here.
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content {
+            includeGroup 'maven.modrinth'
+        }
+    }
 }
 
 dependencies {
@@ -30,11 +38,22 @@ dependencies {
     // Gson ships with Minecraft and is used for the profile file.
     implementation "com.google.code.gson:gson:${gson_version}"
 
-    // Sodium is optional at runtime. Compile against the matching release so
-    // the Config API entrypoint is type-checked for both supported game lines.
-    // Modrinth version IDs: Sodium 0.9.2 Fabric for MC 26.2 and 26.3.
-    def sodiumMavenVersion = minecraft_version == '26.2' ? 'xJZxADzI' : 'bAZQdGpg'
-    compileOnly "maven.modrinth:AANobbMI:${sodiumMavenVersion}"
+    // Sodium is optional at runtime: the Config API entrypoint is only ever
+    // loaded by Sodium itself, and the jar is never bundled or required. The
+    // release that matches the targeted Minecraft version is compiled against so
+    // the entrypoint is type-checked for every supported game line.
+    //
+    // Modrinth version numbers of the Sodium releases that carry the Config API:
+    // 0.9.2 for Minecraft 26.2 and for Minecraft 26.3.
+    def sodiumVersion = [
+        '26.2': 'mc26.2-0.9.2-fabric',
+        '26.3': 'mc26.3-0.9.2-fabric',
+    ][minecraft_version]
+    if (sodiumVersion == null) {
+        throw new GradleException("No Sodium Config API artifact is mapped for Minecraft ${minecraft_version}. " +
+                "Add the matching release to the sodiumVersion map in fabric/build.gradle.")
+    }
+    compileOnly "maven.modrinth:AANobbMI:${sodiumVersion}"
 
     testImplementation platform("org.junit:junit-bom:${junit_version}")
     testImplementation 'org.junit.jupiter:junit-jupiter'
