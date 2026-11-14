@@ -154,11 +154,24 @@ jobs:
           tag="${{ steps.release.outputs.tag }}"
           # A branch push publishes a version once. Tag pushes and manual runs
           # always publish, which is how an existing release gets updated.
+          #
+          # "Published once" is decided by the release's own jars, not by the
+          # tag: the tag is created by the release step below, so a run that
+          # created it and then failed to attach the jars used to leave a
+          # release with no download and every later push skipped it.
           if [ "${{ github.event_name }}" == "push" ] && [ "$GITHUB_REF" != "refs/tags/*" ]; then
             if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
-              echo "Tag ${tag} already exists; nothing to publish."
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              exit 0
+              published_jars=0
+              if release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" 2>/dev/null)"; then
+                published_jars="$(printf '%s' "$release_json" \
+                  | jq '[.assets[] | select(.name | endswith(".jar"))] | length' 2>/dev/null || echo 0)"
+              fi
+              if [ "${published_jars:-0}" -ge 2 ]; then
+                echo "Tag ${tag} already has its jars; nothing to publish."
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              echo "Tag ${tag} exists with ${published_jars:-0} jar(s); updating the release."
             fi
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"

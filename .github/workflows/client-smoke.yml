@@ -241,16 +241,27 @@ jobs:
             exit 1
           fi
 
-          # Nothing the mod does may be logged as a warning or an error, and
-          # the mixins must all have applied.
-          if grep -E "ERROR|WARN" run/logs/latest.log | grep -q "inputbooster\|InputBooster"; then
-            echo "InputBooster logged a warning or an error:"
-            grep -E "ERROR|WARN" run/logs/latest.log | grep "inputbooster\|InputBooster"
+          # A log level of ERROR from the mod is always a failure. A warning is
+          # not: the mod deliberately logs one when it degrades (raw key state
+          # unavailable, Safe Mode pulled a module, a replay event was dropped, a
+          # Sodium Config API that differs from the one it was built against).
+          # Failing on every warning made those documented fallbacks
+          # indistinguishable from a broken build.
+          if grep -E "ERROR" run/logs/latest.log | grep -q "inputbooster\|InputBooster"; then
+            echo "InputBooster logged an error:"
+            grep -E "ERROR" run/logs/latest.log | grep "inputbooster\|InputBooster"
             exit 1
           fi
 
-          if grep -E "Mixin apply failed|failed to apply|@Shadow|InvalidInjectionException|IllegalClassLoadError" run/logs/latest.log; then
-            echo "A mixin did not apply."
+          # A failed injection, a missing class or a linkage error is fatal even
+          # when the mod catches it: the feature it belongs to would be silently
+          # dead for the rest of the session. The old pattern also matched the
+          # literal "@Shadow", which is not an error at all, so any log line that
+          # mentioned it failed the job.
+          BROKEN='Mixin apply failed|failed to apply|InvalidMixinException|InvalidInjectionException|IllegalClassLoadError|NoClassDefFoundError|LinkageError|NoSuchMethodError|NoSuchFieldError'
+          if grep -E "$BROKEN" run/logs/latest.log | grep -qi "inputbooster"; then
+            echo "A mixin or a mod class failed to load:"
+            grep -E "$BROKEN" run/logs/latest.log
             exit 1
           fi
 
