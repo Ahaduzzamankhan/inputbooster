@@ -48,16 +48,36 @@ jobs:
       - name: Install headless graphics dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0 libxrandr2 libxinerama1 libxcursor1 libxi6
+          sudo apt-get install -y \
+            xvfb \
+            libgl1-mesa-dri libglx-mesa0 libgl1-mesa-glx libegl1 libgles2 \
+            libxrandr2 libxinerama1 libxcursor1 libxi6 libxxf86vm1 libxext6 libxrender1 \
+            x11-utils mesa-utils
+
+      - name: Check the headless OpenGL context
+        run: |
+          # The client needs a GLX visual that matches the OpenGL version it
+          # asks for. Xvfb defaults to an 8 bit screen, which leaves llvmpipe
+          # without a usable visual, so the screen is opened with a 24 bit
+          # depth and the software renderer is pinned.
+          xvfb-run -a -s "-screen 0 1920x1080x24 +extension GLX +render -noreset" \
+            glxinfo -B 2>&1 | tee /tmp/glxinfo.txt
+          grep -q "OpenGL version string" /tmp/glxinfo.txt \
+            || { echo "the headless runner has no usable OpenGL context" >&2; exit 1; }
 
       - name: Launch Fabric client and verify startup
         working-directory: fabric
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
           ALSOFT_DRIVERS: "null"
+          GALLIUM_DRIVER: "llvmpipe"
+          MESA_GL_VERSION_OVERRIDE: "4.5"
+          MESA_GLSL_VERSION_OVERRIDE: "450"
         run: |
           chmod +x gradlew
-          timeout --signal=TERM --kill-after=10s 240s xvfb-run -a ./gradlew runClient --no-daemon \
+          timeout --signal=TERM --kill-after=10s 240s \
+            xvfb-run -a -s "-screen 0 1920x1080x24 +extension GLX +render -noreset" \
+            ./gradlew runClient --no-daemon \
             -Pminecraft_version=${{ matrix.minecraft }} \
             "-Pminecraft_version_range=${{ matrix.version_range }}" \
             -Pfabric_version=${{ matrix.fabric_api }} > client-console.log 2>&1 &
