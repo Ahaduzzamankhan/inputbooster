@@ -162,8 +162,15 @@ public class InputDrainer {
                                 // The hit result is one frame old at tick start.
                                 // Only fire at a target that is still alive and
                                 // within vanilla melee reach.
+                                //
+                                // Vanilla reach is 3 blocks, so the squared
+                                // distance is 9. The old bound was 36.0D — six
+                                // blocks — which let this path hit entities the
+                                // player could not reach at all, and it fired on a
+                                // hit result vanilla had already resolved for a
+                                // closer target.
                                 if (target != null && target.isAlive()
-                                    && player.distanceToSqr(target) <= 36.0D) {
+                                    && player.distanceToSqr(target) <= 9.0D) {
                                     mc.gameMode.attack(player, target);
                                     // 26.x requires an explicit swing animation component on 26.3
                                     // and a plain hand on 26.2; the compat shim hides the difference.

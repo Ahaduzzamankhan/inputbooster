@@ -25,13 +25,20 @@ import java.util.List;
  */
 public final class CompatibilityManager {
 
-    /** Mods whose presence means another component owns input dispatch. */
+    /**
+     * Mods whose presence means another component owns input dispatch.
+     *
+     * <p>Only mods that really take over keyboard or mouse handling belong in
+     * this list. Sodium and Iris were listed here and are rendering mods: with
+     * the compatibility fallback on (the default) their mere presence forced
+     * the engine into POLL mode on the most common client stack, which silently
+     * disabled the event path for no reason at all. Zoomify is an input mod — it
+     * holds the middle mouse button — so it stays.
+     */
     private static final String[][] KNOWN_INPUT_MODS = {
         {"controlify", "dev.isxander.controlify.Controlify"},
         {"midnightcontrols", "dev.lambdaurora.midnightcontrols.MidnightControls"},
         {"controllable", "com.mrcrayfish.controllable.Controllable"},
-        {"sodium", "net.caffeinemc.mods.sodium.client.SodiumClientMod"},
-        {"iris", "net.irisshaders.iris.Iris"},
         {"zoomify", "com.jab125.zoomify.Zoomify"},
     };
 

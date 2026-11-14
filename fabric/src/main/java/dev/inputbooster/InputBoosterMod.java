@@ -30,7 +30,18 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class InputBoosterMod {
     public static final String MOD_ID = "inputbooster";
     public static final String MOD_NAME = "InputBooster";
-    public static final String MOD_VERSION = "4.1.2-alpha";
+    /** Used when the loader cannot be asked, for example in the unit tests. */
+    private static final String COMPILED_VERSION = "4.1.2";
+    /**
+     * The version of the jar that is actually running.
+     *
+     * <p>It is read from the loader's metadata instead of being a second
+     * hand-kept constant: the hard-coded value drifted from
+     * {@code gradle.properties} (a 4.1.2 release reported itself as
+     * {@code 4.1.2-alpha}), so the overlay, the {@code /inputbooster} command
+     * and the startup line showed a version that was never built.
+     */
+    public static final String MOD_VERSION = resolveModVersion();
 
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -423,6 +434,21 @@ public final class InputBoosterMod {
     private static int mouseCode(int button) {
         var key = com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(button);
         return key == null ? -1 : key.getValue();
+    }
+
+    /**
+     * Resolves the running mod version from the loader, falling back to the
+     * version this source was compiled against.
+     */
+    private static String resolveModVersion() {
+        try {
+            return net.fabricmc.loader.api.FabricLoader.getInstance()
+                    .getModContainer(MOD_ID)
+                    .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                    .orElse(COMPILED_VERSION);
+        } catch (Throwable t) {
+            return COMPILED_VERSION;
+        }
     }
 
     /**

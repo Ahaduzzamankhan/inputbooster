@@ -5,10 +5,15 @@ import dev.inputbooster.InputBoosterConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 
 public class ConfigTools {
     public void applyPreset(String preset) {
-        String p = preset == null ? "balanced" : preset.toLowerCase();
+        // Locale.ROOT: the preset name is matched case-insensitively, and a
+        // locale-sensitive toLowerCase() maps 'I' to a dotless 'ı' on a Turkish
+        // system, which would make a preset name miss its case and silently
+        // fall through to the balanced preset.
+        String p = preset == null ? "balanced" : preset.toLowerCase(Locale.ROOT);
         switch (p) {
             case "pvp" -> {
                 InputBoosterConfig.setPollRateAutoMode(false);
