@@ -11,6 +11,7 @@ import java.util.stream.Stream;
 
 import static dev.inputbooster.InputBoosterConfig.Defaults;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The documented defaults must be the defaults that are actually used.
@@ -80,6 +81,8 @@ class ConfigDefaultsTest {
         assertEquals(Defaults.OVERLAY_POSITION, InputBoosterConfig.getOverlayPosition());
         assertEquals(Defaults.OVERLAY_OPACITY, InputBoosterConfig.getOverlayOpacity(), 1e-6);
         assertEquals(Defaults.OVERLAY_SCALE, InputBoosterConfig.getOverlayScale(), 1e-6);
+        assertEquals(Defaults.OVERLAY_COLOR, InputBoosterConfig.getOverlayColor());
+        assertEquals(Defaults.OVERLAY_TEST_RECT, InputBoosterConfig.isOverlayTestRect());
         assertEquals(Defaults.REPLAY_ENABLED, InputBoosterConfig.isReplayEnabled());
         assertEquals(Defaults.SAFE_MODE, InputBoosterConfig.isSafeModeEnabled());
         assertEquals(Defaults.EVENT_LOG, InputBoosterConfig.isEventLogEnabled());
@@ -107,5 +110,25 @@ class ConfigDefaultsTest {
         // A deliberate reload still picks the file up.
         InputBoosterConfig.load();
         assertEquals(900, InputBoosterConfig.getPollRateHz());
+    }
+
+    @Test
+    void theOverlayColourAndTestRectangleSurviveARestart() throws IOException {
+        InputBoosterConfig.load();
+
+        InputBoosterConfig.setOverlayColor(0xFF00FF00);
+        InputBoosterConfig.setOverlayTestRect(true);
+        InputBoosterConfig.setOverlayPosition(4);
+        InputBoosterConfig.save();
+
+        // Forget the in-memory values, then read them back from the file.
+        InputBoosterConfig.setOverlayColor(0xFFFFFFFF);
+        InputBoosterConfig.setOverlayTestRect(false);
+        InputBoosterConfig.setOverlayPosition(0);
+        InputBoosterConfig.load();
+
+        assertEquals(0xFF00FF00, InputBoosterConfig.getOverlayColor());
+        assertTrue(InputBoosterConfig.isOverlayTestRect());
+        assertEquals(4, InputBoosterConfig.getOverlayPosition());
     }
 }

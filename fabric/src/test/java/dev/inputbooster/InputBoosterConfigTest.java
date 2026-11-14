@@ -109,7 +109,8 @@ class InputBoosterConfigTest {
 
         assertEquals(1000, InputBoosterConfig.getPollRateHz());
         assertEquals(20, InputBoosterConfig.getMaxCps());
-        assertEquals(3, InputBoosterConfig.getOverlayPosition());
+        // Four is the top-center position, the last one that exists.
+        assertEquals(4, InputBoosterConfig.getOverlayPosition());
         assertEquals(1.0f, InputBoosterConfig.getOverlayOpacity(), 1e-6);
         assertEquals(0.5f, InputBoosterConfig.getOverlayScale(), 1e-6);
         assertEquals(1, InputBoosterConfig.getFpsCheckInterval());

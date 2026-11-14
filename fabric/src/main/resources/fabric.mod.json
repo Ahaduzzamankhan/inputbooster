@@ -17,10 +17,13 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "dev.inputbooster.platform.InputBoosterFabric"
+      "dev.inputbooster.compat.fabric.InputBoosterFabric"
     ],
     "sodium:config_api_user": [
-      "dev.inputbooster.platform.SodiumConfigEntryPoint"
+      "dev.inputbooster.compat.sodium.SodiumConfigEntryPoint"
+    ],
+    "modmenu": [
+      "dev.inputbooster.compat.modmenu.ModMenuIntegration"
     ]
   },
   "mixins": [
@@ -33,6 +36,7 @@
     "java": ">=25"
   },
   "suggests": {
-    "sodium": "*"
+    "sodium": "*",
+    "modmenu": "*"
   }
 }

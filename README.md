@@ -4,25 +4,22 @@ InputBooster is a client-side Minecraft mod that samples keyboard and mouse inpu
 
 It is not an autoclicker and it does not play the game for you. Every attack, use, jump and movement action still starts from a key or button you pressed. The mod only makes sure the game sees it.
 
-**Minecraft:** 26.2 and 26.3 · **Loaders:** Fabric, NeoForge · **Java:** 25 · **Side:** client only
+**Minecraft:** 26.2 and 26.3 · **Loader:** Fabric · **Java:** 25 · **Side:** client only
 
 ## Supported builds
 
 | Loader | Minecraft | Jar |
 | ------ | --------- | --- |
-| Fabric | 26.2 | `inputbooster-4.1.2-alpha-fabric-mc262.jar` |
-| Fabric | 26.3 | `inputbooster-4.1.2-alpha-fabric-mc263.jar` |
-| NeoForge | 26.2 | `inputbooster-4.1.2-alpha-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.2-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.2-mc263.jar` |
 
-This is an alpha: the input engine and the new settings screen are new code and
-have not been tested in a running client. 4.0.3-stable remains the last stable
-build.
+One jar per Minecraft version. Do not install two of them at once.
 
-Fabric builds need Fabric Loader 0.19.0 or newer and Fabric API 0.161.0 or newer. NeoForge builds need 26.2.0.88 or newer. One jar per loader and Minecraft version. Do not install two of them at once.
+Fabric builds need Fabric Loader 0.19.0 or newer and Fabric API 0.161.0 or newer.
 
 ## Install
 
-1. Install the loader for your Minecraft version.
+1. Install Fabric Loader for your Minecraft version.
 2. Drop the matching jar into `.minecraft/mods`.
 3. Start the game. InputBooster is client side, so a server does not need it and cannot see it.
 
@@ -30,13 +27,16 @@ If the game starts without it, check the log for `[InputBooster] Ready!`. Anythi
 
 ## Opening the settings
 
-Two ways in:
+The settings live in Sodium's own Video Settings screen when Sodium is installed,
+and in the vanilla options screen otherwise:
 
-- **Options → InputBooster...** in the top right of the vanilla options screen.
-- The key binding screen has an InputBooster category if you want to rebind anything.
+- **With Sodium:** Options → Video Settings → InputBooster. The pages use
+  Sodium's own widgets, so they look and behave like the rest of Sodium.
+- **Without Sodium:** Options → InputBooster... in the top right of the
+  vanilla options screen, or the InputBooster entry in Mod Menu.
 
-The settings screen has seven sections in a left rail. Changes apply as you make
-them; **Save & Close** writes them to disk.
+Both ways open the same settings and write the same configuration file, so a
+change made in one is visible in the other. Changes apply as you make them.
 
 The window is a real window: drag its header to move it, drag the corner grip at
 the bottom right to resize it, and scroll the section with the mouse wheel or
@@ -193,12 +193,10 @@ When the mod cannot use its raw sampling path, it falls back to the per-tick key
 
 ## Building from source
 
-Java 25 and a network connection for the Gradle toolchain are required.
+Java 25 and a network connection for the Gradle toolchain are required. The
+mod is Fabric only, so the whole project lives in `fabric/`.
 
 ```bash
-# NeoForge, Minecraft 26.2
-./gradlew build
-
 # Fabric, Minecraft 26.3 (default in fabric/gradle.properties)
 cd fabric && ./gradlew build
 
@@ -209,9 +207,12 @@ cd fabric && ./gradlew build \
   -Pfabric_version=0.161.0+26.2
 ```
 
-Jars land in `build/libs` (NeoForge) and `fabric/build/libs` (Fabric).
+Jars land in `fabric/build/libs`, one per Minecraft version:
+`inputbooster-<version>-mc262.jar` and `inputbooster-<version>-mc263.jar`.
 
-Run the unit tests with `cd fabric && ./gradlew test`. CI runs the same suite for both Fabric targets and publishes all three jars to a GitHub release on a version bump.
+Run the unit tests with `cd fabric && ./gradlew test`. CI runs the same suite
+for both Fabric targets and publishes the two jars to a GitHub release on a
+version bump.
 
 ## Troubleshooting
 

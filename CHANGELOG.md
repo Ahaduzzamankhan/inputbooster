@@ -1,12 +1,11 @@
 # Changelog
 
-## 4.1.2-beta - Native Sodium configuration pages
+## 4.1.2 - Native Sodium configuration pages, Fabric only
 
 | Loader | Minecraft | Jar |
 | ------ | --------- | --- |
-| NeoForge | 26.2 | `inputbooster-4.1.2-beta-nf-mc262.jar` |
-| Fabric | 26.2 | `inputbooster-4.1.2-beta-fabric-mc262.jar` |
-| Fabric | 26.3 | `inputbooster-4.1.2-beta-fabric-mc263.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.2-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.2-mc263.jar` |
 
 ### Added
 
@@ -17,22 +16,39 @@
 - Four pages are registered: General (automatic and manual polling, the
   input engine mode and the compatibility fallback), Features (sprint fix,
   auto sprint, W-tap assistance, anti-idle, auto strafe, combo keys, CPS
-  limiter, maximum CPS and adaptive burst mode), Overlay (F3 information,
-  keystroke display, action-bar messages, display mode, position, opacity,
-  scale and the three diagnostic lines) and Advanced (keyboard repeat guard,
-  scroll debounce, click deduplication, the experimental keyboard handler,
-  safe mode, event logging, key conflict warnings, debug mode, FPS check
-  interval, replay recording, per-server profiles and the click sounds with
-  their pitch and volume).
+  limiter, maximum CPS, the limiter mode and adaptive burst mode), Overlay (F3
+  information, keystroke display, action-bar messages, display mode, position,
+  opacity, scale, colour, the test rectangle and the three diagnostic lines)
+  and Advanced (keyboard repeat guard, scroll debounce, click deduplication,
+  the experimental keyboard handler, safe mode, event logging, key conflict
+  warnings, debug mode, FPS check interval, replay recording, per-server
+  profiles and the click sounds with their pitch and volume).
+- Without Sodium the settings are opened from the vanilla options screen or
+  from Mod Menu, on a screen built from vanilla widgets only.
+- The overlay can be given a colour, a fifth position (top center) and a
+  bright test rectangle that shows exactly where it is drawn.
+- A `/inputbooster` command reports the mod version, the Minecraft version, the
+  detected Sodium version and the path the settings are served on, and it can
+  switch the overlay on and off, move it and toggle the test rectangle.
+- The startup line now says the mod version, the Minecraft version, the Sodium
+  version and the active integration path.
 - The mod icon is shown next to the InputBooster entry in the sidebar.
 - The documented default of every setting now lives in one place,
   `InputBoosterConfig.Defaults`, instead of being written down separately by
   the loader, the settings screen and the Sodium pages.
 - The build matrix now checks that the Sodium entrypoint is declared and that
-  no Sodium class ends up inside the InputBooster jar.
+  neither Sodium nor Mod Menu classes end up inside the InputBooster jar.
 
 ### Fixed
 
+- The overlay never appeared and the client reported a mixin transformation
+  failure on every frame. The accessor classes live in the mixin package, and
+  Mixin refuses to let ordinary code reference them, so reading the HUD render
+  state threw an `IllegalClassLoadError`. The accessors are now duck
+  interfaces in `dev.inputbooster.access` that the mixins implement.
+- The overlay could not be drawn at all while that error was thrown, and it is
+  now wrapped in a guard that logs once and switches the feature off instead of
+  taking the client down.
 - The Sodium integration did not compile: the storage handler was a
   `Runnable` where Sodium's Config API expects a `StorageEventHandler`. Both
   Fabric build jobs failed with `incompatible types: Runnable cannot be
@@ -50,6 +66,14 @@
   opened with its default 8 bit screen, a package that Ubuntu 24.04 no longer
   ships was in the install list, and the client was left probing for a
   hardware Vulkan driver that is not present on the runner.
+
+### Removed
+
+- The NeoForge build, its metadata, its entrypoint and every loader
+  abstraction that only existed for it. The mod is Fabric only now.
+- The custom settings window with its own scrollbar, tab rail and widgets. It
+  was replaced by the Sodium pages and by a vanilla options screen.
+- The empty debug overlay mixin that did nothing.
 
 ### Unchanged
 

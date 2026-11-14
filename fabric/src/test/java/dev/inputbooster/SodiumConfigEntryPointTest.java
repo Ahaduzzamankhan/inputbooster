@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SodiumConfigEntryPointTest {
 
-    private static final String ENTRY_POINT = "dev.inputbooster.platform.SodiumConfigEntryPoint";
+    private static final String ENTRY_POINT = "dev.inputbooster.compat.sodium.SodiumConfigEntryPoint";
     private static final String CONFIG_ENTRY_POINT_KEY = "sodium:config_api_user";
     private static final String CONFIG_ENTRY_POINT_INTERFACE =
             "net/caffeinemc/mods/sodium/api/config/ConfigEntryPoint";
@@ -69,6 +69,17 @@ class SodiumConfigEntryPointTest {
         JsonObject depends = metadata().getAsJsonObject("depends");
         assertTrue(depends == null || !depends.has("sodium"),
                 "Sodium must stay optional: it may not be listed as a dependency");
+        assertTrue(depends == null || !depends.has("modmenu"),
+                "Mod Menu must stay optional: it may not be listed as a dependency");
+    }
+
+    @Test
+    void theModMenuEntrypointIsDeclared() throws Exception {
+        JsonObject entrypoints = metadata().getAsJsonObject("entrypoints");
+        JsonArray modMenu = entrypoints.getAsJsonArray("modmenu");
+        assertNotNull(modMenu, "fabric.mod.json must declare the \"modmenu\" entrypoint");
+        assertEquals("dev.inputbooster.compat.modmenu.ModMenuIntegration",
+                modMenu.get(0).getAsString());
     }
 
     @Test

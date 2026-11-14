@@ -64,9 +64,9 @@ Current architecture must be determined from the active source tree and build fi
 
 Current architecture associated with this context:
 
-Minecraft: `26.1`
+Minecraft: `26.2` and `26.3`
 
-NeoForge: `26.1.0.1-beta`
+Loader: `Fabric` (Fabric Loader 0.19.5+, Fabric API 0.161.0+)
 
 Java: `25`
 

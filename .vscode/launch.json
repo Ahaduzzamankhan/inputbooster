@@ -9,17 +9,8 @@
         "group": "Mod Development - inputbooster",
         "order": 0
       },
-      "projectName": "inputbooster",
-      "mainClass": "net.neoforged.devlaunch.Main",
-      "args": [
-        "@C:\\Users\\Fluxenite\\Documents\\GitHub\\inputbooster\\build\\moddev\\clientRunProgramArgs.txt"
-      ],
-      "vmArgs": [
-        "@C:\\Users\\Fluxenite\\Documents\\GitHub\\inputbooster\\build\\moddev\\clientRunVmArgs.txt",
-        "-Dfml.modFolders\u003dinputbooster%%C:\\Users\\Fluxenite\\Documents\\GitHub\\inputbooster\\bin\\main"
-      ],
-      "cwd": "${workspaceFolder}\\run",
-      "env": {},
+      "projectName": "inputbooster-fabric",
+      "cwd": "${workspaceFolder}/fabric",
       "console": "internalConsole",
       "shortenCommandLine": "none"
     }

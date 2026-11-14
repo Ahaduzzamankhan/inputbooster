@@ -27,6 +27,14 @@ repositories {
             includeGroup 'maven.modrinth'
         }
     }
+    // The Mod Menu API, used for the optional Mod Menu entry.
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/releases'
+        content {
+            includeGroup 'com.terraformersmc'
+        }
+    }
 }
 
 dependencies {
@@ -55,6 +63,18 @@ dependencies {
     }
     compileOnly "maven.modrinth:AANobbMI:${sodiumVersion}"
 
+    // The Mod Menu API is optional in exactly the same way. The entrypoint
+    // that implements it is only ever loaded when Mod Menu asks for it.
+    def modMenuVersion = [
+        '26.2': '20.0.3',
+        '26.3': '21.0.1',
+    ][minecraft_version]
+    if (modMenuVersion == null) {
+        throw new GradleException("No Mod Menu API artifact is mapped for Minecraft ${minecraft_version}. " +
+                "Add the matching release to the modMenuVersion map in fabric/build.gradle.")
+    }
+    compileOnly "com.terraformersmc:modmenu:${modMenuVersion}"
+
     testImplementation platform("org.junit:junit-bom:${junit_version}")
     testImplementation 'org.junit.jupiter:junit-jupiter'
     // MixinTargetSignatureTest reads @Mixin (CLASS retention) from bytecode.
@@ -70,16 +90,16 @@ loom {
     }
 }
 
-// The shared core lives in ../../src so both loaders share one implementation.
+// The mod is Fabric only, so everything lives in this project.
 sourceSets {
     main {
         java {
             // Version specific API shim (26.2 vs 26.3) plus the shared core.
-            srcDirs = ['../src/main/java', 'src/main/java',
-                       "../src/compat/mc${minecraft_version.replace('.', '_')}/java"]
+            srcDirs = ['src/main/java',
+                       "src/compat/mc${minecraft_version.replace('.', '_')}/java"]
         }
         resources {
-            srcDirs = ['../src/main/resources', 'src/main/resources']
+            srcDirs = ['src/main/resources']
         }
     }
     test {
@@ -100,9 +120,6 @@ processResources {
     ]
     inputs.properties properties
     filteringCharset = 'UTF-8'
-
-    // NeoForge-only metadata must not ship in the Fabric jar.
-    exclude 'META-INF/neoforge.mods.toml'
 
     filesMatching('fabric.mod.json') {
         expand properties
