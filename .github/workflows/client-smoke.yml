@@ -49,8 +49,10 @@ jobs:
         run: |
           sudo apt-get update
           # The X server, the GLX provider and the software rasteriser are what
-          # the client needs to get a context.
-          sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils
+          # the client needs to get a context. The Mesa Vulkan driver is the
+          # fallback for the clients that ask for a surface extension the
+          # hardware drivers of the runner cannot provide.
+          sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils mesa-vulkan-drivers
           # The rest is best effort: some of these packages do not exist on
           # every runner image, and a missing one must not fail the job.
           sudo apt-get install -y libegl1 libgles2 libxrandr2 libxinerama1 libxcursor1 \
@@ -76,6 +78,10 @@ jobs:
           GALLIUM_DRIVER: "llvmpipe"
           MESA_GL_VERSION_OVERRIDE: "4.5"
           MESA_GLSL_VERSION_OVERRIDE: "450"
+          # The client opens its window through SDL, which needs to be told to
+          # use the X display and to stay quiet about the sound device.
+          SDL_VIDEODRIVER: "x11"
+          SDL_AUDIODRIVER: "dummy"
         run: |
           chmod +x gradlew
           timeout --signal=TERM --kill-after=10s 240s \
