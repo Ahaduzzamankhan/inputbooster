@@ -1,5 +1,65 @@
 # Changelog
 
+## 4.1.2-beta - Native Sodium configuration pages
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| NeoForge | 26.2 | `inputbooster-4.1.2-beta-nf-mc262.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.2-beta-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.2-beta-fabric-mc263.jar` |
+
+### Added
+
+- InputBooster now appears in Sodium's own settings, under its own entry in
+  the Video Settings sidebar, next to Sodium's configuration pages. The pages
+  are built with Sodium's own widgets: native toggles, sliders, dropdowns,
+  option groups and tooltips.
+- Four pages are registered: General (automatic and manual polling, the
+  input engine mode and the compatibility fallback), Features (sprint fix,
+  auto sprint, W-tap assistance, anti-idle, auto strafe, combo keys, CPS
+  limiter, maximum CPS and adaptive burst mode), Overlay (F3 information,
+  keystroke display, action-bar messages, display mode, position, opacity,
+  scale and the three diagnostic lines) and Advanced (keyboard repeat guard,
+  scroll debounce, click deduplication, the experimental keyboard handler,
+  safe mode, event logging, key conflict warnings, debug mode, FPS check
+  interval, replay recording, per-server profiles and the click sounds with
+  their pitch and volume).
+- The mod icon is shown next to the InputBooster entry in the sidebar.
+- The documented default of every setting now lives in one place,
+  `InputBoosterConfig.Defaults`, instead of being written down separately by
+  the loader, the settings screen and the Sodium pages.
+- The build matrix now checks that the Sodium entrypoint is declared and that
+  no Sodium class ends up inside the InputBooster jar.
+
+### Fixed
+
+- The Sodium integration did not compile: the storage handler was a
+  `Runnable` where Sodium's Config API expects a `StorageEventHandler`. Both
+  Fabric build jobs failed with `incompatible types: Runnable cannot be
+  converted to StorageEventHandler`.
+- Sodium's "reset to default" action restored whatever the option happened to
+  hold instead of the documented default, and which value it restored
+  depended on whether the configuration file had been read yet.
+- The configuration pages could be built before the configuration file had
+  been read, because Sodium builds them while the game finishes loading and
+  the configuration is normally read on the first client tick.
+- A slider step larger than one made Sodium reject a hand-edited but
+  perfectly usable value as out of range and write the default back over it,
+  silently changing a setting the user never touched.
+- The headless client smoke test could not start the client: the X server was
+  opened with its default 8 bit screen, a package that Ubuntu 24.04 no longer
+  ships was in the install list, and the client was left probing for a
+  hardware Vulkan driver that is not present on the runner.
+
+### Unchanged
+
+- Sodium stays optional. The pages only exist when Sodium is installed, and
+  the settings screen, the keybinds and every other feature work exactly the
+  same without it.
+- The configuration file keeps its format, its defaults and its migration
+  path. Sodium is only a second window onto the settings that were already
+  there; every change made in Sodium is written through the same atomic save.
+
 ## 4.1.2-alpha - Movable, scrollable and resizable settings window
 
 | Loader | Minecraft | Jar |
