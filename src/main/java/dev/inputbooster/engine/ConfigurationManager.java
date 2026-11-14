@@ -84,15 +84,15 @@ public final class ConfigurationManager {
 
     /** Restores every engine and overlay option to its documented default. */
     public static void resetEngineAndOverlay() {
-        setEngineMode(ENGINE_AUTO);
-        setRepeatGuard(true);
-        setScrollDebounceMs(0);
-        setClickDedupeMs(0);
-        setCompatFallback(true);
-        setOverlayMode(OVERLAY_F3_ONLY);
-        InputBoosterConfig.setOverlayShowEngine(true);
-        InputBoosterConfig.setOverlayShowEvents(true);
-        InputBoosterConfig.setOverlayShowOverhead(true);
+        setEngineMode(InputBoosterConfig.Defaults.ENGINE_MODE);
+        setRepeatGuard(InputBoosterConfig.Defaults.KEYBOARD_REPEAT_GUARD);
+        setScrollDebounceMs(InputBoosterConfig.Defaults.MOUSE_SCROLL_DEBOUNCE_MS);
+        setClickDedupeMs(InputBoosterConfig.Defaults.MOUSE_CLICK_DEDUPE_MS);
+        setCompatFallback(InputBoosterConfig.Defaults.COMPAT_FALLBACK);
+        setOverlayMode(InputBoosterConfig.Defaults.OVERLAY_MODE);
+        InputBoosterConfig.setOverlayShowEngine(InputBoosterConfig.Defaults.OVERLAY_SHOW_ENGINE);
+        InputBoosterConfig.setOverlayShowEvents(InputBoosterConfig.Defaults.OVERLAY_SHOW_EVENTS);
+        InputBoosterConfig.setOverlayShowOverhead(InputBoosterConfig.Defaults.OVERLAY_SHOW_OVERHEAD);
         InputBoosterConfig.save();
     }
 }

@@ -41,67 +41,124 @@ public class InputBoosterConfig {
         return Paths.get(System.getProperty("inputbooster.configDir", "config"));
     }
 
+    /**
+     * The documented default value of every setting.
+     *
+     * <p>These are the values {@link #resetDefaults()} restores and the values a
+     * fresh configuration file starts with. User interfaces that offer a "reset to
+     * default" action — the mod's own screen and the Sodium configuration pages —
+     * read them from here instead of keeping a second copy of every number, so a
+     * default can never drift away from the value that is actually written.
+     */
+    public static final class Defaults {
+        private Defaults() {}
+
+        public static final int     POLL_RATE_HZ             = 200;
+        public static final boolean POLL_RATE_AUTO           = true;
+
+        public static final boolean SPRINT_FIX               = true;
+        public static final boolean AUTO_SPRINT              = true;
+        public static final boolean WTAP_ASSIST              = true;
+        public static final boolean ANTI_IDLE                = true;
+        public static final boolean AUTO_STRAFE              = true;
+        public static final boolean CPS_LIMITER              = true;
+        public static final boolean BURST_MODE               = true;
+        public static final int     MAX_CPS                  = 20;
+        public static final boolean COMBO_KEYS               = true;
+        public static final String  CPS_MODE                 = "FIXED";
+        public static final boolean CUSTOM_KEYBOARD_HANDLER  = false;
+
+        public static final int     ENGINE_MODE              = 0;
+        public static final boolean KEYBOARD_REPEAT_GUARD    = true;
+        public static final int     MOUSE_SCROLL_DEBOUNCE_MS = 0;
+        public static final int     MOUSE_CLICK_DEDUPE_MS    = 0;
+        public static final boolean COMPAT_FALLBACK          = true;
+
+        public static final int     OVERLAY_MODE             = 0;
+        public static final boolean OVERLAY_SHOW_ENGINE      = true;
+        public static final boolean OVERLAY_SHOW_EVENTS      = true;
+        public static final boolean OVERLAY_SHOW_OVERHEAD    = true;
+        public static final boolean SHOW_F3_INFO             = true;
+        public static final boolean SHOW_KEYSTROKES          = true;
+        public static final boolean SHOW_ACTION_BAR          = true;
+        public static final int     OVERLAY_POSITION         = 0;
+        public static final float   OVERLAY_OPACITY          = 0.8f;
+        public static final float   OVERLAY_SCALE            = 1.0f;
+
+        public static final boolean REPLAY_ENABLED           = true;
+        public static final boolean SAFE_MODE                = true;
+        public static final boolean EVENT_LOG                = true;
+        public static final boolean KEY_CONFLICT_WARN        = true;
+        public static final boolean PER_SERVER_PROFILES      = true;
+        public static final boolean CLICK_SOUNDS             = false;
+        public static final float   CLICK_SOUND_PITCH        = 1.35f;
+        public static final float   CLICK_SOUND_VOLUME       = 0.35f;
+
+        public static final int     FPS_CHECK_INTERVAL       = 20;
+        public static final boolean DEBUG_MODE               = false;
+    }
+
     // ── Poll Rate ────────────────────────────────────────────────────────────
     // Fields are volatile: the polling thread reads several of them while the
     // game/UI thread writes them.
-    private static volatile int     pollRateHz        = 200;
-    private static volatile boolean pollRateAutoMode  = true;
+    private static volatile int     pollRateHz        = Defaults.POLL_RATE_HZ;
+    private static volatile boolean pollRateAutoMode  = Defaults.POLL_RATE_AUTO;
 
     // ── Features ─────────────────────────────────────────────────────────────
-    private static volatile boolean sprintFixEnabled  = true;
-    private static volatile boolean autoSprintEnabled = true;
-    private static volatile boolean wTapAssistEnabled = true;
-    private static volatile boolean antiIdleEnabled   = true;
-    private static volatile boolean autoStrafeEnabled = true;
-    private static volatile boolean cpsLimiterEnabled = true;
+    private static volatile boolean sprintFixEnabled  = Defaults.SPRINT_FIX;
+    private static volatile boolean autoSprintEnabled = Defaults.AUTO_SPRINT;
+    private static volatile boolean wTapAssistEnabled = Defaults.WTAP_ASSIST;
+    private static volatile boolean antiIdleEnabled   = Defaults.ANTI_IDLE;
+    private static volatile boolean autoStrafeEnabled = Defaults.AUTO_STRAFE;
+    private static volatile boolean cpsLimiterEnabled = Defaults.CPS_LIMITER;
 
     // ── New v3.0.0 features ──────────────────────────────────────────────────
-    private static volatile boolean burstModeEnabled  = true;   // Feature 1
-    private static volatile int     maxCps            = 20;     // Feature 3 (1–20)
-    private static volatile boolean comboKeysEnabled  = true;   // Feature 4
+    private static volatile boolean burstModeEnabled  = Defaults.BURST_MODE;   // Feature 1
+    private static volatile int     maxCps            = Defaults.MAX_CPS;     // Feature 3 (1–20)
+    private static volatile boolean comboKeysEnabled  = Defaults.COMBO_KEYS;   // Feature 4
     /**
      * Alpha, off by default: InputBooster uses its own keyboard handler instead
      * of borrowing Minecraft's key mappings. See KeyboardRouter.
      */
-    private static volatile boolean customKeyboardHandler = false;
+    private static volatile boolean customKeyboardHandler = Defaults.CUSTOM_KEYBOARD_HANDLER;
 
     // ── Input engine (4.1) ──────────────────────────────────────────────────
     /** 0 = automatic, 1 = event driven, 2 = polled. */
-    private static volatile int     engineMode           = 0;
-    private static volatile boolean keyboardRepeatGuard  = true;
-    private static volatile int     mouseScrollDebounceMs = 0;
-    private static volatile int     mouseClickDedupeMs    = 0;
-    private static volatile boolean compatFallback        = true;
+    private static volatile int     engineMode           = Defaults.ENGINE_MODE;
+    private static volatile boolean keyboardRepeatGuard  = Defaults.KEYBOARD_REPEAT_GUARD;
+    private static volatile int     mouseScrollDebounceMs = Defaults.MOUSE_SCROLL_DEBOUNCE_MS;
+    private static volatile int     mouseClickDedupeMs    = Defaults.MOUSE_CLICK_DEDUPE_MS;
+    private static volatile boolean compatFallback        = Defaults.COMPAT_FALLBACK;
 
     // ── Overlay (4.1) ────────────────────────────────────────────────────────
     /** 0 = only while the F3 debug screen is open, 1 = always. */
-    private static volatile int     overlayMode          = 0;
-    private static volatile boolean overlayShowEngine    = true;
-    private static volatile boolean overlayShowEvents    = true;
-    private static volatile boolean overlayShowOverhead  = true;
-    private static volatile String  cpsMode           = "FIXED";
-    private static volatile boolean replayEnabled     = true;
-    private static volatile boolean safeModeEnabled   = true;
-    private static volatile boolean eventLogEnabled   = true;
-    private static volatile boolean keyConflictWarn   = true;
-    private static volatile boolean perServerProfiles = true;
-    private static volatile boolean clickSoundsEnabled = false;
-    private static volatile float   clickSoundPitch   = 1.35f;
-    private static volatile float   clickSoundVolume  = 0.35f;
+    private static volatile int     overlayMode          = Defaults.OVERLAY_MODE;
+    private static volatile boolean overlayShowEngine    = Defaults.OVERLAY_SHOW_ENGINE;
+    private static volatile boolean overlayShowEvents    = Defaults.OVERLAY_SHOW_EVENTS;
+    private static volatile boolean overlayShowOverhead  = Defaults.OVERLAY_SHOW_OVERHEAD;
+    private static volatile String  cpsMode           = Defaults.CPS_MODE;
+    private static volatile boolean replayEnabled     = Defaults.REPLAY_ENABLED;
+    private static volatile boolean safeModeEnabled   = Defaults.SAFE_MODE;
+    private static volatile boolean eventLogEnabled   = Defaults.EVENT_LOG;
+    private static volatile boolean keyConflictWarn   = Defaults.KEY_CONFLICT_WARN;
+    private static volatile boolean perServerProfiles = Defaults.PER_SERVER_PROFILES;
+    private static volatile boolean clickSoundsEnabled = Defaults.CLICK_SOUNDS;
+    private static volatile float   clickSoundPitch   = Defaults.CLICK_SOUND_PITCH;
+    private static volatile float   clickSoundVolume  = Defaults.CLICK_SOUND_VOLUME;
     private static volatile int     configVersion     = 305;
 
     // ── UI ───────────────────────────────────────────────────────────────────
-    private static volatile boolean showF3Info        = true;
-    private static volatile boolean showKeystrokes    = true;
-    private static volatile boolean showActionBar     = true;
+    private static volatile boolean showF3Info        = Defaults.SHOW_F3_INFO;
+    private static volatile boolean showKeystrokes    = Defaults.SHOW_KEYSTROKES;
+    private static volatile boolean showActionBar     = Defaults.SHOW_ACTION_BAR;
     // 0=Top-Left 1=Top-Right 2=Bottom-Left 3=Bottom-Right
-    private static volatile int     overlayPosition   = 0;
-    private static volatile float   overlayOpacity   = 0.8f;
-    private static volatile float   overlayScale      = 1.0f;
+    private static volatile int     overlayPosition   = Defaults.OVERLAY_POSITION;
+    private static volatile float   overlayOpacity   = Defaults.OVERLAY_OPACITY;
+    private static volatile float   overlayScale      = Defaults.OVERLAY_SCALE;
 
     // ── Advanced ─────────────────────────────────────────────────────────────
-    private static volatile int     fpsCheckInterval  = 20;
-    private static volatile boolean debugMode         = false;
+    private static volatile int     fpsCheckInterval  = Defaults.FPS_CHECK_INTERVAL;
+    private static volatile boolean debugMode         = Defaults.DEBUG_MODE;
 
     // ── Poll Rate Presets ────────────────────────────────────────────────────
 
@@ -129,6 +186,33 @@ public class InputBoosterConfig {
 
     // ── Load ─────────────────────────────────────────────────────────────────
 
+    /**
+     * True once the configuration file has been read.
+     *
+     * <p>Only {@link #ensureLoaded()} consults it; {@link #load()} always reads
+     * the file so that a deliberate reload still happens.
+     */
+    private static volatile boolean loaded;
+
+    /**
+     * Reads the configuration file if it has not been read yet.
+     *
+     * <p>The configuration is normally loaded from
+     * {@link InputBoosterMod#initialize()}, which runs on the first client tick.
+     * Other entry points may need the stored values earlier — the Sodium
+     * configuration pages, for instance, are built while the game finishes
+     * loading and before that first tick. Reading the file a second time would
+     * only risk discarding a value that was changed in between, so the second
+     * read is skipped.
+     */
+    public static void ensureLoaded() {
+        if (loaded) return;
+        synchronized (InputBoosterConfig.class) {
+            if (loaded) return;
+            load();
+        }
+    }
+
     public static void load() {
         // FIX (stale settings after reload): load() only assigned the keys that
         // were present in the file, so every option missing from the file kept
@@ -144,45 +228,45 @@ public class InputBoosterConfig {
                     props.load(in);
                 }
                 migrate(props);
-                pollRateHz        = Math.max(60, Math.min(1000, parseInt(props, "poll_rate_hz",       200)));
-                pollRateAutoMode  = parseBool(props, "poll_rate_auto",        true);
-                sprintFixEnabled  = parseBool(props, "sprint_fix",            true);
-                autoSprintEnabled = parseBool(props, "auto_sprint",           true);
-                wTapAssistEnabled = parseBool(props, "wtap_assist",           true);
-                antiIdleEnabled   = parseBool(props, "anti_idle",             true);
-                autoStrafeEnabled = parseBool(props, "auto_strafe",           true);
-                cpsLimiterEnabled = parseBool(props, "cps_limiter",           true);
-                burstModeEnabled  = parseBool(props, "burst_mode",            true);
-                maxCps            = Math.max(1, Math.min(20, parseInt(props, "max_cps", 20)));
-                comboKeysEnabled  = parseBool(props, "combo_keys",            true);
-                cpsMode           = props.getProperty("cps_mode", "FIXED").toUpperCase(Locale.ROOT);
-                replayEnabled     = parseBool(props, "replay_enabled",        true);
-                safeModeEnabled   = parseBool(props, "safe_mode",             true);
-                eventLogEnabled   = parseBool(props, "event_log",             true);
-                keyConflictWarn   = parseBool(props, "key_conflict_warn",     true);
-                perServerProfiles = parseBool(props, "per_server_profiles",   true);
-                clickSoundsEnabled = parseBool(props, "click_sounds",         false);
-                clickSoundPitch   = Math.max(0.5f, Math.min(2.0f, parseFloat(props, "click_sound_pitch", 1.35f)));
-                clickSoundVolume  = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "click_sound_volume", 0.35f)));
+                pollRateHz        = Math.max(60, Math.min(1000, parseInt(props, "poll_rate_hz",       Defaults.POLL_RATE_HZ)));
+                pollRateAutoMode  = parseBool(props, "poll_rate_auto",        Defaults.POLL_RATE_AUTO);
+                sprintFixEnabled  = parseBool(props, "sprint_fix",            Defaults.SPRINT_FIX);
+                autoSprintEnabled = parseBool(props, "auto_sprint",           Defaults.AUTO_SPRINT);
+                wTapAssistEnabled = parseBool(props, "wtap_assist",           Defaults.WTAP_ASSIST);
+                antiIdleEnabled   = parseBool(props, "anti_idle",             Defaults.ANTI_IDLE);
+                autoStrafeEnabled = parseBool(props, "auto_strafe",           Defaults.AUTO_STRAFE);
+                cpsLimiterEnabled = parseBool(props, "cps_limiter",           Defaults.CPS_LIMITER);
+                burstModeEnabled  = parseBool(props, "burst_mode",            Defaults.BURST_MODE);
+                maxCps            = Math.max(1, Math.min(20, parseInt(props, "max_cps", Defaults.MAX_CPS)));
+                comboKeysEnabled  = parseBool(props, "combo_keys",            Defaults.COMBO_KEYS);
+                cpsMode           = props.getProperty("cps_mode", Defaults.CPS_MODE).toUpperCase(Locale.ROOT);
+                replayEnabled     = parseBool(props, "replay_enabled",        Defaults.REPLAY_ENABLED);
+                safeModeEnabled   = parseBool(props, "safe_mode",             Defaults.SAFE_MODE);
+                eventLogEnabled   = parseBool(props, "event_log",             Defaults.EVENT_LOG);
+                keyConflictWarn   = parseBool(props, "key_conflict_warn",     Defaults.KEY_CONFLICT_WARN);
+                perServerProfiles = parseBool(props, "per_server_profiles",   Defaults.PER_SERVER_PROFILES);
+                clickSoundsEnabled = parseBool(props, "click_sounds",         Defaults.CLICK_SOUNDS);
+                clickSoundPitch   = Math.max(0.5f, Math.min(2.0f, parseFloat(props, "click_sound_pitch", Defaults.CLICK_SOUND_PITCH)));
+                clickSoundVolume  = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "click_sound_volume", Defaults.CLICK_SOUND_VOLUME)));
                 configVersion     = Math.max(1, parseInt(props, "config_version", CONFIG_VERSION));
-                showF3Info        = parseBool(props, "show_f3_info",          true);
-                showKeystrokes    = parseBool(props, "show_keystrokes",       true);
-                overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", 0)));
-                overlayOpacity   = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "overlay_opacity", 0.8f)));
-                overlayScale      = Math.max(0.5f, Math.min(3.0f, parseFloat(props, "overlay_scale", 1.0f)));
-                showActionBar     = parseBool(props, "show_action_bar",       true);
-                fpsCheckInterval  = Math.max(1, Math.min(100, parseInt(props, "fps_check_interval", 20)));
-                debugMode         = parseBool(props, "debug_mode",            false);
-                customKeyboardHandler = parseBool(props, "custom_keyboard_handler", false);
-                engineMode         = Math.max(0, Math.min(2, parseInt(props, "engine_mode", 0)));
-                keyboardRepeatGuard = parseBool(props, "keyboard_repeat_guard", true);
-                mouseScrollDebounceMs = Math.max(0, Math.min(200, parseInt(props, "mouse_scroll_debounce_ms", 0)));
-                mouseClickDedupeMs = Math.max(0, Math.min(100, parseInt(props, "mouse_click_dedupe_ms", 0)));
-                compatFallback     = parseBool(props, "compat_fallback", true);
-                overlayMode        = Math.max(0, Math.min(1, parseInt(props, "overlay_mode", 0)));
-                overlayShowEngine  = parseBool(props, "overlay_show_engine", true);
-                overlayShowEvents  = parseBool(props, "overlay_show_events", true);
-                overlayShowOverhead = parseBool(props, "overlay_show_overhead", true);
+                showF3Info        = parseBool(props, "show_f3_info",          Defaults.SHOW_F3_INFO);
+                showKeystrokes    = parseBool(props, "show_keystrokes",       Defaults.SHOW_KEYSTROKES);
+                overlayPosition   = Math.max(0, Math.min(3, parseInt(props, "overlay_position", Defaults.OVERLAY_POSITION)));
+                overlayOpacity   = Math.max(0.0f, Math.min(1.0f, parseFloat(props, "overlay_opacity", Defaults.OVERLAY_OPACITY)));
+                overlayScale      = Math.max(0.5f, Math.min(3.0f, parseFloat(props, "overlay_scale", Defaults.OVERLAY_SCALE)));
+                showActionBar     = parseBool(props, "show_action_bar",       Defaults.SHOW_ACTION_BAR);
+                fpsCheckInterval  = Math.max(1, Math.min(100, parseInt(props, "fps_check_interval", Defaults.FPS_CHECK_INTERVAL)));
+                debugMode         = parseBool(props, "debug_mode",            Defaults.DEBUG_MODE);
+                customKeyboardHandler = parseBool(props, "custom_keyboard_handler", Defaults.CUSTOM_KEYBOARD_HANDLER);
+                engineMode         = Math.max(0, Math.min(2, parseInt(props, "engine_mode", Defaults.ENGINE_MODE)));
+                keyboardRepeatGuard = parseBool(props, "keyboard_repeat_guard", Defaults.KEYBOARD_REPEAT_GUARD);
+                mouseScrollDebounceMs = Math.max(0, Math.min(200, parseInt(props, "mouse_scroll_debounce_ms", Defaults.MOUSE_SCROLL_DEBOUNCE_MS)));
+                mouseClickDedupeMs = Math.max(0, Math.min(100, parseInt(props, "mouse_click_dedupe_ms", Defaults.MOUSE_CLICK_DEDUPE_MS)));
+                compatFallback     = parseBool(props, "compat_fallback", Defaults.COMPAT_FALLBACK);
+                overlayMode        = Math.max(0, Math.min(1, parseInt(props, "overlay_mode", Defaults.OVERLAY_MODE)));
+                overlayShowEngine  = parseBool(props, "overlay_show_engine", Defaults.OVERLAY_SHOW_ENGINE);
+                overlayShowEvents  = parseBool(props, "overlay_show_events", Defaults.OVERLAY_SHOW_EVENTS);
+                overlayShowOverhead = parseBool(props, "overlay_show_overhead", Defaults.OVERLAY_SHOW_OVERHEAD);
                 warnAboutDefaults(props);
                 LOGGER.info("✓ Config loaded successfully (config version {})", configVersion);
             } else {
@@ -192,6 +276,8 @@ public class InputBoosterConfig {
         } catch (Exception e) {
             LOGGER.error("Failed to load config, using defaults", e);
             resetDefaults();
+        } finally {
+            loaded = true;
         }
     }
 
@@ -377,23 +463,26 @@ public class InputBoosterConfig {
     }
 
     private static void resetDefaults() {
-        pollRateHz = 200; pollRateAutoMode = true;
-        sprintFixEnabled = true; autoSprintEnabled = true; wTapAssistEnabled = true;
-        antiIdleEnabled = true; autoStrafeEnabled = true; cpsLimiterEnabled = true;
-        burstModeEnabled = true; maxCps = 20; comboKeysEnabled = true;
-        cpsMode = "FIXED"; replayEnabled = true; safeModeEnabled = true;
-        eventLogEnabled = true; keyConflictWarn = true; perServerProfiles = true;
-        clickSoundsEnabled = false; clickSoundPitch = 1.35f; clickSoundVolume = 0.35f;
+        pollRateHz = Defaults.POLL_RATE_HZ; pollRateAutoMode = Defaults.POLL_RATE_AUTO;
+        sprintFixEnabled = Defaults.SPRINT_FIX; autoSprintEnabled = Defaults.AUTO_SPRINT; wTapAssistEnabled = Defaults.WTAP_ASSIST;
+        antiIdleEnabled = Defaults.ANTI_IDLE; autoStrafeEnabled = Defaults.AUTO_STRAFE; cpsLimiterEnabled = Defaults.CPS_LIMITER;
+        burstModeEnabled = Defaults.BURST_MODE; maxCps = Defaults.MAX_CPS; comboKeysEnabled = Defaults.COMBO_KEYS;
+        cpsMode = Defaults.CPS_MODE; replayEnabled = Defaults.REPLAY_ENABLED; safeModeEnabled = Defaults.SAFE_MODE;
+        eventLogEnabled = Defaults.EVENT_LOG; keyConflictWarn = Defaults.KEY_CONFLICT_WARN; perServerProfiles = Defaults.PER_SERVER_PROFILES;
+        clickSoundsEnabled = Defaults.CLICK_SOUNDS; clickSoundPitch = Defaults.CLICK_SOUND_PITCH; clickSoundVolume = Defaults.CLICK_SOUND_VOLUME;
         // Start at the current schema version. Writing 303 here made every
         // fresh config advertise an old version and migrate itself on the next
         // load.
         configVersion = CONFIG_VERSION;
-        showF3Info = true; showKeystrokes = true; showActionBar = true; fpsCheckInterval = 20; debugMode = false;
-        customKeyboardHandler = false;
-        engineMode = 0; keyboardRepeatGuard = true;
-        mouseScrollDebounceMs = 0; mouseClickDedupeMs = 0; compatFallback = true;
-        overlayMode = 0; overlayShowEngine = true; overlayShowEvents = true; overlayShowOverhead = true;
-        overlayPosition = 0; overlayScale = 1.0f; overlayOpacity = 0.8f;
+        showF3Info = Defaults.SHOW_F3_INFO; showKeystrokes = Defaults.SHOW_KEYSTROKES; showActionBar = Defaults.SHOW_ACTION_BAR;
+        fpsCheckInterval = Defaults.FPS_CHECK_INTERVAL; debugMode = Defaults.DEBUG_MODE;
+        customKeyboardHandler = Defaults.CUSTOM_KEYBOARD_HANDLER;
+        engineMode = Defaults.ENGINE_MODE; keyboardRepeatGuard = Defaults.KEYBOARD_REPEAT_GUARD;
+        mouseScrollDebounceMs = Defaults.MOUSE_SCROLL_DEBOUNCE_MS; mouseClickDedupeMs = Defaults.MOUSE_CLICK_DEDUPE_MS;
+        compatFallback = Defaults.COMPAT_FALLBACK;
+        overlayMode = Defaults.OVERLAY_MODE; overlayShowEngine = Defaults.OVERLAY_SHOW_ENGINE;
+        overlayShowEvents = Defaults.OVERLAY_SHOW_EVENTS; overlayShowOverhead = Defaults.OVERLAY_SHOW_OVERHEAD;
+        overlayPosition = Defaults.OVERLAY_POSITION; overlayScale = Defaults.OVERLAY_SCALE; overlayOpacity = Defaults.OVERLAY_OPACITY;
     }
 
     // ── Getters ───────────────────────────────────────────────────────────────
