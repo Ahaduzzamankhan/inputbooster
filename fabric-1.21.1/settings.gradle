@@ -9,4 +9,10 @@ pluginManagement {
     }
 }
 
+// Resolves the Java 21 toolchain the 1.21.x builds compile with, so the build
+// works without a JDK 21 already installed on the machine.
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'inputbooster-fabric'

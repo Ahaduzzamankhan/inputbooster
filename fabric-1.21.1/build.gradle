@@ -117,14 +117,14 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    // 1.21.x runs on Java 21, so the classes must not be newer than that.
-    options.release = 21
 }
 
 java {
     withSourcesJar()
+    // 1.21.x runs on Java 21, so the whole build — not only the class file
+    // version — targets the JDK that Minecraft itself runs on.
     toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
