@@ -33,7 +33,7 @@
     "fabricloader": "${loader_version_range}",
     "fabric-api": "${fabric_version_range}",
     "minecraft": "${minecraft_version_range}",
-    "java": ">=25"
+    "java": "${java_version_range}"
   },
   "suggests": {
     "sodium": "*",
