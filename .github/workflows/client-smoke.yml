@@ -7,7 +7,10 @@ on:
       - fabric-26.2-26.3
     paths:
       - "fabric/**"
-      - "src/**"
+      - ".github/workflows/client-smoke.yml"
+  pull_request:
+    paths:
+      - "fabric/**"
       - ".github/workflows/client-smoke.yml"
   workflow_dispatch:
 
@@ -20,9 +23,9 @@ concurrency:
 
 jobs:
   client-smoke:
-    name: Launch Minecraft ${{ matrix.minecraft }} (headless)
+    name: ${{ matrix.minecraft }} / ${{ matrix.stack }}
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -30,9 +33,51 @@ jobs:
           - minecraft: "26.2"
             version_range: ">=26.2 <26.3"
             fabric_api: "0.161.0+26.2"
+            stack: "none"
           - minecraft: "26.3"
             version_range: ">=26.3 <26.4"
             fabric_api: "0.161.0+26.3"
+            stack: "none"
+          - minecraft: "26.2"
+            version_range: ">=26.2 <26.3"
+            fabric_api: "0.161.0+26.2"
+            stack: "sodium"
+          - minecraft: "26.3"
+            version_range: ">=26.3 <26.4"
+            fabric_api: "0.161.0+26.3"
+            stack: "sodium"
+          - minecraft: "26.2"
+            version_range: ">=26.2 <26.3"
+            fabric_api: "0.161.0+26.2"
+            stack: "sodium-extra"
+          - minecraft: "26.3"
+            version_range: ">=26.3 <26.4"
+            fabric_api: "0.161.0+26.3"
+            stack: "sodium-extra"
+          - minecraft: "26.2"
+            version_range: ">=26.2 <26.3"
+            fabric_api: "0.161.0+26.2"
+            stack: "reeses"
+          - minecraft: "26.3"
+            version_range: ">=26.3 <26.4"
+            fabric_api: "0.161.0+26.3"
+            stack: "reeses"
+          - minecraft: "26.2"
+            version_range: ">=26.2 <26.3"
+            fabric_api: "0.161.0+26.2"
+            stack: "iris"
+          - minecraft: "26.3"
+            version_range: ">=26.3 <26.4"
+            fabric_api: "0.161.0+26.3"
+            stack: "iris"
+          - minecraft: "26.2"
+            version_range: ">=26.2 <26.3"
+            fabric_api: "0.161.0+26.2"
+            stack: "full"
+          - minecraft: "26.3"
+            version_range: ">=26.3 <26.4"
+            fabric_api: "0.161.0+26.3"
+            stack: "full"
 
     steps:
       - name: Checkout
@@ -70,6 +115,64 @@ jobs:
           grep -q "OpenGL version string" /tmp/glxinfo.txt \
             || { echo "the headless runner has no usable OpenGL context" >&2; exit 1; }
 
+      - name: Install the compatibility stack
+        working-directory: fabric
+        env:
+          STACK: ${{ matrix.stack }}
+          MINECRAFT: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          mkdir -p run/mods
+
+          # The Modrinth version ids of the releases that match the Minecraft
+          # version. ModernFix has no Fabric build for Minecraft 26.x, so it is
+          # not part of the matrix.
+          case "$MINECRAFT" in
+            26.2)
+              SODIUM=xJZxADzI; SODIUM_EXTRA=GJjGKm2A; REESE=nnz8j4Hu; IRIS=gxZWWnKH
+              IMMEDIATELYFAST=pMWERcSu; LITHIUM=f7vZ0VWU; DYNAMICFPS=pC2JjFw1; BBE=n5mL5flA ;;
+            26.3)
+              SODIUM=bAZQdGpg; SODIUM_EXTRA=fs5l9Q1U; REESE=EfchygKx; IRIS=vTN4NRGW
+              IMMEDIATELYFAST=3MP9UR23; LITHIUM=fWv5bnZk; DYNAMICFPS=Jwq069rR; BBE=wORq9rW6 ;;
+            *)
+              echo "no mod matrix for Minecraft $MINECRAFT" >&2; exit 1 ;;
+          esac
+
+          fetch() {
+            local slug="$1" version="$2"
+            curl -fsSL --retry 3 -o "run/mods/${slug}-${version}.jar" \
+              "https://api.modrinth.com/maven/maven/modrinth/${slug}/${version}/${slug}-${version}.jar"
+            echo "installed ${slug} ${version}"
+          }
+
+          case "$STACK" in
+            none) ;;
+            sodium)
+              fetch sodium "$SODIUM" ;;
+            sodium-extra)
+              fetch sodium "$SODIUM"
+              fetch sodium-extra "$SODIUM_EXTRA" ;;
+            reeses)
+              fetch sodium "$SODIUM"
+              fetch reeses-sodium-options "$REESE" ;;
+            iris)
+              fetch sodium "$SODIUM"
+              fetch iris "$IRIS" ;;
+            full)
+              fetch sodium "$SODIUM"
+              fetch sodium-extra "$SODIUM_EXTRA"
+              fetch reeses-sodium-options "$REESE"
+              fetch iris "$IRIS"
+              fetch immediatelyfast "$IMMEDIATELYFAST"
+              fetch lithium "$LITHIUM"
+              fetch dynamic-fps "$DYNAMICFPS"
+              fetch better-block-entities "$BBE" ;;
+            *)
+              echo "unknown stack '$STACK'" >&2; exit 1 ;;
+          esac
+
+          ls -la run/mods
+
       - name: Launch Fabric client and verify startup
         working-directory: fabric
         env:
@@ -82,6 +185,7 @@ jobs:
           # use the X display and to stay quiet about the sound device.
           SDL_VIDEODRIVER: "x11"
           SDL_AUDIODRIVER: "dummy"
+          STACK: ${{ matrix.stack }}
         run: |
           chmod +x gradlew
           timeout --signal=TERM --kill-after=10s 240s \
@@ -122,6 +226,43 @@ jobs:
             exit 1
           fi
 
+          # The mod has to be loaded, not merely tolerated by the launcher.
+          if ! grep -Fq "Fabric client entrypoint registered" run/logs/latest.log; then
+            echo "InputBooster did not report its Fabric entrypoint."
+            tail -n 200 run/logs/latest.log
+            exit 1
+          fi
+
+          # The startup line says what the mod found: its own version, the
+          # Minecraft version, the Sodium version and the integration path.
+          if ! grep -Fq "InputBooster" run/logs/latest.log; then
+            echo "InputBooster did not write its startup line."
+            tail -n 200 run/logs/latest.log
+            exit 1
+          fi
+
+          # Nothing the mod does may be logged as a warning or an error, and
+          # the mixins must all have applied.
+          if grep -E "ERROR|WARN" run/logs/latest.log | grep -q "inputbooster\|InputBooster"; then
+            echo "InputBooster logged a warning or an error:"
+            grep -E "ERROR|WARN" run/logs/latest.log | grep "inputbooster\|InputBooster"
+            exit 1
+          fi
+
+          if grep -E "Mixin apply failed|failed to apply|@Shadow|InvalidInjectionException|IllegalClassLoadError" run/logs/latest.log; then
+            echo "A mixin did not apply."
+            exit 1
+          fi
+
+          if [ "$STACK" != "none" ]; then
+            # With Sodium the settings have to be served from its own pages.
+            if ! grep -Fq "settings integrated" run/logs/latest.log; then
+              echo "Sodium did not load the InputBooster configuration pages."
+              grep "InputBooster" run/logs/latest.log || true
+              exit 1
+            fi
+          fi
+
           echo "Minecraft reached the client startup marker. Checking that it remains running..."
           sleep 10
           if ! kill -0 "$CLIENT_PID" 2>/dev/null; then
@@ -130,13 +271,21 @@ jobs:
             tail -n 200 run/logs/latest.log
             exit 1
           fi
-          echo "PASS: Fabric client stayed alive after startup for Minecraft ${{ matrix.minecraft }}."
+
+          # A crash report means the client died while it was starting up.
+          if [ -d run/crash-reports ] && [ -n "$(ls -A run/crash-reports 2>/dev/null)" ]; then
+            echo "Minecraft produced a crash report:"
+            cat run/crash-reports/* 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "PASS: Fabric client stayed alive after startup for Minecraft ${{ matrix.minecraft }} with the '$STACK' stack."
 
       - name: Upload client logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: client-smoke-logs-mc${{ matrix.minecraft }}
+          name: client-smoke-logs-mc${{ matrix.minecraft }}-${{ matrix.stack }}
           path: |
             fabric/client-console.log
             fabric/run/logs/

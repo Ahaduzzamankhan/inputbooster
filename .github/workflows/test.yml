@@ -7,12 +7,10 @@ on:
       - fabric-26.2-26.3
     paths:
       - "fabric/**"
-      - "src/**"
       - ".github/workflows/test.yml"
   pull_request:
     paths:
       - "fabric/**"
-      - "src/**"
       - ".github/workflows/test.yml"
   workflow_dispatch:
 
@@ -77,6 +75,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: inputbooster-fabric-mc${{ matrix.minecraft }}
-          path: fabric/build/libs/*-fabric-mc${{ matrix.minecraft == '26.2' && '262' || '263' }}.jar
+          path: fabric/build/libs/*-mc${{ matrix.minecraft == '26.2' && '262' || '263' }}.jar
           if-no-files-found: error
           retention-days: 14

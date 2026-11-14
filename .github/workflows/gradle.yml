@@ -17,62 +17,6 @@ permissions:
   contents: read
 
 jobs:
-  build-neoforge:
-    name: Build NeoForge jar (MC 26.2)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Java 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "25"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Build
-        shell: bash
-        run: |
-          set -o pipefail
-          chmod +x gradlew
-          ./gradlew build --no-daemon 2>&1 | tee neoforge-build.log
-
-      # Gradle job logs need authentication to read. Annotations do not, so the
-      # failure reason is republished here where it can actually be seen.
-      - name: Report build failure
-        if: failure()
-        shell: bash
-        run: |
-          grep -E "error:|FAILURE:|What went wrong|Caused by|> Task .* FAILED" neoforge-build.log \
-            | tail -n 10 \
-            | while IFS= read -r line; do echo "::error title=Gradle::$line"; done
-
-      - name: Find built jar
-        id: jar
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar_path="$(find build/libs -maxdepth 1 -type f -name 'inputbooster-*-nf-mc262.jar' | sort | head -n 1)"
-          if [[ -z "$jar_path" ]]; then
-            echo "No NeoForge jar found in build/libs" >&2
-            find build/libs -type f >&2 || true
-            exit 1
-          fi
-          echo "path=$jar_path" >> "$GITHUB_OUTPUT"
-          echo "name=$(basename "$jar_path")" >> "$GITHUB_OUTPUT"
-
-      - name: Upload NeoForge jar
-        uses: actions/upload-artifact@v4
-        with:
-          name: inputbooster-neoforge-mc26.2
-          path: ${{ steps.jar.outputs.path }}
-          if-no-files-found: error
-
   build-fabric:
     name: Build Fabric jar (MC ${{ matrix.minecraft }})
     runs-on: ubuntu-latest
@@ -119,7 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          jar="fabric/build/libs/inputbooster-*-fabric-mc${{ matrix.suffix }}.jar"
+          jar="fabric/build/libs/inputbooster-*-mc${{ matrix.suffix }}.jar"
           unzip -p $jar fabric.mod.json | tee /tmp/fabric.mod.json
           grep -q '"minecraft": *">=' /tmp/fabric.mod.json \
             || { echo "minecraft dependency must use the '>=x <y' form" >&2; exit 1; }
@@ -127,12 +71,16 @@ jobs:
           # Sodium Config API entrypoint.
           grep -q '"sodium:config_api_user"' /tmp/fabric.mod.json \
             || { echo "the Sodium config entrypoint must be declared" >&2; exit 1; }
-          grep -q 'dev.inputbooster.platform.SodiumConfigEntryPoint' /tmp/fabric.mod.json \
+          grep -q 'dev.inputbooster.compat.sodium.SodiumConfigEntryPoint' /tmp/fabric.mod.json \
             || { echo "the Sodium config entrypoint must point at SodiumConfigEntryPoint" >&2; exit 1; }
-          # Sodium stays optional: its classes must never be bundled into the
-          # InputBooster jar.
-          if unzip -l $jar | grep -q 'net/caffeinemc/mods/sodium'; then
+          # Sodium and Mod Menu stay optional: their classes must never be
+          # bundled into the InputBooster jar.
+          if unzip -l $jar | grep -q 'net/caffeinemc/mods/sodium/'; then
             echo "Sodium classes must not be bundled into the InputBooster jar" >&2
+            exit 1
+          fi
+          if unzip -l $jar | grep -q 'com/terraformersmc/modmenu/'; then
+            echo "Mod Menu classes must not be bundled into the InputBooster jar" >&2
             exit 1
           fi
 
@@ -141,7 +89,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          jar_path="$(find fabric/build/libs -maxdepth 1 -type f -name "inputbooster-*-fabric-mc${{ matrix.suffix }}.jar" | sort | head -n 1)"
+          jar_path="$(find fabric/build/libs -maxdepth 1 -type f -name "inputbooster-*-mc${{ matrix.suffix }}.jar" | sort | head -n 1)"
           if [[ -z "$jar_path" ]]; then
             echo "No Fabric jar found in fabric/build/libs" >&2
             find fabric/build/libs -type f >&2 || true
@@ -160,7 +108,7 @@ jobs:
   release:
     name: Publish GitHub release
     runs-on: ubuntu-latest
-    needs: [build-neoforge, build-fabric]
+    needs: [build-fabric]
     if: >-
       startsWith(github.ref, 'refs/tags/v') ||
       github.event_name == 'workflow_dispatch' ||
@@ -179,16 +127,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.tag }}" ]]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
             tag="${{ inputs.tag }}"
-          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          elif [ "$GITHUB_REF" == refs/tags/* ]; then
             tag="${GITHUB_REF#refs/tags/}"
           else
-            raw="$(grep '^mod_version=' gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
-            # gradle.properties carries the loader flavour, for example
-            # 4.0.2-alpha-nf-mc262. The release tag is the version without it.
-            version="$(echo "$raw" | sed -E 's/-(nf|fabric)(-.*)?$//')"
-            tag="v${version}"
+            # The version and the tag live in the Fabric project, because the
+            # mod is Fabric only.
+            raw="$(grep '^mod_version=' fabric/gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
+            tag="$(grep '^release_tag=' fabric/gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
+            if [ -z "$tag" ]; then
+              tag="v${raw}"
+            fi
           fi
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -204,7 +154,7 @@ jobs:
           tag="${{ steps.release.outputs.tag }}"
           # A branch push publishes a version once. Tag pushes and manual runs
           # always publish, which is how an existing release gets updated.
-          if [[ "${{ github.event_name }}" == "push" && "$GITHUB_REF" != refs/tags/* ]]; then
+          if [ "${{ github.event_name }}" == "push" ] && [ "$GITHUB_REF" != "refs/tags/*" ]; then
             if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
               echo "Tag ${tag} already exists; nothing to publish."
               echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -228,8 +178,8 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           jars=(release-artifacts/*.jar)
-          if [[ ${#jars[@]} -lt 3 ]]; then
-            echo "Expected the NeoForge 26.2 jar plus both Fabric jars, found ${#jars[@]}" >&2
+          if [ ${#jars[@]} -lt 2 ]; then
+            echo "Expected the Fabric 26.2 and 26.3 jars, found ${#jars[@]}" >&2
             ls -la release-artifacts >&2
             exit 1
           fi
@@ -248,11 +198,10 @@ jobs:
             echo
             echo "Loader support in this release:"
             echo
-            echo "- NeoForge — Minecraft 26.2"
             echo "- Fabric — Minecraft 26.2"
             echo "- Fabric — Minecraft 26.3"
             echo
-            if [[ -n "$previous_tag" ]]; then
+            if [ -n "$previous_tag" ]; then
               echo "Changes since ${previous_tag}:"
               echo
               git log "${previous_tag}..HEAD" --pretty=format:'- %s (%h)' --no-merges
@@ -263,7 +212,7 @@ jobs:
             fi
           } > release_notes.md
 
-          if [[ ! -s release_notes.md ]]; then
+          if [ ! -s release_notes.md ]; then
             echo "## InputBooster ${tag}" > release_notes.md
             echo >> release_notes.md
             echo "- Built from ${GITHUB_SHA}." >> release_notes.md
@@ -276,10 +225,9 @@ jobs:
           tag_name: ${{ steps.release.outputs.tag }}
           name: InputBooster ${{ steps.release.outputs.tag }}
           body_path: release_notes.md
-          # The three jars come from the build jobs above. This step attaches
+          # The two jars come from the build jobs above. This step attaches
           # them and creates the tag itself when the version is new.
           files: release-artifacts/*.jar
           generate_release_notes: true
           prerelease: ${{ contains(steps.release.outputs.version, 'alpha') || contains(steps.release.outputs.version, 'beta') }}
           make_latest: true
-

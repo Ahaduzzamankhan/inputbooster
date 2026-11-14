@@ -99,11 +99,11 @@ public final class InputBoosterMod {
      * Creates the mod's key mappings.
      *
      * FIX (keybinds never registered): the mappings used to be constructed in
-     * the client-setup callback, which on NeoForge runs *after* the
-     * key-mapping registration event. The registration handler therefore only
-     * ever saw {@code null} and the R / K bindings were silently dropped from
-     * the controls screen. Platforms must call this during their own bootstrap
-     * — before they register the returned mappings.
+     * a later callback, which runs *after* the key-mapping registration event.
+     * The registration handler therefore only ever saw {@code null} and the
+     * R / K bindings were silently dropped from the controls screen. The
+     * entrypoint must call this during its own bootstrap, before it registers
+     * the returned mappings.
      *
      * @return the two mod key mappings, in a stable order
      */
