@@ -346,7 +346,7 @@ jobs:
   publish-modrinth:
     name: Publish to Modrinth
     runs-on: ubuntu-latest
-    needs: [release-modern, release-legacy]
+    needs: [build-modern, build-legacy]
     if: >-
       startsWith(github.ref, 'refs/tags/v') ||
       github.event_name == 'workflow_dispatch' ||
@@ -397,22 +397,22 @@ jobs:
               "InputBooster ${mod_version} (MC ${game_version})" "$game_version"
           }
 
-          for jar in modrinth-artifacts/modern/*.jar; do
-            case "$(basename "$jar")" in
-              inputbooster-4.1.3-alpha1-mc263.jar)  publish "$jar" 263   26.3   RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
-              inputbooster-4.1.3-alpha1-mc262.jar)  publish "$jar" 262   26.2   RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
-              inputbooster-4.1.3-alpha1-mc2612.jar) publish "$jar" 2612  26.1.2 RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
-              inputbooster-4.1.3-alpha1-mc2611.jar) publish "$jar" 2611  26.1.1 RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
-              inputbooster-4.1.3-alpha1-mc261.jar)  publish "$jar" 261   26.1   RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
-              *) echo "unexpected modern jar: $jar" >&2; exit 1 ;;
-            esac
-          done
+          # Only the four targets requested for Modrinth are uploaded there;
+          # the GitHub release still carries every built jar.
+          publish_one() {
+            local jar=$1 changelog=$2 game_version=$3 version=$4
+            if [ ! -f "$jar" ]; then
+              echo "::error title=Modrinth skipped a target::$jar was not built"; exit 1
+            fi
+            MODRINTH_VERSION_TYPE=alpha MODRINTH_CHANGELOG="$changelog" \
+              scripts/publish_modrinth.sh "$jar" "$version" "InputBooster $version (MC $game_version)" "$game_version"
+          }
 
-          for jar in modrinth-artifacts/legacy/*.jar; do
-            case "$(basename "$jar")" in
-              inputbooster-3.1.6-alpha-mc12111.jar) publish "$jar" 12111 1.21.11 RELEASE_NOTES_3.1.6-alpha.md alpha ;;
-              inputbooster-3.1.6-alpha-mc1214.jar)  publish "$jar" 1214  1.21.4  RELEASE_NOTES_3.1.6-alpha.md alpha ;;
-              inputbooster-3.1.6-alpha-mc1211.jar)  publish "$jar" 1211  1.21.1  RELEASE_NOTES_3.1.6-alpha.md alpha ;;
-              *) echo "unexpected legacy jar: $jar" >&2; exit 1 ;;
-            esac
-          done
+          publish_one modrinth-artifacts/modern/inputbooster-4.1.3-alpha1-mc263.jar \
+            RELEASE_NOTES_4.1.3-alpha1.md 26.3 4.1.3-alpha1-mc263
+          publish_one modrinth-artifacts/modern/inputbooster-4.1.3-alpha1-mc262.jar \
+            RELEASE_NOTES_4.1.3-alpha1.md 26.2 4.1.3-alpha1-mc262
+          publish_one modrinth-artifacts/modern/inputbooster-4.1.3-alpha1-mc2612.jar \
+            RELEASE_NOTES_4.1.3-alpha1.md 26.1.2 4.1.3-alpha1-mc2612
+          publish_one modrinth-artifacts/legacy/inputbooster-3.1.6-alpha-mc12111.jar \
+            RELEASE_NOTES_3.1.6-alpha.md 1.21.11 3.1.6-alpha-mc12111
