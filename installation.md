@@ -40,7 +40,7 @@ Fabric API is a required dependency. Download it from [Modrinth](https://modrint
 
 Download the latest `inputbooster-2.0.2.jar` from the [GitHub Releases](https://github.com/ahaduzzamankhan/inputbooster/releases) page.
 
-> **Modrinth:** The mod is not yet listed on Modrinth. Download from the Releases page above until the listing goes live.
+> **Modrinth:** Downloads are also available from [modrinth.com/mod/inputbooster](https://modrinth.com/mod/inputbooster).
 
 ### Step 4 — Place the File
 

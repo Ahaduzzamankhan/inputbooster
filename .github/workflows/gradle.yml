@@ -342,3 +342,77 @@ jobs:
           files: release-artifacts/*.jar
           prerelease: true
           make_latest: false
+
+  publish-modrinth:
+    name: Publish to Modrinth
+    runs-on: ubuntu-latest
+    needs: [release-modern, release-legacy]
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/fabric-26.2-26.3' || github.ref == 'refs/heads/main'))
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download modern jars
+        uses: actions/download-artifact@v4
+        with:
+          pattern: inputbooster-mc26*
+          path: modrinth-artifacts/modern
+          merge-multiple: true
+
+      - name: Download legacy jars
+        uses: actions/download-artifact@v4
+        with:
+          pattern: inputbooster-mc1*
+          path: modrinth-artifacts/legacy
+          merge-multiple: true
+
+      # Uploads every built jar as its own Modrinth version, which is how the
+      # project is already listed there. Without the token the step reports a
+      # notice and succeeds: a fork or a push from a repo without the secret
+      # must not fail the build.
+      - name: Publish versions
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          MODRINTH_PROJECT_ID: ${{ secrets.MODRINTH_PROJECT_ID || 'inputbooster' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          if [ -z "${MODRINTH_TOKEN:-}" ]; then
+            echo "::notice title=Modrinth skipped::Add a MODRINTH_TOKEN repository secret to publish releases to Modrinth."
+            exit 0
+          fi
+
+          publish() {
+            local jar=$1 suffix=$2 game_version=$3 changelog=$4 type=$5
+            local mod_version
+            mod_version=$(basename "$jar" | sed -E "s/^inputbooster-(.*)-mc[0-9]+\.jar$/\1/")
+            MODRINTH_VERSION_TYPE="$type" MODRINTH_CHANGELOG="$changelog" \
+              scripts/publish_modrinth.sh "$jar" "${mod_version}-mc${suffix}" \
+              "InputBooster ${mod_version} (MC ${game_version})" "$game_version"
+          }
+
+          for jar in modrinth-artifacts/modern/*.jar; do
+            case "$(basename "$jar")" in
+              inputbooster-4.1.3-alpha1-mc263.jar)  publish "$jar" 263   26.3   RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
+              inputbooster-4.1.3-alpha1-mc262.jar)  publish "$jar" 262   26.2   RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
+              inputbooster-4.1.3-alpha1-mc2612.jar) publish "$jar" 2612  26.1.2 RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
+              inputbooster-4.1.3-alpha1-mc2611.jar) publish "$jar" 2611  26.1.1 RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
+              inputbooster-4.1.3-alpha1-mc261.jar)  publish "$jar" 261   26.1   RELEASE_NOTES_4.1.3-alpha1.md alpha ;;
+              *) echo "unexpected modern jar: $jar" >&2; exit 1 ;;
+            esac
+          done
+
+          for jar in modrinth-artifacts/legacy/*.jar; do
+            case "$(basename "$jar")" in
+              inputbooster-3.1.6-alpha-mc12111.jar) publish "$jar" 12111 1.21.11 RELEASE_NOTES_3.1.6-alpha.md alpha ;;
+              inputbooster-3.1.6-alpha-mc1214.jar)  publish "$jar" 1214  1.21.4  RELEASE_NOTES_3.1.6-alpha.md alpha ;;
+              inputbooster-3.1.6-alpha-mc1211.jar)  publish "$jar" 1211  1.21.1  RELEASE_NOTES_3.1.6-alpha.md alpha ;;
+              *) echo "unexpected legacy jar: $jar" >&2; exit 1 ;;
+            esac
+          done
