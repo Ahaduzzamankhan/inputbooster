@@ -97,6 +97,8 @@ print(json.dumps({
     "game_versions": [os.environ["GAME_VERSION"]],
     "version_type": os.environ["VERSION_TYPE"],
     "loaders": ["fabric"],
+    # Required by the create-version schema, even though it is deprecated.
+    "featured": False,
     "project_id": os.environ["PROJECT_ID"],
     "file_parts": ["file"],
     "primary_file": "file",
