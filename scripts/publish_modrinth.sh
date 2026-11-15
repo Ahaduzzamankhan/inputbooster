@@ -48,7 +48,21 @@ case "$user" in
   *) fail "MODRINTH_TOKEN was rejected: $(printf '%s' "$user" | head -c 400)" ;;
 esac
 
-versions=$(curl -sS "${auth[@]}" "$api/project/$MODRINTH_PROJECT_ID/version" 2>&1) \
+# The version payload takes the numeric/base62 project id, not the slug: sending
+# a slug there fails with "Base62 decoding overflowed". Resolving it also lets
+# either form be configured.
+project=$(curl -sS "${auth[@]}" "$api/project/$MODRINTH_PROJECT_ID" 2>&1) \
+  || fail "could not read project '$MODRINTH_PROJECT_ID': $(printf '%s' "$project" | head -c 400)"
+project_id=$(printf '%s' "$project" | python3 -c '
+import json, sys
+try:
+    print(json.load(sys.stdin)["id"])
+except Exception:
+    raise SystemExit(1)
+' 2>/dev/null) || fail "project '$MODRINTH_PROJECT_ID' did not return an id: $(printf '%s' "$project" | head -c 400)"
+summary "Project id ${project_id}"
+
+versions=$(curl -sS "${auth[@]}" "$api/project/$project_id/version" 2>&1) \
   || fail "could not list versions: $(printf '%s' "$versions" | head -c 400)"
 case "$versions" in
   \[*) ;;
@@ -67,7 +81,7 @@ fi
 payload=$(VERSION_NUMBER="$version_number" VERSION_NAME="$version_name" \
           GAME_VERSION="$game_version" VERSION_TYPE="$version_type" \
           CHANGELOG_FILE="$MODRINTH_CHANGELOG" \
-          PROJECT_ID="$MODRINTH_PROJECT_ID" python3 - <<'PY' || exit 1
+          PROJECT_ID="$project_id" python3 - <<'PY' || exit 1
 import json, os
 with open(os.environ["CHANGELOG_FILE"], encoding="utf-8") as fh:
     changelog = fh.read()
@@ -83,7 +97,6 @@ print(json.dumps({
     "game_versions": [os.environ["GAME_VERSION"]],
     "version_type": os.environ["VERSION_TYPE"],
     "loaders": ["fabric"],
-    "featured": False,
     "project_id": os.environ["PROJECT_ID"],
     "file_parts": ["file"],
     "primary_file": "file",
