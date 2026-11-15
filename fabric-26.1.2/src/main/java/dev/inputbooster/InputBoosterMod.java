@@ -97,6 +97,11 @@ public final class InputBoosterMod {
     private static volatile KeyMapping replayRecordKey;
     private static volatile KeyMapping replayPlayKey;
     private static final ComboKeyPresets COMBO_KEYS = new ComboKeyPresets();
+
+    /** Logged once: the fallback list does not change mid-session. */
+    private static volatile boolean bindingWarningLogged = false;
+    /** Guards against a second registration pass adding duplicate entries. */
+    private static volatile boolean keyMappingsRegistered = false;
     private static double smoothedFps = 60.0D;
     private static int stableFpsTicks = 0;
     private static int unstableFpsTicks = 0;
@@ -131,6 +136,18 @@ public final class InputBoosterMod {
     /** Called by the platform entrypoint during mod construction. */
     public static void bootstrap() {
         createKeyMappings();
+    }
+
+    /**
+     * Claims the one key-mapping registration pass, so a second call cannot add
+     * duplicate rows to the Controls screen.
+     *
+     * @return true for the first caller only
+     */
+    public static boolean claimKeyMappingRegistration() {
+        if (keyMappingsRegistered) return false;
+        keyMappingsRegistered = true;
+        return true;
     }
 
     public static void initialize() {
@@ -231,6 +248,10 @@ public final class InputBoosterMod {
                 keySnapshot = new KeySnapshot(client.options);
                 publishKeyBindings(client);
                 if (inputEngine != null && keyBindings != null) inputEngine.publishBindings(keyBindings);
+                // Tick-rate refresh of the native sample; the HUD hook does the
+                // same once per frame. Both run on the game thread, the only
+                // thread allowed to ask the platform for key state.
+                dev.inputbooster.input.InputSampler.sampleOnGameThread();
             }
             // A focus change must not leave a key stuck down in the engine.
             if (inputEngine != null && (client.getWindow() == null || !client.getWindow().isFocused())) {
@@ -423,10 +444,14 @@ public final class InputBoosterMod {
             options.keyRight, options.keyDrop, options.keySwapOffhand, options.keyPickItem);
         var next = dev.inputbooster.input.KeyBindingSet.of(map, defaults);
         var current = keyBindings;
-        if (current == null || !java.util.Arrays.equals(current.codes, next.codes)) {
+        if (current == null || !current.sameCodes(next)) {
             keyBindings = next;
-            if (!next.complete) {
-                LOGGER.warn("[Input] Could not read every key binding; using vanilla defaults for the rest.");
+            if (!next.complete && !bindingWarningLogged) {
+                bindingWarningLogged = true;
+                LOGGER.warn("[Input] Using vanilla defaults for the unresolved slots: {} ({} of {}). "
+                        + "Every slot that resolved keeps the player's own binding.",
+                    String.join(", ", next.unresolvedNames()),
+                    Integer.bitCount(next.unresolvedMask()), dev.inputbooster.input.KeyBindingSet.SLOTS);
             }
         }
     }

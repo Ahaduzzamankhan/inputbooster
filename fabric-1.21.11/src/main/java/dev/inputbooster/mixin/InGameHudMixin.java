@@ -1,6 +1,7 @@
 package dev.inputbooster.mixin;
 
 import dev.inputbooster.feature.DebugOverlayManager;
+import dev.inputbooster.input.InputSampler;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -22,6 +23,7 @@ public class InGameHudMixin {
 
     @Inject(method = "render", at = @At("TAIL"), require = 0)
     private void onRenderTail(GuiGraphics graphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+        InputSampler.sampleOnGameThread();
         DebugOverlayManager.render(Minecraft.getInstance(), graphics);
     }
 }

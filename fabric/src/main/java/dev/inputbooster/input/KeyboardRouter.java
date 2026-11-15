@@ -55,8 +55,28 @@ public final class KeyboardRouter {
         return InputBoosterConfig.isCustomKeyboardHandlerEnabled();
     }
 
+    /**
+     * True when the custom handler is enabled <em>and</em> its event hooks have
+     * actually delivered something.
+     *
+     * <p>Enabling the option is not enough: the hooks live in mixins, and a
+     * client where they did not apply would otherwise report a handler that
+     * never sees a key. The poller uses this to decide whether the handler can
+     * be the only input source.
+     */
+    public static boolean customHandlerLive() {
+        if (!customHandlerEnabled()) return false;
+        var compat = dev.inputbooster.InputBoosterMod.compatibilityManager;
+        return compat != null && compat.eventSourceActive();
+    }
+
     public static String statusLine() {
-        String mode = customHandlerEnabled() ? "custom (alpha)" : "vanilla bindings";
+        String mode;
+        if (!customHandlerEnabled()) {
+            mode = "vanilla bindings";
+        } else {
+            mode = customHandlerLive() ? "custom (alpha, live)" : "custom (alpha, no events yet)";
+        }
         return "Keyboard: " + mode + (screenOpen ? ", screen open" : "");
     }
 

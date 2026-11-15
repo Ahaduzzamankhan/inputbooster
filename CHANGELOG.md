@@ -1,5 +1,97 @@
 # Changelog
 
+## 4.1.3-alpha1 — Minecraft 26.1, 26.1.1, 26.1.2, 26.2, 26.3
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| Fabric | 26.3 | `inputbooster-4.1.3-alpha1-mc263.jar` |
+| Fabric | 26.2 | `inputbooster-4.1.3-alpha1-mc262.jar` |
+| Fabric | 26.1.2 | `inputbooster-4.1.3-alpha1-mc2612.jar` |
+| Fabric | 26.1.1 | `inputbooster-4.1.3-alpha1-mc2611.jar` |
+| Fabric | 26.1 | `inputbooster-4.1.3-alpha1-mc261.jar` |
+
+### Fixed
+
+- Native key state was sampled from the polling thread. `glfwGetKey` is a
+  main-thread function, so that call was undefined behaviour: it usually looked
+  fine and could return stale data or crash under load. The poller now reads an
+  immutable snapshot published by the game thread once per rendered frame and
+  once per tick, and never calls the platform itself.
+- A failed native sample now reports the exception once and falls back to
+  tick-rate sampling instead of being swallowed and retried forever.
+- A key bound to more than one action only ever drove the first matching slot on
+  the event path, while the polling path drove all of them. Both paths now
+  resolve a code to a bit mask of every bound slot.
+- In POLL mode the event path returned before updating slot state, so a mode
+  switch (or the overlay's read of the engine) started from stale data.
+- `KeyBindingSet.codes` was a public array and `KeyBindingProcessor.codes()`
+  returned its internal array; both handed out mutation access to live input
+  state. They now return copies.
+- The click-dedupe and scroll-debounce timestamps were plain fields written from
+  two threads, so two clicks could both pass the window check. Both are claimed
+  atomically now.
+- New target: Minecraft 26.1.1 has its own project and jar.
+
+### Added
+
+- `StabilityAuditTest`: shared-key dispatch, POLL-mode state, reset semantics,
+  defensive copies, stale-resolution removal, eight-thread click claim, four-thread
+  state stress with reset, one edge per press at 60/200/500/750/1000 Hz, and the
+  unavailable-native-state path. The suite is 106 tests on the modern targets and 102 on the legacy targets.
+
+### Known limitations
+
+- In-game behaviour is not exercised by CI. Mixin hooks are verified against each
+  resolved Minecraft jar and the metadata of every jar is checked, but the game
+  itself must be launched by hand.
+
+- The custom handler is opt-in but was gated by a single `!customHandler` test:
+  with it enabled and the raw sampler unavailable, no input source ran at all and
+  nothing said why. Source selection is now one deterministic decision
+  (`RAW` / `SNAPSHOT` / `IDLE`), the handler only owns input once its event hooks
+  have actually fired, a source switch resets engine state, and the chosen source
+  is logged.
+- A key-mapping fallback now names the slots that fell back and distinguishes a
+  missing mapping from a failed accessor read, instead of silently substituting
+  vanilla defaults for the whole set.
+- Key mappings are registered exactly once; a second registration pass can no
+  longer add duplicate Controls rows.
+
+## 3.1.6-alpha — Minecraft 1.21.1, 1.21.4, 1.21.11
+
+| Loader | Minecraft | Jar |
+| ------ | --------- | --- |
+| Fabric | 1.21.11 | `inputbooster-3.1.6-alpha-mc12111.jar` |
+| Fabric | 1.21.4 | `inputbooster-3.1.6-alpha-mc1214.jar` |
+| Fabric | 1.21.1 | `inputbooster-3.1.6-alpha-mc1211.jar` |
+
+### Fixed
+
+- The same input-pipeline fixes as 4.1.3-alpha1, ported to the 1.21.x sources:
+  main-thread native sampling, shared-key dispatch, POLL-mode state tracking,
+  defensive key-binding copies and atomic click/scroll windows.
+- The 1.21.x jars declare a Java 21 floor. The previous build declared `>=25`
+  and Fabric refused to start it on the Java 21 runtime these versions use.
+
+### Known limitations
+
+- No Sodium configuration pages on 1.21.x: those Sodium releases have no Config
+  API, so the mod's own settings screen is used and the Sodium entrypoint is not
+  declared.
+- In-game behaviour is not exercised by CI.
+
+- The custom handler is opt-in but was gated by a single `!customHandler` test:
+  with it enabled and the raw sampler unavailable, no input source ran at all and
+  nothing said why. Source selection is now one deterministic decision
+  (`RAW` / `SNAPSHOT` / `IDLE`), the handler only owns input once its event hooks
+  have actually fired, a source switch resets engine state, and the chosen source
+  is logged.
+- A key-mapping fallback now names the slots that fell back and distinguishes a
+  missing mapping from a failed accessor read, instead of silently substituting
+  vanilla defaults for the whole set.
+- Key mappings are registered exactly once; a second registration pass can no
+  longer add duplicate Controls rows.
+
 ## 4.1.2 - Native Sodium configuration pages, Fabric only
 
 | Loader | Minecraft | Jar |

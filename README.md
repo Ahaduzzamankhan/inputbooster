@@ -8,10 +8,42 @@ It is not an autoclicker and it does not play the game for you. Every attack, us
 
 ## Supported builds
 
-| Loader | Minecraft | Jar |
-| ------ | --------- | --- |
-| Fabric | 26.2 | `inputbooster-4.1.2-mc262.jar` |
-| Fabric | 26.3 | `inputbooster-4.1.2-mc263.jar` |
+Current releases (**alpha**):
+
+- [InputBooster 4.1.3-alpha1](https://github.com/Ahaduzzamankhan/InputBooster/releases/tag/v4.1.3-alpha1)
+  for Minecraft 26.1, 26.1.1, 26.1.2, 26.2 and 26.3 (Java 25)
+- [InputBooster 3.1.6-alpha](https://github.com/Ahaduzzamankhan/InputBooster/releases/tag/v3.1.6-alpha)
+  for Minecraft 1.21.1, 1.21.4 and 1.21.11 (Java 21)
+
+| Version | Loader | Minecraft | Jar |
+| ------- | ------ | --------- | --- |
+| 4.1.3-alpha1 | Fabric | 26.3 | `inputbooster-4.1.3-alpha1-mc263.jar` |
+| 4.1.3-alpha1 | Fabric | 26.2 | `inputbooster-4.1.3-alpha1-mc262.jar` |
+| 4.1.3-alpha1 | Fabric | 26.1.2 | `inputbooster-4.1.3-alpha1-mc2612.jar` |
+| 4.1.3-alpha1 | Fabric | 26.1.1 | `inputbooster-4.1.3-alpha1-mc2611.jar` |
+| 4.1.3-alpha1 | Fabric | 26.1 | `inputbooster-4.1.3-alpha1-mc261.jar` |
+| 3.1.6-alpha | Fabric | 1.21.11 | `inputbooster-3.1.6-alpha-mc12111.jar` |
+| 3.1.6-alpha | Fabric | 1.21.4 | `inputbooster-3.1.6-alpha-mc1214.jar` |
+| 3.1.6-alpha | Fabric | 1.21.1 | `inputbooster-3.1.6-alpha-mc1211.jar` |
+
+Each jar declares its own exact Minecraft range and Java floor. Install the jar
+that matches your game version; only one InputBooster jar belongs in `mods/`.
+
+### Fixed in the 4.1.3-alpha1 / 3.1.6-alpha release
+
+- **Native input sampling moved off the polling thread.** Platform key state is
+  now read on the game thread only, once per rendered frame and once per tick,
+  and published as an immutable snapshot the poller reads. `glfwGetKey` is a
+  main-thread function; calling it from the poller was undefined behaviour.
+- **One key bound to several actions** now dispatches all of them from both the
+  event path and the polling path.
+- **POLL mode keeps slot state up to date**, so a mode switch never starts stale.
+- **Key-binding arrays are copied**, so no caller can rebind an action by
+  mutating internal state.
+- **Click and scroll debounce windows are atomic**, so two threads cannot both
+  accept a click in the same window.
+- **Java metadata**: the 1.21.x jars declare Java 21 (an earlier build declared
+  25 and was refused by the loader); the 26.x jars declare Java 25.
 
 One jar per Minecraft version. Do not install two of them at once.
 

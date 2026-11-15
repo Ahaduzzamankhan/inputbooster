@@ -30,7 +30,7 @@ class InputEngineTest {
     }
 
     private static int code(KeyBindingSet set, int slot) {
-        return set.codes[slot];
+        return set.code(slot);
     }
 
     @BeforeEach

@@ -1,8 +1,11 @@
 name: Build and Release
 
-# The single pipeline: it tests every supported Minecraft line, builds one jar
-# per line, uploads them as artifacts and attaches them to the GitHub release.
-# There is no headless client job — the client is tested by hand.
+# Two independent release lines:
+#   modern  — Minecraft 26.1 / 26.1.1 / 26.1.2 / 26.2 / 26.3, mod version 4.1.3-alpha1
+#   legacy  — Minecraft 1.21.1 / 1.21.4 / 1.21.11,              mod version 3.1.6-alpha
+# Each line builds and tests its own targets and publishes its own tag, so a
+# modern jar can never end up in the legacy release or the other way round.
+# There is no headless client job — the game is tested by hand.
 
 on:
   push:
@@ -11,18 +14,13 @@ on:
   pull_request:
     branches: [ "main", "fabric-26.2-26.3" ]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag, for example v3.1.0. Leave empty to use gradle.properties."
-        required: false
-        type: string
 
 permissions:
   contents: read
 
 jobs:
-  build-fabric:
-    name: Build Fabric jar (MC ${{ matrix.minecraft }})
+  build-modern:
+    name: Modern — MC ${{ matrix.minecraft }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -32,56 +30,135 @@ jobs:
           # [26.2,26.3) for two-component Minecraft versions, so the space
           # separated comparison form is used for the declared dependency.
           - project: fabric
-            minecraft: "26.2"
-            suffix: "262"
-            version_range: ">=26.2 <26.3"
-            fabric_api: "0.161.0+26.2"
-            sodium_config: "true"
-            java: "25"
-          - project: fabric
             minecraft: "26.3"
             suffix: "263"
+            mod_version: "4.1.3-alpha1"
             version_range: ">=26.3 <26.4"
             fabric_api: "0.161.0+26.3"
-            sodium_config: "true"
-            java: "25"
-          - project: fabric-26.1
-            minecraft: "26.1"
-            suffix: "261"
-            version_range: ">=26.1 <26.2"
-            fabric_api: "0.155.3+26.1.2"
-            sodium_config: "true"
-            java: "25"
+          - project: fabric
+            minecraft: "26.2"
+            suffix: "262"
+            mod_version: "4.1.3-alpha1"
+            version_range: ">=26.2 <26.3"
+            fabric_api: "0.161.0+26.2"
           - project: fabric-26.1.2
             minecraft: "26.1.2"
             suffix: "2612"
+            mod_version: "4.1.3-alpha1"
             version_range: ">=26.1.2 <26.1.3"
             fabric_api: "0.155.3+26.1.2"
-            sodium_config: "true"
-            java: "25"
-          # 1.21.x Sodium releases do not ship the Config API, and those builds
-          # target Java 21, the runtime Minecraft itself uses.
+          - project: fabric-26.1.1
+            minecraft: "26.1.1"
+            suffix: "2611"
+            mod_version: "4.1.3-alpha1"
+            version_range: ">=26.1.1 <26.1.2"
+            fabric_api: "0.155.3+26.1.2"
+          - project: fabric-26.1
+            minecraft: "26.1"
+            suffix: "261"
+            mod_version: "4.1.3-alpha1"
+            version_range: ">=26.1 <26.2"
+            fabric_api: "0.155.3+26.1.2"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ${{ matrix.project }}
+          chmod +x gradlew
+          # clean test build: a target that does not pass its tests cannot
+          # publish a jar.
+          ./gradlew clean test build --no-daemon \
+            -Pminecraft_version=${{ matrix.minecraft }} \
+            "-Pminecraft_version_range=${{ matrix.version_range }}" \
+            -Pfabric_version=${{ matrix.fabric_api }}
+
+      - name: Verify mod metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="${{ matrix.project }}/build/libs/inputbooster-${{ matrix.mod_version }}-mc${{ matrix.suffix }}.jar"
+          test -f "$jar" || { echo "missing $jar" >&2; exit 1; }
+          unzip -p "$jar" fabric.mod.json > /tmp/fabric.mod.json
+          cat /tmp/fabric.mod.json
+          grep -q "\"version\": \"${{ matrix.mod_version }}-mc${{ matrix.suffix }}\"" /tmp/fabric.mod.json \
+            || { echo "jar version does not match ${{ matrix.mod_version }}" >&2; exit 1; }
+          grep -q '"minecraft": ">=' /tmp/fabric.mod.json \
+            || { echo "minecraft dependency must use the '>=x <y' form" >&2; exit 1; }
+          grep -q "\"minecraft\": \"${{ matrix.version_range }}\"" /tmp/fabric.mod.json \
+            || { echo "minecraft dependency must be ${{ matrix.version_range }}" >&2; exit 1; }
+          grep -q '"java": ">=25"' /tmp/fabric.mod.json \
+            || { echo "the 26.x jars require Java 25" >&2; exit 1; }
+          grep -q '"sodium:config_api_user"' /tmp/fabric.mod.json \
+            || { echo "the Sodium config entrypoint must be declared" >&2; exit 1; }
+          # Sodium and Mod Menu stay optional: their classes must never be
+          # bundled into the InputBooster jar.
+          if unzip -l "$jar" | grep -q 'net/caffeinemc/mods/sodium/'; then
+            echo "Sodium classes must not be bundled into the InputBooster jar" >&2
+            exit 1
+          fi
+          if unzip -l "$jar" | grep -q 'com/terraformersmc/modmenu/'; then
+            echo "Mod Menu classes must not be bundled into the InputBooster jar" >&2
+            exit 1
+          fi
+
+      - name: Upload JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-modern-mc${{ matrix.minecraft }}
+          path: |
+            ${{ matrix.project }}/build/reports/tests/test/
+            ${{ matrix.project }}/build/test-results/test/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: inputbooster-mc${{ matrix.minecraft }}
+          path: ${{ matrix.project }}/build/libs/inputbooster-${{ matrix.mod_version }}-mc${{ matrix.suffix }}.jar
+          if-no-files-found: error
+
+  build-legacy:
+    name: Legacy — MC ${{ matrix.minecraft }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
           - project: fabric-1.21.11
             minecraft: "1.21.11"
             suffix: "12111"
+            mod_version: "3.1.6-alpha"
             version_range: ">=1.21.11 <1.21.12"
             fabric_api: "0.141.6+1.21.11"
-            sodium_config: "false"
-            java: "21"
           - project: fabric-1.21.4
             minecraft: "1.21.4"
             suffix: "1214"
+            mod_version: "3.1.6-alpha"
             version_range: ">=1.21.4 <1.21.5"
             fabric_api: "0.119.4+1.21.4"
-            sodium_config: "false"
-            java: "21"
           - project: fabric-1.21.1
             minecraft: "1.21.1"
             suffix: "1211"
+            mod_version: "3.1.6-alpha"
             version_range: ">=1.21.1 <1.21.2"
             fabric_api: "0.116.18+1.21.1"
-            sodium_config: "false"
-            java: "21"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -95,11 +172,9 @@ jobs:
           java-version: "25"
 
       # The 1.21.x projects compile and test on a Java 21 toolchain, the runtime
-      # Minecraft itself uses. Gradle itself keeps running on 25: Loom 1.18.2
-      # refuses to load on a Java 21 JVM ("Dependency requires at least JVM
-      # runtime version 25"), which is what broke these builds.
+      # Minecraft itself uses. Gradle keeps running on 25: fabric-loom 1.18.2
+      # refuses to load on a Java 21 JVM.
       - name: Setup Java 21 toolchain
-        if: matrix.java == '21'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -112,8 +187,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Loom needs a Java 25 Gradle JVM even for the 1.21.x projects, so the
-          # JDK 21 installed above is used only as the compile/test toolchain.
           if [ -n "${JAVA_HOME_25_X64:-}" ]; then
             export JAVA_HOME="$JAVA_HOME_25_X64"
           fi
@@ -123,85 +196,57 @@ jobs:
           fi
           cd ${{ matrix.project }}
           chmod +x gradlew
-          # clean test build: the tests are part of the release pipeline, so a
-          # version that does not pass them cannot publish a jar.
           ./gradlew clean test build --no-daemon \
             "${toolchain_args[@]}" \
             -Pminecraft_version=${{ matrix.minecraft }} \
             "-Pminecraft_version_range=${{ matrix.version_range }}" \
             -Pfabric_version=${{ matrix.fabric_api }}
 
+      - name: Verify mod metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="${{ matrix.project }}/build/libs/inputbooster-${{ matrix.mod_version }}-mc${{ matrix.suffix }}.jar"
+          test -f "$jar" || { echo "missing $jar" >&2; exit 1; }
+          unzip -p "$jar" fabric.mod.json > /tmp/fabric.mod.json
+          cat /tmp/fabric.mod.json
+          grep -q "\"version\": \"${{ matrix.mod_version }}-mc${{ matrix.suffix }}\"" /tmp/fabric.mod.json \
+            || { echo "jar version does not match ${{ matrix.mod_version }}" >&2; exit 1; }
+          grep -q "\"minecraft\": \"${{ matrix.version_range }}\"" /tmp/fabric.mod.json \
+            || { echo "minecraft dependency must be ${{ matrix.version_range }}" >&2; exit 1; }
+          # Minecraft 1.21.x runs on Java 21: a ">=25" floor here stops the loader
+          # before the mod ever loads.
+          grep -q '"java": ">=21"' /tmp/fabric.mod.json \
+            || { echo "the 1.21.x jars must allow Java 21" >&2; exit 1; }
+          if grep -q '"sodium:config_api_user"' /tmp/fabric.mod.json; then
+            echo "this Sodium release has no Config API, so the entrypoint must not be declared" >&2
+            exit 1
+          fi
+
       - name: Upload JUnit reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: junit-reports-mc${{ matrix.minecraft }}
+          name: junit-legacy-mc${{ matrix.minecraft }}
           path: |
             ${{ matrix.project }}/build/reports/tests/test/
             ${{ matrix.project }}/build/test-results/test/
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Verify mod metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar="${{ matrix.project }}/build/libs/inputbooster-*-mc${{ matrix.suffix }}.jar"
-          unzip -p $jar fabric.mod.json | tee /tmp/fabric.mod.json
-          grep -q '"minecraft": *">=' /tmp/fabric.mod.json \
-            || { echo "minecraft dependency must use the '>=x <y' form" >&2; exit 1; }
-          # The Sodium configuration pages are only reachable through the
-          # Sodium Config API entrypoint, and only Sodium releases that ship it
-          # may carry the declaration.
-          if [ "${{ matrix.sodium_config }}" == "true" ]; then
-            grep -q '"sodium:config_api_user"' /tmp/fabric.mod.json \
-              || { echo "the Sodium config entrypoint must be declared" >&2; exit 1; }
-            grep -q 'dev.inputbooster.compat.sodium.SodiumConfigEntryPoint' /tmp/fabric.mod.json \
-              || { echo "the Sodium config entrypoint must point at SodiumConfigEntryPoint" >&2; exit 1; }
-          else
-            if grep -q '"sodium:config_api_user"' /tmp/fabric.mod.json; then
-              echo "this Sodium release has no Config API, so the entrypoint must not be declared" >&2
-              exit 1
-            fi
-          fi
-          # Sodium and Mod Menu stay optional: their classes must never be
-          # bundled into the InputBooster jar.
-          if unzip -l $jar | grep -q 'net/caffeinemc/mods/sodium/'; then
-            echo "Sodium classes must not be bundled into the InputBooster jar" >&2
-            exit 1
-          fi
-          if unzip -l $jar | grep -q 'com/terraformersmc/modmenu/'; then
-            echo "Mod Menu classes must not be bundled into the InputBooster jar" >&2
-            exit 1
-          fi
-
-      - name: Find built jar
-        id: jar
-        shell: bash
-        run: |
-          set -euo pipefail
-          jar_path="$(find ${{ matrix.project }}/build/libs -maxdepth 1 -type f -name "inputbooster-*-mc${{ matrix.suffix }}.jar" | sort | head -n 1)"
-          if [[ -z "$jar_path" ]]; then
-            echo "No Fabric jar found in ${{ matrix.project }}/build/libs" >&2
-            find ${{ matrix.project }}/build/libs -type f >&2 || true
-            exit 1
-          fi
-          echo "path=$jar_path" >> "$GITHUB_OUTPUT"
-          echo "name=$(basename "$jar_path")" >> "$GITHUB_OUTPUT"
-
-      - name: Upload Fabric jar
+      - name: Upload jar
         uses: actions/upload-artifact@v4
         with:
           name: inputbooster-mc${{ matrix.minecraft }}
-          path: ${{ steps.jar.outputs.path }}
+          path: ${{ matrix.project }}/build/libs/inputbooster-${{ matrix.mod_version }}-mc${{ matrix.suffix }}.jar
           if-no-files-found: error
 
-  release:
-    name: Publish GitHub release
+  release-modern:
+    name: Publish 4.1.3-alpha1
     runs-on: ubuntu-latest
-    needs: [build-fabric]
+    needs: [build-modern]
     if: >-
-      startsWith(github.ref, 'refs/tags/v') ||
+      startsWith(github.ref, 'refs/tags/v4.') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && (github.ref == 'refs/heads/fabric-26.2-26.3' || github.ref == 'refs/heads/main'))
     permissions:
@@ -210,35 +255,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Resolve release tag
-        id: release
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
-            tag="${{ inputs.tag }}"
-          elif [ "$GITHUB_REF" == refs/tags/* ]; then
-            tag="${GITHUB_REF#refs/tags/}"
-          else
-            # The version and the tag live in the Fabric project, because the
-            # mod is Fabric only.
-            raw="$(grep '^mod_version=' fabric/gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
-            tag="$(grep '^release_tag=' fabric/gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
-            if [ -z "$tag" ]; then
-              tag="v${raw}"
-            fi
-          fi
-
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Download built jars
+      - name: Download modern jars
         uses: actions/download-artifact@v4
         with:
-          pattern: inputbooster-*
+          pattern: inputbooster-mc26*
           path: release-artifacts
           merge-multiple: true
 
@@ -248,59 +269,76 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           jars=(release-artifacts/*.jar)
-          if [ ${#jars[@]} -lt 7 ]; then
-            echo "Expected one jar per supported Minecraft line (7), found ${#jars[@]}" >&2
-            ls -la release-artifacts >&2
+          echo "found ${#jars[@]} modern jar(s)"
+          ls -la release-artifacts
+          if [ ${#jars[@]} -lt 5 ]; then
+            echo "Expected five modern jars (26.1, 26.1.1, 26.1.2, 26.2, 26.3), found ${#jars[@]}" >&2
             exit 1
           fi
-          ls -la release-artifacts
-
-      - name: Generate changelog
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag="${{ steps.release.outputs.tag }}"
-          previous_tag="$(git tag --sort=-creatordate | grep '^v' | grep -v "^${tag}$" | head -n 1 || true)"
-
-          {
-            echo "## InputBooster ${tag}"
-            echo
-            echo "Loader support in this release:"
-            echo
-            echo "- Fabric — Minecraft 26.3"
-            echo "- Fabric — Minecraft 26.2"
-            echo "- Fabric — Minecraft 26.1.2"
-            echo "- Fabric — Minecraft 26.1"
-            echo "- Fabric — Minecraft 1.21.11"
-            echo "- Fabric — Minecraft 1.21.4"
-            echo "- Fabric — Minecraft 1.21.1"
-            echo
-            if [ -n "$previous_tag" ]; then
-              echo "Changes since ${previous_tag}:"
-              echo
-              git log "${previous_tag}..HEAD" --pretty=format:'- %s (%h)' --no-merges
-            else
-              echo "Changes in this release:"
-              echo
-              git log --pretty=format:'- %s (%h)' --no-merges
-            fi
-          } > release_notes.md
-
-          if [ ! -s release_notes.md ]; then
-            echo "## InputBooster ${tag}" > release_notes.md
-            echo >> release_notes.md
-            echo "- Built from ${GITHUB_SHA}." >> release_notes.md
-          fi
+          for jar in "${jars[@]}"; do
+            case "$(basename "$jar")" in
+              inputbooster-4.1.3-alpha1-mc26*.jar) ;;
+              *) echo "unexpected jar in the modern release: $jar" >&2; exit 1 ;;
+            esac
+          done
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release.outputs.tag }}
-          name: InputBooster ${{ steps.release.outputs.tag }}
-          body_path: release_notes.md
-          # The jars come from the build jobs above. This step attaches them
-          # and creates the tag itself when the version is new.
+          tag_name: v4.1.3-alpha1
+          name: InputBooster 4.1.3-alpha1
+          body_path: RELEASE_NOTES_4.1.3-alpha1.md
           files: release-artifacts/*.jar
-          generate_release_notes: true
-          prerelease: ${{ contains(steps.release.outputs.version, 'alpha') || contains(steps.release.outputs.version, 'beta') }}
+          prerelease: true
           make_latest: true
+
+  release-legacy:
+    name: Publish 3.1.6-alpha
+    runs-on: ubuntu-latest
+    needs: [build-legacy]
+    if: >-
+      startsWith(github.ref, 'refs/tags/v3.') ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/fabric-26.2-26.3' || github.ref == 'refs/heads/main'))
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download legacy jars
+        uses: actions/download-artifact@v4
+        with:
+          pattern: inputbooster-mc1.21*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Verify jars
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          jars=(release-artifacts/*.jar)
+          echo "found ${#jars[@]} legacy jar(s)"
+          ls -la release-artifacts
+          if [ ${#jars[@]} -lt 3 ]; then
+            echo "Expected three legacy jars (1.21.1, 1.21.4, 1.21.11), found ${#jars[@]}" >&2
+            exit 1
+          fi
+          for jar in "${jars[@]}"; do
+            case "$(basename "$jar")" in
+              inputbooster-3.1.6-alpha-mc121*.jar) ;;
+              *) echo "unexpected jar in the legacy release: $jar" >&2; exit 1 ;;
+            esac
+          done
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v3.1.6-alpha
+          name: InputBooster 3.1.6-alpha
+          body_path: RELEASE_NOTES_3.1.6-alpha.md
+          files: release-artifacts/*.jar
+          prerelease: true
+          make_latest: false

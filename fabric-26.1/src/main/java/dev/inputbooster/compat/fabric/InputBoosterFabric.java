@@ -20,8 +20,12 @@ public final class InputBoosterFabric implements ClientModInitializer {
     public void onInitializeClient() {
         // Create the mappings before registering them — the previous ordering
         // meant the bindings were never handed to the registry.
-        for (KeyMapping mapping : InputBoosterMod.createKeyMappings()) {
-            KeyMappingHelper.registerKeyMapping(mapping);
+        // Fabric has no duplicate detection: a second registration pass would add
+        // a second row to the Controls screen and split the player's rebind.
+        if (InputBoosterMod.claimKeyMappingRegistration()) {
+            for (KeyMapping mapping : InputBoosterMod.createKeyMappings()) {
+                KeyMappingHelper.registerKeyMapping(mapping);
+            }
         }
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> InputBoosterMod.onClientTick());

@@ -27,24 +27,73 @@ public final class KeyBindingSet {
     public static final int ATTACK = 0, USE = 1, SPRINT = 2, SNEAK = 3, JUMP = 4,
         FORWARD = 5, BACK = 6, LEFT = 7, RIGHT = 8, DROP = 9, SWAP = 10, PICK_BLOCK = 11;
 
-    /** Immutable; the polling thread only ever reads it. */
-    public final int[] codes;
+    /**
+     * Never handed out directly: the polling thread and the game thread both
+     * read these codes, and an accidental write from either side would silently
+     * rebind an action mid-fight. Use {@link #code(int)} or {@link #copyCodes()}.
+     */
+    private final int[] codes;
     /** True when at least one slot could not be resolved. */
     public final boolean complete;
 
-    private KeyBindingSet(int[] codes, boolean complete) {
+    /** Bit per slot whose vanilla default was substituted. */
+    private final int unresolvedMask;
+    /** Bit per slot whose mapping existed but could not be read. */
+    private final int unreadableMask;
+
+    private KeyBindingSet(int[] codes, int unresolvedMask, int unreadableMask) {
         this.codes = codes;
-        this.complete = complete;
+        this.unresolvedMask = unresolvedMask;
+        this.unreadableMask = unreadableMask;
+        this.complete = unresolvedMask == 0;
+    }
+
+    /** True when every slot resolved to the player's own binding. */
+    public boolean complete() {
+        return complete;
+    }
+
+    /** Bit mask of the slots that fell back to a vanilla default. */
+    public int unresolvedMask() {
+        return unresolvedMask;
+    }
+
+    /**
+     * Bit mask of the slots where a mapping existed but its bound key could not
+     * be read, which is the only case that is a genuine accessor failure.
+     */
+    public int unreadableMask() {
+        return unreadableMask;
+    }
+
+    /** Names of the slots that fell back, in slot order. */
+    public java.util.List<String> unresolvedNames() {
+        java.util.List<String> names = new java.util.ArrayList<>(Integer.bitCount(unresolvedMask));
+        for (int slot = 0; slot < SLOTS; slot++) {
+            if ((unresolvedMask & (1 << slot)) != 0) names.add(NAMES[slot]);
+        }
+        return names;
     }
 
     public int code(int slot) {
-        return codes[slot];
+        return slot >= 0 && slot < codes.length ? codes[slot] : -1;
+    }
+
+    /** @return a copy the caller may keep or modify without touching this set */
+    public int[] copyCodes() {
+        return codes.clone();
+    }
+
+    /** True when every slot holds the same code as {@code other}. */
+    public boolean sameCodes(KeyBindingSet other) {
+        return other != null && java.util.Arrays.equals(codes, other.codes);
     }
 
     /** Builds the binding set, falling back to the vanilla defaults per slot. */
     public static KeyBindingSet of(Map<String, KeyMapping> bindings, int[] defaults) {
         int[] codes = new int[SLOTS];
-        boolean complete = true;
+        int unresolved = 0;
+        int unreadable = 0;
         for (int i = 0; i < SLOTS; i++) {
             KeyMapping mapping = bindings.get(NAMES[i]);
             int code = -1;
@@ -54,14 +103,20 @@ public final class KeyBindingSet {
                 } catch (Throwable t) {
                     code = -1;
                 }
+                // The mapping exists but its key could not be read. That is an
+                // accessor failure, not an unbound key, so it is tracked apart
+                // from a slot that simply had no mapping handed in.
+                if (code < 0) unreadable |= 1 << i;
             }
             if (code < 0) {
+                // A fallback is used so the mod still works, but the caller can
+                // now say exactly which slots were guessed.
                 code = defaults[i];
-                complete = false;
+                unresolved |= 1 << i;
             }
             codes[i] = code;
         }
-        return new KeyBindingSet(codes, complete);
+        return new KeyBindingSet(codes, unresolved, unreadable);
     }
 
     public static Map<String, KeyMapping> map(KeyMapping attack, KeyMapping use, KeyMapping sprint,

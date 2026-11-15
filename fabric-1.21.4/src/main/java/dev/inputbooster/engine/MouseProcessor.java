@@ -3,6 +3,8 @@ package dev.inputbooster.engine;
 import dev.inputbooster.InputBoosterConfig;
 import dev.inputbooster.InputBoosterMod;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * Receives mouse button and scroll events from {@code MouseHandlerMixin}.
  *
@@ -13,7 +15,8 @@ import dev.inputbooster.InputBoosterMod;
  */
 public final class MouseProcessor {
 
-    private static long lastScrollNanos;
+    /** Touched from the game thread and the poller; claimed atomically. */
+    private static final AtomicLong lastScrollNanos = new AtomicLong();
 
     private MouseProcessor() {}
 
@@ -30,15 +33,23 @@ public final class MouseProcessor {
         if (engine == null) return;
         long now = System.nanoTime();
         int debounceMs = InputBoosterConfig.getMouseScrollDebounceMs();
-        if (debounceMs > 0 && now - lastScrollNanos < debounceMs * 1_000_000L) {
-            engine.diagnostics().duplicateSuppressed();
-            return;
+        if (debounceMs > 0) {
+            long window = debounceMs * 1_000_000L;
+            while (true) {
+                long last = lastScrollNanos.get();
+                if (last != 0L && now - last < window) {
+                    engine.diagnostics().duplicateSuppressed();
+                    return;
+                }
+                if (lastScrollNanos.compareAndSet(last, now)) break;
+            }
+        } else {
+            lastScrollNanos.set(now);
         }
-        lastScrollNanos = now;
         engine.diagnostics().scrollEvent();
     }
 
     public static void reset() {
-        lastScrollNanos = 0L;
+        lastScrollNanos.set(0L);
     }
 }

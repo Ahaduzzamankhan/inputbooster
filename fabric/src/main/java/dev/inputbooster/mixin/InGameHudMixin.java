@@ -1,6 +1,7 @@
 package dev.inputbooster.mixin;
 
 import dev.inputbooster.feature.DebugOverlayManager;
+import dev.inputbooster.input.InputSampler;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -19,6 +20,10 @@ public class InGameHudMixin {
 
     @Inject(method = "extractRenderState", at = @At("TAIL"), require = 0)
     private void onExtractRenderStateTail(DeltaTracker deltaTracker, boolean renderLevel, boolean renderHotbar, CallbackInfo ci) {
-        DebugOverlayManager.extractRenderState(Minecraft.getInstance());
+        Minecraft mc = Minecraft.getInstance();
+        // Frame-rate native sampling for the poller, on the thread the platform
+        // API is allowed to be used from.
+        InputSampler.sampleOnGameThread();
+        DebugOverlayManager.extractRenderState(mc);
     }
 }

@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.inputbooster.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "GameTickMixin",
+    "InGameHudMixin",
+    "OptionsScreenMixin",
+    "KeyMappingAccessor",
+    "KeyboardHandlerMixin",
+    "MinecraftClientAccessor",
+    "MouseHandlerMixin",
+    "ScreenTrackingMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "accessors": {
+    "defaultRequire": 1
+  },
+  "invokers": {
+    "defaultRequire": 1
+  }
+}

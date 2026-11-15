@@ -109,7 +109,7 @@ public final class InputEngine {
         if (raw == null || set == null) return 0;
         int emitted = 0;
         for (int slot = 0; slot < KeyStateManager.SLOTS; slot++) {
-            int code = set.codes[slot];
+            int code = set.code(slot);
             boolean down = code >= 0 && raw.isDown(code);
             state.setRaw(code, down);
             emitted += apply(slot, down, dispatch);
@@ -164,11 +164,23 @@ public final class InputEngine {
         }
 
         state.setRaw(code, down);
-        if (mode == Mode.POLL) return;
 
-        int slot = bindings.slotForCode(code);
-        if (slot < 0) return;
-        apply(slot, down, true);
+        // One physical key can be bound to several actions. The polling path
+        // always handled every slot, so the event path must too, or the two
+        // sources disagree the moment a shared binding is used.
+        //
+        // POLL mode still applies the slot update, just without dispatching:
+        // the class contract is that the event source always updates state, so a
+        // live mode switch (or a read from the overlay) never starts from a
+        // stale picture. Returning before the update left the slots frozen at
+        // whatever the poller last wrote.
+        boolean dispatch = mode != Mode.POLL;
+        long slots = bindings.maskForCode(code);
+        while (slots != 0L) {
+            int slot = Long.numberOfTrailingZeros(slots);
+            slots &= slots - 1L;
+            apply(slot, down, dispatch);
+        }
     }
 
     /** @return 1 when an action was emitted, 0 otherwise */
