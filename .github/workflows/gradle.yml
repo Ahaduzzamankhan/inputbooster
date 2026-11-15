@@ -6,6 +6,10 @@ name: Build and Release
 # Each line builds and tests its own targets and publishes its own tag, so a
 # modern jar can never end up in the legacy release or the other way round.
 # There is no headless client job — the game is tested by hand.
+#
+# Builds and tests run on every push; publishing does not. The two release jobs
+# and the Modrinth job only run from an explicit "Run workflow" dispatch or from
+# a pushed v* tag, so ordinary commits never touch a published release.
 
 on:
   push:
@@ -247,8 +251,7 @@ jobs:
     needs: [build-modern]
     if: >-
       startsWith(github.ref, 'refs/tags/v4.') ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && (github.ref == 'refs/heads/fabric-26.2-26.3' || github.ref == 'refs/heads/main'))
+      github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
 
@@ -298,8 +301,7 @@ jobs:
     needs: [build-legacy]
     if: >-
       startsWith(github.ref, 'refs/tags/v3.') ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && (github.ref == 'refs/heads/fabric-26.2-26.3' || github.ref == 'refs/heads/main'))
+      github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
 
@@ -349,31 +351,25 @@ jobs:
     needs: [build-modern, build-legacy]
     if: >-
       startsWith(github.ref, 'refs/tags/v') ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && (github.ref == 'refs/heads/fabric-26.2-26.3' || github.ref == 'refs/heads/main'))
+      github.event_name == 'workflow_dispatch'
+    env:
+      # Only which Minecraft targets go to Modrinth is configured here. The mod
+      # version, jar name, release channel and changelog are derived from the
+      # built artifact and the project's gradle.properties.
+      MODRINTH_TARGETS: "26.3 26.2 26.1.2 1.21.11"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download modern jars
+      # One directory per artifact, so the Minecraft version is known without
+      # hardcoding a jar name.
+      - name: Download jars
         uses: actions/download-artifact@v4
         with:
-          pattern: inputbooster-mc26*
-          path: modrinth-artifacts/modern
-          merge-multiple: true
+          pattern: inputbooster-mc*
+          path: modrinth-artifacts
 
-      - name: Download legacy jars
-        uses: actions/download-artifact@v4
-        with:
-          pattern: inputbooster-mc1*
-          path: modrinth-artifacts/legacy
-          merge-multiple: true
-
-      # Uploads every built jar as its own Modrinth version, which is how the
-      # project is already listed there. Without the token the step reports a
-      # notice and succeeds: a fork or a push from a repo without the secret
-      # must not fail the build.
       - name: Publish versions
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
@@ -384,35 +380,20 @@ jobs:
           shopt -s nullglob
 
           if [ -z "${MODRINTH_TOKEN:-}" ]; then
-            echo "::notice title=Modrinth skipped::Add a MODRINTH_TOKEN repository secret to publish releases to Modrinth."
-            exit 0
+            echo "::error title=Modrinth token missing::This run was started explicitly to publish, but no MODRINTH_TOKEN repository secret is set."
+            exit 1
           fi
 
-          publish() {
-            local jar=$1 suffix=$2 game_version=$3 changelog=$4 type=$5
-            local mod_version
-            mod_version=$(basename "$jar" | sed -E "s/^inputbooster-(.*)-mc[0-9]+\.jar$/\1/")
-            MODRINTH_VERSION_TYPE="$type" MODRINTH_CHANGELOG="$changelog" \
-              scripts/publish_modrinth.sh "$jar" "${mod_version}-mc${suffix}" \
-              "InputBooster ${mod_version} (MC ${game_version})" "$game_version"
-          }
-
-          # Only the four targets requested for Modrinth are uploaded there;
-          # the GitHub release still carries every built jar.
-          publish_one() {
-            local jar=$1 changelog=$2 game_version=$3 version=$4
-            if [ ! -f "$jar" ]; then
-              echo "::error title=Modrinth skipped a target::$jar was not built"; exit 1
+          for mc in $MODRINTH_TARGETS; do
+            dir="modrinth-artifacts/inputbooster-mc${mc}"
+            jars=("$dir"/*.jar)
+            if [ ${#jars[@]} -eq 0 ]; then
+              echo "::error title=Modrinth target not built::No jar for Minecraft ${mc} (looked in ${dir})."
+              exit 1
             fi
-            MODRINTH_VERSION_TYPE=alpha MODRINTH_CHANGELOG="$changelog" \
-              scripts/publish_modrinth.sh "$jar" "$version" "InputBooster $version (MC $game_version)" "$game_version"
-          }
-
-          publish_one modrinth-artifacts/modern/inputbooster-4.1.3-alpha1-mc263.jar \
-            RELEASE_NOTES_4.1.3-alpha1.md 26.3 4.1.3-alpha1-mc263
-          publish_one modrinth-artifacts/modern/inputbooster-4.1.3-alpha1-mc262.jar \
-            RELEASE_NOTES_4.1.3-alpha1.md 26.2 4.1.3-alpha1-mc262
-          publish_one modrinth-artifacts/modern/inputbooster-4.1.3-alpha1-mc2612.jar \
-            RELEASE_NOTES_4.1.3-alpha1.md 26.1.2 4.1.3-alpha1-mc2612
-          publish_one modrinth-artifacts/legacy/inputbooster-3.1.6-alpha-mc12111.jar \
-            RELEASE_NOTES_3.1.6-alpha.md 1.21.11 3.1.6-alpha-mc12111
+            if [ ${#jars[@]} -gt 1 ]; then
+              echo "::error title=Modrinth target ambiguous::More than one jar for Minecraft ${mc}: ${jars[*]}"
+              exit 1
+            fi
+            scripts/publish_modrinth.sh "${jars[0]}" "$mc"
+          done

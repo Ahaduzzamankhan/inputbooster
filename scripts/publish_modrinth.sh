@@ -4,20 +4,40 @@
 # One version per Minecraft target is how this project is listed there, so each
 # jar gets its own version_number and game_versions entry.
 #
+# The version number, display name, release channel and changelog file are all
+# derived from the jar name (inputbooster-<mod_version>-mc<suffix>.jar) and the
+# gradle.properties of the project it came from, so a new release needs no edit
+# here.
+#
 # Env:
 #   MODRINTH_TOKEN         Modrinth personal access token with write access
 #   MODRINTH_PROJECT_ID    project id or slug
-#   MODRINTH_CHANGELOG     file holding the changelog text
-#   MODRINTH_VERSION_TYPE  alpha | beta | release (default: alpha)
+#   MODRINTH_VERSION_TYPE  override the derived alpha/beta/release channel
 #
-# Usage: publish_modrinth.sh <jar> <version_number> <name> <game_version>
+# Usage: publish_modrinth.sh <jar> <minecraft_version>
 set -uo pipefail
 
 jar=${1:?jar}
-version_number=${2:?version number}
-version_name=${3:?version name}
-game_version=${4:?minecraft version}
-version_type=${MODRINTH_VERSION_TYPE:-alpha}
+game_version=${2:?minecraft version}
+
+base=$(basename "$jar")
+if ! printf '%s' "$base" | grep -Eq '^inputbooster-.+-mc[0-9]+\.jar$'; then
+  echo "::error title=Modrinth upload failed::unexpected jar name: $base"
+  exit 1
+fi
+mod_version=$(printf '%s' "$base" | sed -E 's/^inputbooster-(.*)-mc[0-9]+\.jar$/\1/')
+suffix=$(printf '%s' "$base" | sed -E 's/^inputbooster-.*-mc([0-9]+)\.jar$/\1/')
+version_number="${mod_version}-mc${suffix}"
+version_name="InputBooster ${mod_version} (MC ${game_version})"
+
+case "$mod_version" in
+  *alpha*) derived_type=alpha ;;
+  *beta*)  derived_type=beta ;;
+  *)       derived_type=release ;;
+esac
+version_type=${MODRINTH_VERSION_TYPE:-$derived_type}
+
+MODRINTH_CHANGELOG=${MODRINTH_CHANGELOG:-RELEASE_NOTES_${mod_version}.md}
 
 # Everything below is invisible in the log without admin rights, so failures are
 # written to the step summary (readable through the checks API) as well.
@@ -36,6 +56,8 @@ fail() {
 [ -n "${MODRINTH_CHANGELOG:-}" ]      || fail "MODRINTH_CHANGELOG is not set"
 [ -f "$jar" ]                         || fail "jar not found: $jar"
 [ -f "$MODRINTH_CHANGELOG" ]          || fail "changelog not found: $MODRINTH_CHANGELOG"
+
+summary "derived: version ${version_number}, channel ${version_type}, changelog ${MODRINTH_CHANGELOG}, name \"${version_name}\""
 
 api=https://api.modrinth.com/v2
 auth=(-H "Authorization: $MODRINTH_TOKEN" -H "User-Agent: Ahaduzzamankhan/inputbooster-release-ci")
