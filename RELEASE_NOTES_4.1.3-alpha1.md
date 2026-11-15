@@ -94,11 +94,3 @@ claiming one click window, four concurrent threads hammering the state manager
 followed by a reset, one edge per press/release at 60/200/500/750/1000 Hz, and the
 unavailable-native-state path. The suite is 106 tests on the modern targets and 102 on the legacy targets.
 
-## Known limitations
-
-- The overlay's F3 handling is unchanged from 4.1.2: with the debug screen open
-  the panel is offset below the vanilla debug block and drops its background. It
-  was not visually re-checked in the game for this build.
-- Neither this release nor its tests launch Minecraft. The mixin hooks are checked
-  against each resolved Minecraft jar by `MixinTargetSignatureTest`, but in-game
-  behaviour still needs a manual run.

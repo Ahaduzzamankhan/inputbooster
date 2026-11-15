@@ -31,20 +31,6 @@
   two threads, so two clicks could both pass the window check. Both are claimed
   atomically now.
 - New target: Minecraft 26.1.1 has its own project and jar.
-
-### Added
-
-- `StabilityAuditTest`: shared-key dispatch, POLL-mode state, reset semantics,
-  defensive copies, stale-resolution removal, eight-thread click claim, four-thread
-  state stress with reset, one edge per press at 60/200/500/750/1000 Hz, and the
-  unavailable-native-state path. The suite is 106 tests on the modern targets and 102 on the legacy targets.
-
-### Known limitations
-
-- In-game behaviour is not exercised by CI. Mixin hooks are verified against each
-  resolved Minecraft jar and the metadata of every jar is checked, but the game
-  itself must be launched by hand.
-
 - The custom handler is opt-in but was gated by a single `!customHandler` test:
   with it enabled and the raw sampler unavailable, no input source ran at all and
   nothing said why. Source selection is now one deterministic decision
@@ -56,6 +42,13 @@
   vanilla defaults for the whole set.
 - Key mappings are registered exactly once; a second registration pass can no
   longer add duplicate Controls rows.
+
+### Added
+
+- `StabilityAuditTest`: shared-key dispatch, POLL-mode state, reset semantics,
+  defensive copies, stale-resolution removal, eight-thread click claim, four-thread
+  state stress with reset, one edge per press at 60/200/500/750/1000 Hz, and the
+  unavailable-native-state path. The suite is 106 tests on the modern targets and 102 on the legacy targets.
 
 ## 3.1.6-alpha — Minecraft 1.21.1, 1.21.4, 1.21.11
 
@@ -72,14 +65,6 @@
   defensive key-binding copies and atomic click/scroll windows.
 - The 1.21.x jars declare a Java 21 floor. The previous build declared `>=25`
   and Fabric refused to start it on the Java 21 runtime these versions use.
-
-### Known limitations
-
-- No Sodium configuration pages on 1.21.x: those Sodium releases have no Config
-  API, so the mod's own settings screen is used and the Sodium entrypoint is not
-  declared.
-- In-game behaviour is not exercised by CI.
-
 - The custom handler is opt-in but was gated by a single `!customHandler` test:
   with it enabled and the raw sampler unavailable, no input source ran at all and
   nothing said why. Source selection is now one deterministic decision

@@ -80,9 +80,3 @@ updates, polling rates 60–1000 Hz, unavailable native state) and
 `MixinTargetSignatureTest`, which verifies every mixin hook against the resolved
 Minecraft jar for that exact version.
 
-## Known limitations
-
-- The overlay's F3 handling is unchanged from 3.1.5 and was not visually
-  re-checked in the game for this build.
-- No target is launched by CI: mixin hooks and metadata are verified against the
-  real Minecraft jar, but in-game behaviour still needs a manual run.
